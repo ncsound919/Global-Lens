@@ -24,7 +24,10 @@ export default function ArticleModal({
   // Fetch the deep context asset only when the user opens the story view
   useEffect(() => {
     setLoadingBackstory(true);
-    fetch(`/api/news/${articleId}/backstory`)
+    let sid = localStorage.getItem('session_id') || 'default_session';
+    fetch(`/api/news/${encodeURIComponent(articleId)}/backstory`, {
+      headers: { 'x-session-id': sid }
+    })
       .then(async (res) => {
          if (!res.ok) throw new Error(await res.text());
          return res.json();

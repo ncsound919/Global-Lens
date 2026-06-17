@@ -13,7 +13,10 @@ export default function App() {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/news?category=${category}`);
+      let sid = localStorage.getItem('session_id') || 'default_session';
+      const response = await fetch(`/api/news?category=${category}`, {
+        headers: { 'x-session-id': sid }
+      });
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setArticles(data.articles || []);
@@ -26,6 +29,12 @@ export default function App() {
 
   useEffect(() => {
     fetchNews();
+    
+    const handleSettingsUpdated = () => {
+      fetchNews();
+    };
+    window.addEventListener('settings-updated', handleSettingsUpdated);
+    return () => window.removeEventListener('settings-updated', handleSettingsUpdated);
   }, [category]);
 
   return (
@@ -38,22 +47,12 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight leading-none text-white">GLOBAL LENS</h1>
-            <span className="text-[10px] text-zinc-500 font-mono tracking-widest uppercase">Enterprise Ingestion Engine v4.0.2</span>
           </div>
         </div>
         
         <div className="flex gap-6 items-center">
-          <div className="hidden sm:flex flex-col items-end mr-4">
-            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">System Health</span>
-            <div className="flex gap-1 mt-1">
-              <div className="h-1 w-6 bg-emerald-500 rounded-full"></div>
-              <div className="h-1 w-6 bg-emerald-500 rounded-full"></div>
-              <div className="h-1 w-6 bg-emerald-500 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-          
-          <nav className="flex space-x-2 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded-full">
-            {['all', 'finance', 'tech', 'sports', 'pop_culture'].map(c => (
+          <nav className="flex space-x-2 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded-full overflow-x-auto no-scrollbar">
+            {['all', 'global', 'africa', 'diaspora', 'caribbean', 'finance', 'culture'].map(c => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
@@ -116,18 +115,6 @@ export default function App() {
           </div>
         )}
       </main>
-      
-      {/* Footer Status Bar */}
-      <footer className="mt-auto flex justify-between px-2 py-4 text-[10px] text-zinc-600 font-mono tracking-wider shrink-0 border-t border-zinc-900/50">
-        <div className="flex flex-wrap gap-4 sm:gap-8">
-          <span>DB_LATENCY: 4.1ms</span>
-          <span>REDIS_CACHE_HIT: 94.2%</span>
-          <span>COST_PER_UNIT: $0.0004</span>
-        </div>
-        <div>
-          UPTIME: 142:12:09
-        </div>
-      </footer>
 
       {showSettings && <SettingsDashboard onClose={() => setShowSettings(false)} />}
     </div>

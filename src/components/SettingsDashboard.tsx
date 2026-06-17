@@ -13,14 +13,21 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch user settings
-    fetch('/api/user/settings')
+    let sid = localStorage.getItem('session_id');
+    if (!sid) {
+       sid = 'session_' + Math.random().toString(36).substr(2, 9);
+       localStorage.setItem('session_id', sid);
+    }
+
+    fetch('/api/user/settings', {
+      headers: { 'x-session-id': sid }
+    })
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setReadingMode(data.readingMode || 'simplified');
-          setLensIntensity(data.lensIntensity || 'balanced');
-          setOddsFormat(data.oddsFormat || 'american');
+          setReadingMode(data.reading_mode || 'simplified');
+          setLensIntensity(data.lens_intensity || 'balanced');
+          setOddsFormat(data.odds_format || 'american');
           if (data.regions) setRegions(data.regions);
         }
       })
@@ -29,20 +36,23 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
 
   const saveSettings = async () => {
     setLoading(true);
+    let sid = localStorage.getItem('session_id') || 'default_session';
     try {
       const response = await fetch('/api/user/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': sid },
         body: JSON.stringify({ readingMode, lensIntensity, oddsFormat, regions }),
       });
       if (response.ok) {
-        // Optional: show toast or success message
+        // success
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       onClose();
+      // Need a way to trigger refresh in App.tsx
+      window.dispatchEvent(new Event('settings-updated'));
     }
   };
 

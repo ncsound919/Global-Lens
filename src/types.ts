@@ -4,6 +4,7 @@ export interface ArticleProps {
   category?: string;
   original_title: string;
   original_url: string;
+  image_url?: string;
   source_name: string;
   original_text_dump?: string;
   reframed_headline: string;

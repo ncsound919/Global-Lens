@@ -1,20 +1,24 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Global Lens
 
-# Run and deploy your AI Studio app
+Global Lens is a personalized, AI-driven news aggregator designed to provide marginalized and global-majority contexts to breaking global events. Moving beyond traditional Western-centric wires, Global Lens curates news that illuminates economic equity, pan-African and diaspora ties, and localized structural insights.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/bd3ecce1-58aa-4828-a569-af61ba0b4438
+- **Personalized Context Engines**: Adjust context intensity (Balanced, Hyper-Local, or Pan-African) to shift the analytical lens applied to major news.
+- **Reading Profiles**: Toggle between a 10-year-old comprehension explainer, high-level executive summaries, or raw news dispatches.
+- **Deep Historical Contexts**: Uncover the "how did we get here" backstory for any ongoing situation.
+- **Analytics Charts**: Instantly generated visual interpretations of structural statistics relative to breaking news stories.
+- **Diaspora Source Injection**: Integrated RSS feeds from Al Jazeera, AllAfrica, and diverse sources.
 
-## Run Locally
+## Tech Stack
 
-**Prerequisites:**  Node.js
+- **Frontend**: React + Vite + Tailwind CSS + Recharts
+- **Backend**: Express + Node.js (with Better SQLite3)
+- **AI Processing**: Gemini 2.5 Flash SDK
 
+## Setup & Running
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Clone and install dependencies: `npm install`
+2. Create your `.env` from `.env.example` and add your `GEMINI_API_KEY` and News API keys.
+3. Start the dev server: `npm run dev`
+4. Access the web interface at `http://localhost:3000`

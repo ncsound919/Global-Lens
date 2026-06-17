@@ -37,6 +37,13 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
           <h2 className="text-3xl lg:text-4xl font-serif font-medium mt-4 mb-6 leading-[1.1] text-white tracking-tight">
             {article.reframed_headline}
           </h2>
+          
+          {article.image_url && (
+            <div className="mb-6 rounded-xl overflow-hidden border border-zinc-800">
+               <img src={article.image_url} alt={article.reframed_headline} className="w-full h-auto object-cover max-h-[300px]" referrerPolicy="no-referrer" />
+            </div>
+          )}
+
           <p className="text-zinc-400 text-base lg:text-lg leading-relaxed mb-6 border-l-2 border-zinc-700 pl-6">
             {article.cultural_lens_analysis}
           </p>
