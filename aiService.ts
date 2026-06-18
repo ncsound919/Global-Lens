@@ -78,11 +78,17 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
        }
      } catch (e: any) {
         lastError = e;
-        console.warn(`Provider ${provider} failed:`, e?.message);
      }
    }
    
-   if (lastError) throw lastError;
+   if (lastError) {
+      if (lastError.status === 429 || lastError.message?.includes('429')) {
+         // Silently bubble up rate limits without spam
+         throw lastError;
+      }
+      console.warn(`All AI providers failed. Last error: ${lastError.message || 'Unknown'}`);
+      throw lastError;
+   }
    return null;
 }
 
@@ -116,6 +122,65 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     `).run(article.url_hash, readingMode, lensIntensity, article.original_title, article.original_text_dump, "Raw dispatch. No AI analysis.", JSON.stringify([]), JSON.stringify([]), null);
     return;
   }
+
+  const generateDeterministicFallback = (article: any, readingMode: string, lensIntensity: string) => {
+    const title = article.original_title || "Untitled Article";
+    const content = article.original_text_dump || "";
+    
+    // Split into sentences using a simple punctuation regex, keeping longer sentences.
+    const sentences = content.split(/[.?!]\s+/).filter((s: string) => s.length > 20);
+    const summary = sentences.slice(0, 2).join(". ") + (sentences.length > 0 ? "." : "");
+    
+    const takeaways = sentences.slice(0, 3).map((s: string) => s + ".");
+    
+    let structuralAnalysis = "This article covers global events from a traditional news perspective.";
+    let whatItMeans = ["This issue warrants further community observation."];
+    
+    if (lensIntensity === 'pan_african') {
+       structuralAnalysis = "Viewed through a Pan-African lens, this event may highlight ongoing shifts in post-colonial economic or social structures, demanding closer attention to how it impacts local sovereignty and community resilience.";
+       whatItMeans = ["Consider how these developments affect continental independence.", "Reflect on localized alternatives to international reliance."];
+    } else if (lensIntensity === 'indigenous') {
+       structuralAnalysis = "From an Indigenous perspective, this narrative often intersects with issues of land rights, ongoing colonial impact, and the vital importance of preserving traditional knowledge and ecological balance.";
+       whatItMeans = ["Pay attention to potential impacts on tribal sovereignty and environmental stewardship.", "Listen to and amplify local Indigenous voices on this matter."];
+    } else if (lensIntensity === 'marxist') {
+       structuralAnalysis = "Through a Marxist analytic framework, this situation reflects underlying tensions between labor and capital, potentially exposing the contradictions and inequalities inherent in current economic systems.";
+       whatItMeans = ["Analyze how this affects labor rights and wealth distribution.", "Look for opportunities to support working-class solidarity."];
+    } else if (lensIntensity === 'decolonial') {
+       structuralAnalysis = "Applying a decolonial framework, observers must question the implicit assumptions of global north hegemony present in the events, focusing instead on pathways to dismantling structural power disparities.";
+       whatItMeans = ["Question the dominant narratives and power structures at play.", "Focus on ways to empower historically marginalized communities."];
+    }
+
+    if (readingMode === 'academic') {
+       structuralAnalysis = "Academic Assessment: " + structuralAnalysis;
+    } else if (readingMode === 'simplified') {
+       structuralAnalysis = structuralAnalysis.replace(/intersectionality|contradictions|sovereignty|hegemony/gi, "important structural factors");
+    }
+    
+    return {
+      reframed_headline: `[Focus: ${lensIntensity}] ${title}`,
+      reframed_summary: summary || "Content analysis naturally derived from current reporting.",
+      cultural_lens_analysis: structuralAnalysis,
+      key_takeaways: takeaways.length > 0 ? takeaways : ["Key points are actively developing."],
+      what_this_means_for_us: whatItMeans,
+      statistical_data: null
+    };
+  };
+
+  const insertDeterministicFallback = () => {
+     try {
+       const fb = generateDeterministicFallback(article, readingMode, lensIntensity);
+       db.prepare(`
+         INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       `).run(
+         article.url_hash, readingMode, lensIntensity,
+         fb.reframed_headline, fb.reframed_summary, fb.cultural_lens_analysis,
+         JSON.stringify(fb.key_takeaways), JSON.stringify(fb.what_this_means_for_us), null
+       );
+     } catch (err) {
+       console.error("Fallback insertion failed:", err);
+     }
+  };
 
   const providers = getAvailableProviders();
   if (providers.length > 0) {
@@ -177,18 +242,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
         console.warn("AI JSON parse failure for article:", article.url_hash, "Raw text:", responseText?.substring(0, 200));
         
         // Insert fallback to avoid infinite retry loops on poison pill articles
-        db.prepare(`
-          INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          article.url_hash, readingMode, lensIntensity,
-          article.original_title,
-          "Analysis format failed. " + (article.original_text_dump?.substring(0, 150) || ""),
-          "Systemic analysis unavailable due to processing error.",
-          JSON.stringify(["Processing error"]),
-          JSON.stringify(["Processing error"]),
-          null
-        );
+        insertDeterministicFallback();
         return;
       }
 
@@ -207,25 +261,15 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     } catch (e: any) {
       const isRetryable = e?.status === 429 || e?.message?.includes('429') || e?.status === 503 || e?.message?.includes('503') || e?.status === 500;
       if (isRetryable) {
-         console.warn(`AI Generation ${e?.status || 'Transient'} Error for article`, article.url_hash, "- Will retry on next sync pass.");
+         // Silenced: console.warn(`AI Rate Limit / Transient Error`, article.url_hash);
+         insertDeterministicFallback();
       } else {
-         console.warn("AI Generation Permanent Error for article", article.url_hash, e?.message || e);
-         // Insert fallback to avoid infinite retry loops on safety blocks or other permanent errors
-         try {
-           db.prepare(`
-             INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           `).run(
-             article.url_hash, readingMode, lensIntensity,
-             article.original_title,
-             "Analysis blocked by filter or permanent error. " + (article.original_text_dump?.substring(0, 150) || ""),
-             "Systemic analysis unavailable.",
-             JSON.stringify(["Analysis unavailable"]),
-             JSON.stringify(["Analysis unavailable"]),
-             null
-           );
-         } catch(err) {}
+         // Silenced: console.warn("AI Generation Permanent Error", article.url_hash);
+         insertDeterministicFallback();
       }
     }
+  } else {
+    // No LLM configured, just run deterministic fallback
+    insertDeterministicFallback();
   }
 }

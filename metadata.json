@@ -1,5 +1,5 @@
 {
-  "name": "Global Lens Media",
+  "name": "Black Global Lens",
   "description": "Enterprise-grade media architecture utilizing cultural lens AI reframing to summarize and context-switch news stories across finance and tech.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

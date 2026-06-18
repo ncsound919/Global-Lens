@@ -103,6 +103,32 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
               <option value="pan_african">Pan-African (Prioritize Global South trade & historical diaspora context)</option>
             </select>
           </section>
+
+          {/* SECTION 3: SUBSCRIPTION & SUPPORT */}
+          <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
+             <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold font-serif mb-2 text-white shadow-amber-500/10">3. Support Black Global Lens</h3>
+                  <p className="text-sm text-zinc-400">Premium AI features and API costs are sustained entirely by community contributions.</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-black text-amber-500 tracking-tighter mb-1">$2.00<span className="text-sm font-medium text-zinc-500 tracking-normal">/mo</span></div>
+                </div>
+             </div>
+             <div className="mt-5 p-4 rounded-lg border border-zinc-800 bg-zinc-950 flex flex-col md:flex-row items-center gap-4 justify-between">
+                 <div className="flex-1">
+                   <p className="text-sm text-zinc-300 font-mono">Send your monthly contribution via CashApp to maintain access. The site will be consistently upgraded with new models, feeds, and ongoing feature enhancements.</p>
+                 </div>
+                 <a 
+                    href="https://cash.app/$helptools" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold tracking-widest text-[11px] uppercase hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all cursor-pointer"
+                 >
+                    CashApp: $helptools
+                 </a>
+             </div>
+          </section>
         </div>
 
         {/* SAVE CONTROL FLOAT */}

@@ -6,19 +6,59 @@ import { apiRouter } from "./api";
 import cookieParser from "cookie-parser";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
+import cron from "node-cron";
 
 // kick off initial sync in bg
 syncRSSNews();
-setInterval(syncRSSNews, 1000 * 60 * 15); // Sync every 15 minutes
+
+// Run cron job every morning at 6:00 AM
+cron.schedule("0 6 * * *", () => {
+  console.log("Running scheduled morning RSS sync...");
+  syncRSSNews();
+});
 
 async function startServer() {
+  // Startup assertions
+  const isProd = process.env.NODE_ENV === "production";
+  if (isProd && !process.env.APP_URL) {
+     console.warn("WARNING: APP_URL is not set in production. CORS may not be locked down effectively.");
+  }
+
   const app = express();
   const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.set("trust proxy", 1);
-  app.use(cors());
+  
+  // Explicit CORS Allowlist
+  const allowedOrigins = [
+    process.env.APP_URL, 
+    'http://localhost:3000', 
+    'http://127.0.0.1:3000'
+  ].filter(Boolean) as string[];
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || !isProd) {
+        callback(null, true);
+      } else {
+        callback(new Error('Origin not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  }));
+
   app.use(express.json());
   app.use(cookieParser());
+
+  // Basic HTTP Request Logger for Production Visibility
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+       const ms = Date.now() - start;
+       console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} - ${ms}ms ${req.ip}`);
+    });
+    next();
+  });
 
   // Reliable session handling
   app.use((req, res, next) => {
@@ -32,8 +72,8 @@ async function startServer() {
        sessionId = uuidv4();
        res.cookie('session_id', sessionId, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
+          secure: isProd,
+          sameSite: isProd ? 'none' : 'lax', // Support cross-origin split deployment safely
           maxAge: 1000 * 60 * 60 * 24 * 365 // 1 year
        });
     }

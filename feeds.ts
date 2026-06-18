@@ -4,6 +4,8 @@ export const feeds = [
   { url: "https://www.essence.com/feed/", category: "culture", source_name: "Essence" },
   { url: "https://www.theroot.com/rss", category: "diaspora", source_name: "The Root" },
   { url: "https://afro.com/feed/", category: "diaspora", source_name: "AFRO News" },
+  { url: "https://blackhealthmatters.com/feed/", category: "health", source_name: "Black Health Matters" },
+  { url: "https://feeds.npr.org/1128/rss.xml", category: "health", source_name: "NPR Health" },
   { url: "https://www.jamaicaobserver.com/feed/", category: "caribbean", source_name: "Jamaica Observer" },
   { url: "https://caribbeannationalweekly.com/feed/", category: "caribbean", source_name: "Caribbean National Weekly" },
   { url: "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", category: "africa", source_name: "AllAfrica" },

@@ -86,7 +86,26 @@ apiRouter.put("/user/settings", (req, res) => {
 });
 
 apiRouter.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  try {
+    const isDbAlive = db.prepare("SELECT 1").get();
+    if (!isDbAlive) throw new Error("DB unreachable");
+    const feedCount = db.prepare("SELECT COUNT(*) as c FROM rss_feeds").get() as any;
+    res.json({ 
+       status: "ok", 
+       timestamp: new Date().toISOString(),
+       db: "connected",
+       feeds: feedCount?.c || 0
+    });
+  } catch (err: any) {
+    console.error("Health check failed:", err.message);
+    res.status(503).json({ status: "error", details: "Service unavailable" });
+  }
+});
+
+const NewsQuerySchema = z.object({
+  category: z.enum(["all", "global", "politics", "africa", "diaspora", "caribbean", "finance", "culture", "health"]).catch("all"),
+  limit: z.coerce.number().min(1).max(50).catch(20),
+  offset: z.coerce.number().min(0).catch(0)
 });
 
 apiRouter.get("/news", (req, res) => {
@@ -94,12 +113,8 @@ apiRouter.get("/news", (req, res) => {
   let settings = db.prepare('SELECT reading_mode, lens_intensity FROM user_settings WHERE session_id = ?').get(sessionId) as any;
   if (!settings) settings = { reading_mode: 'simplified', lens_intensity: 'balanced' };
 
-  const category = req.query.category as string || "all";
-  const limitStr = req.query.limit as string;
-  const offsetStr = req.query.offset as string;
-  
-  const limit = Math.min(parseInt(limitStr) || 20, 50);
-  const offset = parseInt(offsetStr) || 0;
+  const parsedQuery = NewsQuerySchema.parse(req.query);
+  const { category, limit, offset } = parsedQuery;
   
   let articlesRaw;
   if (category === 'all') {
@@ -121,6 +136,16 @@ apiRouter.get("/news", (req, res) => {
     `).all(settings.reading_mode, settings.lens_intensity, category, limit, offset);
   }
   
+  function safeJSONParse(data: any, fallback: any = []) {
+    if (!data) return fallback;
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      console.error("JSON parse failure in /news payload:", e);
+      return fallback;
+    }
+  }
+  
   const articlesOut = articlesRaw.map((raw: any) => {
     if (raw.reframed_headline) {
       return {
@@ -135,9 +160,9 @@ apiRouter.get("/news", (req, res) => {
         reframed_headline: raw.reframed_headline,
         reframed_summary: raw.reframed_summary,
         cultural_lens_analysis: raw.cultural_lens_analysis,
-        key_takeaways: JSON.parse(raw.key_takeaways || '[]'),
-        what_this_means_for_us: JSON.parse(raw.what_this_means_for_us || '[]'),
-        statistical_data: raw.statistical_data ? JSON.parse(raw.statistical_data) : null,
+        key_takeaways: safeJSONParse(raw.key_takeaways, []),
+        what_this_means_for_us: safeJSONParse(raw.what_this_means_for_us, []),
+        statistical_data: raw.statistical_data ? safeJSONParse(raw.statistical_data, null) : null,
       }
     } else {
       return {

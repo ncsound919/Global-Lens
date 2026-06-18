@@ -1,24 +1,30 @@
 # Global Lens
 
-Global Lens is a personalized, AI-driven news aggregator designed to provide marginalized and global-majority contexts to breaking global events. Moving beyond traditional Western-centric wires, Global Lens curates news that illuminates economic equity, pan-African and diaspora ties, and localized structural insights.
+A contextual backend for analyzing global news feeds using custom-trained AI filtering.
 
-## Features
+## Deployment Requirements
 
-- **Personalized Context Engines**: Adjust context intensity (Balanced, Hyper-Local, or Pan-African) to shift the analytical lens applied to major news.
-- **Reading Profiles**: Toggle between a 10-year-old comprehension explainer, high-level executive summaries, or raw news dispatches.
-- **Deep Historical Contexts**: Uncover the "how did we get here" backstory for any ongoing situation.
-- **Analytics Charts**: Instantly generated visual interpretations of structural statistics relative to breaking news stories.
-- **Diaspora Source Injection**: Integrated RSS feeds from Al Jazeera, AllAfrica, and diverse sources.
+### 1. Environment Variables
+This applet requires the following environment variables. Define these in your production host:
+- `GEMINI_API_KEY`: API key for Gemini models (or configure `OPENAI_API_KEY`, etc. if fallback is needed)
+- `APP_URL`: The fully qualified public URL where this app resides (e.g., `https://your-domain.com`). Critical for securely locking down CORS.
+- `NODE_ENV`: Should be set to `production` in deployed environments.
 
-## Tech Stack
+### 2. Network & Ports
+- The Express API and static renderer start on **Port 3000** (`process.env.PORT || 3000`).
+- The application binds to host `0.0.0.0` natively, ensuring Docker container network readiness.
 
-- **Frontend**: React + Vite + Tailwind CSS + Recharts
-- **Backend**: Express + Node.js (with Better SQLite3)
-- **AI Processing**: Gemini 2.5 Flash SDK
+### 3. Database Persistence
+- SQLite is utilized for both articles and offline caching.
+- Production hosts must mount a persistent volume containing root context to retain `database.sqlite` between deployments and container upgrades.
 
-## Setup & Running
+### 4. Build & Start Commands
+`global-lens` uses Vite for frontend bundling and ESBuild for compiling the backend natively. 
+- **Setup Check**: Install dependencies correctly using `npm install`.
+- **Compile command**: `npm run build`
+    - Creates static payload in `/dist`.
+    - Generates standalone server runtime to `dist/server.cjs`.
+- **Runtime command**: `npm run start`
 
-1. Clone and install dependencies: `npm install`
-2. Create your `.env` from `.env.example` and add your `GEMINI_API_KEY` and News API keys.
-3. Start the dev server: `npm run dev`
-4. Access the web interface at `http://localhost:3000`
+## Observability
+Access logging is automatically shipped via `console.log` middleware output. Any health, network status or systemic API limits are streamed here. Listen to `/api/health` target for orchestrated uptime checks.
