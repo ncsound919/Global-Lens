@@ -102,6 +102,14 @@ export async function syncRSSNews() {
     
     console.log(`RSS Ingestion Complete: ${feedResults.successes} successful feeds, ${feedResults.skipped} skipped, ${feedResults.errors} unreachable, ${feedResults.itemsIngested} new items saved.`);
 
+    // Prune articles older than 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const pruneInfo = db.prepare("DELETE FROM articles WHERE created_at < ?").run(thirtyDaysAgo.toISOString());
+    if (pruneInfo.changes > 0) {
+       console.log(`Pruned ${pruneInfo.changes} legacy articles.`);
+    }
+
     const activeConfigs = db.prepare('SELECT DISTINCT reading_mode, lens_intensity FROM user_settings').all() as { reading_mode: string, lens_intensity: string }[];
     if (!activeConfigs.some(c => c.reading_mode === 'simplified' && c.lens_intensity === 'balanced')) {
        activeConfigs.push({ reading_mode: 'simplified', lens_intensity: 'balanced' });

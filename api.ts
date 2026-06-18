@@ -2,17 +2,35 @@ import express from "express";
 import db from "./db";
 import { syncRSSNews } from "./rss";
 import rateLimit from "express-rate-limit";
+import sanitizeHtml from "sanitize-html";
+import { z } from "zod";
 
 // Rate limiting for AI backstory endpoint
 const backstoryLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 5, // 5 requests per minute per IP
-  message: { detail: 'Too many backstory generation requests. Please try again later.' }
+  message: { detail: 'Too many backstory generation requests. Please try again later.' },
+  validate: { xForwardedForHeader: false }
+});
+
+const standardLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  validate: { xForwardedForHeader: false }
 });
 
 export const apiRouter = express.Router();
+apiRouter.use(standardLimiter);
+
 // Create simple debounce logic
 let syncTimeout: NodeJS.Timeout;
+
+const SettingsSchema = z.object({
+  readingMode: z.string().optional(),
+  lensIntensity: z.string().optional(),
+  oddsFormat: z.string().optional(),
+  regions: z.record(z.string(), z.boolean()).optional()
+});
 
 apiRouter.get("/user/settings", (req, res) => {
   const sessionId = (req as any).sessionId;
@@ -35,7 +53,13 @@ apiRouter.get("/user/settings", (req, res) => {
 
 apiRouter.put("/user/settings", (req, res) => {
   const sessionId = (req as any).sessionId;
-  const body = req.body;
+  
+  const parsed = SettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid parameters" });
+  }
+  const body = parsed.data;
+
   db.prepare(`
     INSERT INTO user_settings (session_id, reading_mode, lens_intensity, odds_format, regions) 
     VALUES (?, ?, ?, ?, ?)
@@ -138,7 +162,10 @@ apiRouter.get("/news", (req, res) => {
 });
 
 function stripHtml(html: string) {
-  return html.replace(/<[^>]*>?/gm, '');
+  return sanitizeHtml(html, {
+    allowedTags: [],
+    allowedAttributes: {}
+  });
 }
 
 apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
@@ -162,11 +189,12 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
-    const safeContent = stripHtml(article.original_text_dump || '').trim().slice(0, 2000);
+    const safeContent = stripHtml(article.original_text_dump || '').trim().slice(0, 2000).replace(/`|\$|{}/g, '');
+    const safeTitle = (article.original_title || "").replace(/`|\$|{}/g, '');
     
     const prompt = `
     You are an expert political historian and investigative archivist. 
-    A reader is viewing a news story originally titled: "${article.original_title}".
+    A reader is viewing a news story originally titled: "${safeTitle}".
     
     The raw underlying dispatch context is: ${safeContent}
     

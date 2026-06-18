@@ -5,6 +5,7 @@ import { syncRSSNews } from "./rss";
 import { apiRouter } from "./api";
 import cookieParser from "cookie-parser";
 import { v4 as uuidv4 } from "uuid";
+import cors from "cors";
 
 // kick off initial sync in bg
 syncRSSNews();
@@ -14,6 +15,8 @@ async function startServer() {
   const app = express();
   const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+  app.set("trust proxy", 1);
+  app.use(cors());
   app.use(express.json());
   app.use(cookieParser());
 

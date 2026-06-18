@@ -53,7 +53,7 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS article_backstory_cache (
-    url_hash TEXT PRIMARY KEY,
+    url_hash TEXT PRIMARY KEY REFERENCES articles(url_hash) ON DELETE CASCADE,
     historical_backstory TEXT
   );
 

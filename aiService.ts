@@ -2,18 +2,21 @@ import db from "./db";
 import fs from "fs";
 import path from "path";
 import { ArticleProps } from "./src/types";
-import PQueue from 'p-queue';
+import PQueueMod from 'p-queue';
 
-// Respect Gemini Free Tier 15 RPM limits globally
-const aiQueue = new PQueue({ concurrency: 1, intervalCap: 15, interval: 60000 });
+const PQueue = (PQueueMod as any).default || PQueueMod;
 
-let aiClient: any = null;
+// Respect Gemini Free Tier 15 RPM limits globally (leave 3 RPM buffer for user actions)
+const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 });
+
+let aiClientPromise: Promise<any> | null = null;
 const initAI = async () => {
-  if (!aiClient && process.env.GEMINI_API_KEY) {
-    const { GoogleGenAI } = await import('@google/genai');
-    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  if (!aiClientPromise && process.env.GEMINI_API_KEY) {
+    aiClientPromise = import('@google/genai').then(({ GoogleGenAI }) => {
+      return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    });
   }
-  return aiClient;
+  return aiClientPromise;
 }
 
 const contextCache = new Map<string, string>();
@@ -26,8 +29,12 @@ function getContext(lensFile: string) {
         const content = fs.readFileSync(filePath, "utf-8");
         contextCache.set(lensFile, content);
         return content;
+     } else {
+        console.warn(`Context file not found: ${filePath}`);
      }
-  } catch (e) {}
+  } catch (e) {
+     console.error(`Error reading context file ${lensFile}:`, e);
+  }
   return "Focus on economic equity and historical structural insights.";
 }
 
@@ -59,6 +66,9 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
           readingInstruction = "provides high-density, professional executive summaries intended for rapid scanning by advanced professionals.";
       }
       
+      const safeTitle = (article.original_title || "").replace(/`|\$|{}/g, '');
+      const safeContext = (article.original_text_dump || "").substring(0, 3000).replace(/`|\$|{}/g, '');
+      
       const prompt = `
       You are an expert journalist and educator who ${readingInstruction}
       
@@ -66,8 +76,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       ${contextContent}
       
       CURRENT EVENT:
-      Title: ${article.original_title}
-      Context: ${article.original_text_dump?.substring(0, 3000) || ""}
+      Title: ${safeTitle}
+      Context: ${safeContext}
       Category: ${article.category}
       
       Output strictly valid JSON with NO markdown codeblock wrapping! We need the raw JSON object string.
@@ -96,11 +106,27 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       
       if (!response) throw new Error("AI Queue returned null response");
       
-      let aiResponse: any = {};
+      let aiResponse: any = null;
       try {
         aiResponse = JSON.parse(response.text || '{}');
+        if (!aiResponse.reframed_headline && !aiResponse.reframed_summary) throw new Error("Empty AI response");
       } catch (e) {
         console.warn("AI JSON parse failure for article:", article.url_hash, "Raw text:", response.text?.substring(0, 200));
+        
+        // Insert fallback to avoid infinite retry loops on poison pill articles
+        db.prepare(`
+          INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          article.url_hash, readingMode, lensIntensity,
+          article.original_title,
+          "Analysis format failed. " + (article.original_text_dump?.substring(0, 150) || ""),
+          "Systemic analysis unavailable due to processing error.",
+          JSON.stringify(["Processing error"]),
+          JSON.stringify(["Processing error"]),
+          null
+        );
+        return;
       }
 
       db.prepare(`
@@ -116,10 +142,26 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
         aiResponse.statistical_data ? JSON.stringify(aiResponse.statistical_data) : null
       );
     } catch (e: any) {
-      if (e?.status === 429 || e?.message?.includes('429')) {
-         console.warn("AI Generation Quota Exceeded for article", article.url_hash, "- Will retry on next sync pass.");
+      const isRetryable = e?.status === 429 || e?.message?.includes('429') || e?.status === 503 || e?.message?.includes('503') || e?.status === 500;
+      if (isRetryable) {
+         console.warn(`AI Generation ${e?.status || 'Transient'} Error for article`, article.url_hash, "- Will retry on next sync pass.");
       } else {
-         console.warn("AI Generation Warning for article", article.url_hash, e?.message || e);
+         console.warn("AI Generation Permanent Error for article", article.url_hash, e?.message || e);
+         // Insert fallback to avoid infinite retry loops on safety blocks or other permanent errors
+         try {
+           db.prepare(`
+             INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           `).run(
+             article.url_hash, readingMode, lensIntensity,
+             article.original_title,
+             "Analysis blocked by filter or permanent error. " + (article.original_text_dump?.substring(0, 150) || ""),
+             "Systemic analysis unavailable.",
+             JSON.stringify(["Analysis unavailable"]),
+             JSON.stringify(["Analysis unavailable"]),
+             null
+           );
+         } catch(err) {}
       }
     }
   }
