@@ -24,53 +24,65 @@ export const getAvailableProviders = () => {
 
 export const callAIConfigured = async (prompt: string): Promise<string | null> => {
    const providers = getAvailableProviders();
-   const provider = providers[roundRobinIndex % providers.length];
-   roundRobinIndex++;
+   
+   let lastError: any = null;
+   
+   for (let i = 0; i < providers.length; i++) {
+     const provider = providers[roundRobinIndex % providers.length];
+     roundRobinIndex++;
 
-   if (provider === 'gemini') {
-      const { GoogleGenAI } = await import('@google/genai');
-      const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.1,
-        }
-      });
-      return response.text;
-   } else if (provider === 'openai') {
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const res = await client.chat.completions.create({
-         model: 'gpt-4o-mini',
-         response_format: { type: 'json_object' },
-         messages: [{ role: 'user', content: prompt }]
-      });
-      return res.choices[0].message.content;
-   } else if (provider === 'deepseek') {
-      const client = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com' });
-      const res = await client.chat.completions.create({
-         model: 'deepseek-chat',
-         response_format: { type: 'json_object' },
-         messages: [{ role: 'user', content: prompt }]
-      });
-      return res.choices[0].message.content;
-   } else if (provider === 'openrouter') {
-      const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
-      const res = await client.chat.completions.create({
-         model: 'liquid/lfm-40b', // OpenRouter supports various models. Using this or openrouter/auto
-         messages: [{ role: 'user', content: prompt }]
-      });
-      return res.choices[0].message.content;
-   } else if (provider === 'mistral') {
-      const client = new OpenAI({ apiKey: process.env.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
-      const res = await client.chat.completions.create({
-         model: 'mistral-small-latest',
-         response_format: { type: 'json_object' },
-         messages: [{ role: 'user', content: prompt }]
-      });
-      return res.choices[0].message.content;
+     try {
+       if (provider === 'gemini') {
+          const { GoogleGenAI } = await import('@google/genai');
+          const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+          const response = await client.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+              temperature: 0.1,
+            }
+          });
+          return response.text;
+       } else if (provider === 'openai') {
+          const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          const res = await client.chat.completions.create({
+             model: 'gpt-4o-mini',
+             response_format: { type: 'json_object' },
+             messages: [{ role: 'user', content: prompt }]
+          });
+          if (res.choices[0].message.content) return res.choices[0].message.content;
+       } else if (provider === 'deepseek') {
+          const client = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com' });
+          const res = await client.chat.completions.create({
+             model: 'deepseek-chat',
+             response_format: { type: 'json_object' },
+             messages: [{ role: 'user', content: prompt }]
+          });
+          if (res.choices[0].message.content) return res.choices[0].message.content;
+       } else if (provider === 'openrouter') {
+          const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
+          const res = await client.chat.completions.create({
+             model: 'liquid/lfm-40b', // OpenRouter supports various models. Using this or openrouter/auto
+             messages: [{ role: 'user', content: prompt }]
+          });
+          if (res.choices[0].message.content) return res.choices[0].message.content;
+       } else if (provider === 'mistral') {
+          const client = new OpenAI({ apiKey: process.env.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
+          const res = await client.chat.completions.create({
+             model: 'mistral-small-latest',
+             response_format: { type: 'json_object' },
+             messages: [{ role: 'user', content: prompt }]
+          });
+          if (res.choices[0].message.content) return res.choices[0].message.content;
+       }
+     } catch (e: any) {
+        lastError = e;
+        console.warn(`Provider ${provider} failed:`, e?.message);
+     }
    }
+   
+   if (lastError) throw lastError;
    return null;
 }
 
@@ -105,8 +117,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     return;
   }
 
-  const ai = await initAI();
-  if (ai) {
+  const providers = getAvailableProviders();
+  if (providers.length > 0) {
     try {
       let lensFile = 'economy_wealth.md';
       if (lensIntensity === 'pan_african') {
