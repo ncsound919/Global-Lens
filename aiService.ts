@@ -3,20 +3,75 @@ import fs from "fs";
 import path from "path";
 import { ArticleProps } from "./src/types";
 import PQueueMod from 'p-queue';
+import OpenAI from 'openai';
 
 const PQueue = (PQueueMod as any).default || PQueueMod;
 
-// Respect Gemini Free Tier 15 RPM limits globally (leave 3 RPM buffer for user actions)
+// Respect limits globally (leave buffer for user actions)
 const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 });
 
-let aiClientPromise: Promise<any> | null = null;
-const initAI = async () => {
-  if (!aiClientPromise && process.env.GEMINI_API_KEY) {
-    aiClientPromise = import('@google/genai').then(({ GoogleGenAI }) => {
-      return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    });
-  }
-  return aiClientPromise;
+let roundRobinIndex = 0;
+
+export const getAvailableProviders = () => {
+  const p = [];
+  if (process.env.GEMINI_API_KEY) p.push('gemini');
+  if (process.env.OPENAI_API_KEY) p.push('openai');
+  if (process.env.DEEPSEEK_API_KEY) p.push('deepseek');
+  if (process.env.OPENROUTER_API_KEY) p.push('openrouter');
+  if (process.env.MISTRAL_API_KEY) p.push('mistral');
+  return p.length ? p : ['gemini'];
+};
+
+export const callAIConfigured = async (prompt: string): Promise<string | null> => {
+   const providers = getAvailableProviders();
+   const provider = providers[roundRobinIndex % providers.length];
+   roundRobinIndex++;
+
+   if (provider === 'gemini') {
+      const { GoogleGenAI } = await import('@google/genai');
+      const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await client.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.1,
+        }
+      });
+      return response.text;
+   } else if (provider === 'openai') {
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const res = await client.chat.completions.create({
+         model: 'gpt-4o-mini',
+         response_format: { type: 'json_object' },
+         messages: [{ role: 'user', content: prompt }]
+      });
+      return res.choices[0].message.content;
+   } else if (provider === 'deepseek') {
+      const client = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com' });
+      const res = await client.chat.completions.create({
+         model: 'deepseek-chat',
+         response_format: { type: 'json_object' },
+         messages: [{ role: 'user', content: prompt }]
+      });
+      return res.choices[0].message.content;
+   } else if (provider === 'openrouter') {
+      const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
+      const res = await client.chat.completions.create({
+         model: 'liquid/lfm-40b', // OpenRouter supports various models. Using this or openrouter/auto
+         messages: [{ role: 'user', content: prompt }]
+      });
+      return res.choices[0].message.content;
+   } else if (provider === 'mistral') {
+      const client = new OpenAI({ apiKey: process.env.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
+      const res = await client.chat.completions.create({
+         model: 'mistral-small-latest',
+         response_format: { type: 'json_object' },
+         messages: [{ role: 'user', content: prompt }]
+      });
+      return res.choices[0].message.content;
+   }
+   return null;
 }
 
 const contextCache = new Map<string, string>();
@@ -98,20 +153,16 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       }
       `;
 
-      const response = await aiQueue.add(() => ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: { responseMimeType: 'application/json' }
-      }));
+      const responseText = await aiQueue.add(() => callAIConfigured(prompt));
       
-      if (!response) throw new Error("AI Queue returned null response");
+      if (!responseText) throw new Error("AI Queue returned null response");
       
       let aiResponse: any = null;
       try {
-        aiResponse = JSON.parse(response.text || '{}');
+        aiResponse = JSON.parse(responseText || '{}');
         if (!aiResponse.reframed_headline && !aiResponse.reframed_summary) throw new Error("Empty AI response");
       } catch (e) {
-        console.warn("AI JSON parse failure for article:", article.url_hash, "Raw text:", response.text?.substring(0, 200));
+        console.warn("AI JSON parse failure for article:", article.url_hash, "Raw text:", responseText?.substring(0, 200));
         
         // Insert fallback to avoid infinite retry loops on poison pill articles
         db.prepare(`

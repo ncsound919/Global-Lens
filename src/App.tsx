@@ -184,9 +184,6 @@ export default function App() {
             <h2 className="text-2xl font-serif font-medium uppercase tracking-[0.16em] text-white sm:text-3xl">
               {pageTitle}
             </h2>
-            <p className="mt-2 text-xs uppercase tracking-[0.28em] text-zinc-500">
-              Pipeline // Filtered, framed, and ready for review
-            </p>
           </div>
 
           <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">

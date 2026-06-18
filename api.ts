@@ -182,12 +182,11 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
   }
 
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not set");
+    const { callAIConfigured, getAvailableProviders } = await import('./aiService');
+    const providers = getAvailableProviders();
+    if (providers.length === 0 || (providers.length === 1 && providers[0] === 'gemini' && !process.env.GEMINI_API_KEY)) {
+      throw new Error("No AI API keys are configured");
     }
-    
-    const { GoogleGenAI } = await import('@google/genai');
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
     const safeContent = stripHtml(article.original_text_dump || '').trim().slice(0, 2000).replace(/`|\$|{}/g, '');
     const safeTitle = (article.original_title || "").replace(/`|\$|{}/g, '');
@@ -212,18 +211,11 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     }
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
-      }
-    });
+    const responseText = await callAIConfigured(prompt);
     
     let backstoryJson: any = {};
     try {
-      backstoryJson = JSON.parse(response.text || '{}');
+      backstoryJson = JSON.parse(responseText || '{}');
     } catch(e) {
       console.error("Backstory parse error", e);
     }
