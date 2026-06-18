@@ -8,26 +8,16 @@ interface SettingsDashboardProps {
 export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
   const [readingMode, setReadingMode] = useState('simplified');
   const [lensIntensity, setLensIntensity] = useState('balanced');
-  const [oddsFormat, setOddsFormat] = useState('american');
   const [regions, setRegions] = useState({ us: true, westAfrica: false, caribbean: true });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    let sid = localStorage.getItem('session_id');
-    if (!sid) {
-       sid = 'session_' + Math.random().toString(36).substr(2, 9);
-       localStorage.setItem('session_id', sid);
-    }
-
-    fetch('/api/user/settings', {
-      headers: { 'x-session-id': sid }
-    })
+    fetch('/api/user/settings')
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
           setReadingMode(data.reading_mode || 'simplified');
           setLensIntensity(data.lens_intensity || 'balanced');
-          setOddsFormat(data.odds_format || 'american');
           if (data.regions) setRegions(data.regions);
         }
       })
@@ -36,12 +26,11 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
 
   const saveSettings = async () => {
     setLoading(true);
-    let sid = localStorage.getItem('session_id') || 'default_session';
     try {
       const response = await fetch('/api/user/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-session-id': sid },
-        body: JSON.stringify({ readingMode, lensIntensity, oddsFormat, regions }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ readingMode, lensIntensity, regions }),
       });
       if (response.ok) {
         // success
@@ -50,9 +39,8 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
       console.error(e);
     } finally {
       setLoading(false);
-      onClose();
-      // Need a way to trigger refresh in App.tsx
       window.dispatchEvent(new Event('settings-updated'));
+      onClose();
     }
   };
 
@@ -114,30 +102,6 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
               <option value="hyper_local">Hyper-Local (Focus heavily on domestic economic equity data)</option>
               <option value="pan_african">Pan-African (Prioritize Global South trade & historical diaspora context)</option>
             </select>
-          </section>
-
-          {/* SECTION 3: SPORTS BOOK RULES */}
-          <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
-            <h3 className="text-base font-bold font-serif mb-2 text-white">3. Sports Betting & Odds Layout</h3>
-            <p className="text-xs text-zinc-500 mb-4 font-mono uppercase tracking-widest">Configure calculations feeding out of The Odds API.</p>
-            <div className="flex flex-wrap gap-6 mt-4">
-              {['american', 'decimal', 'fractional'].map((format) => (
-                <label key={format} className={`flex items-center space-x-3 text-sm cursor-pointer ${oddsFormat === format ? 'text-amber-400' : 'text-zinc-400 hover:text-zinc-300'}`}>
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${oddsFormat === format ? 'border-amber-500' : 'border-zinc-600'}`}>
-                    {oddsFormat === format && <div className="w-2 h-2 rounded-full bg-amber-500" />}
-                  </div>
-                  <input 
-                    type="radio" 
-                    name="oddsFormat" 
-                    value={format}
-                    checked={oddsFormat === format} 
-                    onChange={() => setOddsFormat(format)}
-                    className="hidden"
-                  />
-                  <span className="capitalize font-medium tracking-wide">{format}</span>
-                </label>
-              ))}
-            </div>
           </section>
         </div>
 

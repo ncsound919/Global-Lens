@@ -16,8 +16,17 @@ const parser = new Parser({
 
 let isSyncing = false;
 
+const feedHealth = new Map<string, number>();
+
 function generateStableHash(sourceName: string, title: string, content: string): string {
   return crypto.createHash('sha256').update(`${sourceName}:${title}:${content.slice(0, 50)}`).digest('hex');
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number) {
+  return Promise.race([
+    parser.parseURL(url),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
+  ]);
 }
 
 export async function syncRSSNews() {
@@ -25,18 +34,29 @@ export async function syncRSSNews() {
   isSyncing = true;
   try {
     console.log("Starting RSS Sync Sweep...");
-    const feedResults = { successes: 0, errors: 0, itemsIngested: 0 };
+    const feedResults = { successes: 0, errors: 0, itemsIngested: 0, skipped: 0 };
 
     for (const feed of feeds) {
+      const fails = feedHealth.get(feed.url) || 0;
+      if (fails >= 3) {
+        feedHealth.set(feed.url, fails - 1);
+        feedResults.skipped++;
+        continue;
+      }
+
       let retries = 2;
       let parsed: any = null;
       while (retries > 0 && !parsed) {
         try {
-          parsed = await parser.parseURL(feed.url);
+          parsed = await fetchWithTimeout(feed.url, 8000);
+          feedHealth.set(feed.url, 0); // Reset health on success
         } catch (err: any) {
           retries--;
           console.warn(`Feed fetch warning for ${feed.url} (retries left: ${retries}) - ${err.message}`);
-          if (retries === 0) feedResults.errors++;
+          if (retries === 0) {
+            feedHealth.set(feed.url, (feedHealth.get(feed.url) || 0) + 1);
+            feedResults.errors++;
+          }
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
@@ -54,17 +74,19 @@ export async function syncRSSNews() {
            }
 
            let imageUrl = null;
-           if (item.enclosure && item.enclosure.url) {
-             imageUrl = item.enclosure.url;
-           } else if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
+           if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
              imageUrl = item.mediaContent['$'].url;
+           } else if (item.enclosure && item.enclosure.url) {
+             imageUrl = item.enclosure.url;
            } else if (item.image) {
              imageUrl = typeof item.image === 'string' ? item.image : item.image.url;
            }
            
-           const stmt = db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump) VALUES (?, ?, ?, ?, ?, ?, ?)');
+           const pubDate = item.pubDate || item.isoDate || null;
+           
+           const stmt = db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
            const info = stmt.run(
-             urlHash, feed.category, feed.source_name, item.title || "Untitled", item.link || "#", imageUrl, textDump
+             urlHash, feed.category, feed.source_name, item.title || "Untitled", item.link || "#", imageUrl, textDump, pubDate
            );
            
            if (info.changes > 0) {
@@ -78,7 +100,7 @@ export async function syncRSSNews() {
       }
     }
     
-    console.log(`RSS Ingestion Complete: ${feedResults.successes} successful feeds, ${feedResults.errors} unreachable feeds, ${feedResults.itemsIngested} new items saved.`);
+    console.log(`RSS Ingestion Complete: ${feedResults.successes} successful feeds, ${feedResults.skipped} skipped, ${feedResults.errors} unreachable, ${feedResults.itemsIngested} new items saved.`);
 
     const activeConfigs = db.prepare('SELECT DISTINCT reading_mode, lens_intensity FROM user_settings').all() as { reading_mode: string, lens_intensity: string }[];
     if (!activeConfigs.some(c => c.reading_mode === 'simplified' && c.lens_intensity === 'balanced')) {

@@ -4,6 +4,11 @@ import path from 'path';
 const dbPath = path.join(process.cwd(), 'app.sqlite');
 const db = new Database(dbPath);
 
+// Enable pragmas
+db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
+db.pragma('foreign_keys = ON');
+
 // Initialize schema
 db.exec(`
   CREATE TABLE IF NOT EXISTS articles (
@@ -14,20 +19,27 @@ db.exec(`
     original_url TEXT,
     image_url TEXT,
     original_text_dump TEXT,
+    pub_date TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
 
-try {
+// Add missing columns if needed
+const tableInfo = db.pragma('table_info(articles)') as any[];
+if (!tableInfo.some(column => column.name === 'image_url')) {
   db.exec('ALTER TABLE articles ADD COLUMN image_url TEXT;');
-} catch (e) {
-  // Ignore if column already exists
+}
+if (!tableInfo.some(column => column.name === 'pub_date')) {
+  db.exec('ALTER TABLE articles ADD COLUMN pub_date TEXT;');
 }
 
 db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category);
+  CREATE INDEX IF NOT EXISTS idx_articles_created_at ON articles(created_at DESC);
+
   CREATE TABLE IF NOT EXISTS article_ai_cache (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    url_hash TEXT,
+    url_hash TEXT REFERENCES articles(url_hash) ON DELETE CASCADE,
     reading_mode TEXT,
     lens_intensity TEXT,
     reframed_headline TEXT,

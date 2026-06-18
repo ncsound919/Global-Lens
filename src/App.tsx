@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { RefreshCw, LayoutTemplate, Settings as SettingsIcon } from 'lucide-react';
 import SplitViewNewsCard from './components/SplitViewNewsCard';
 import SettingsDashboard from './components/SettingsDashboard';
@@ -9,23 +9,32 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<string>('all');
   const [showSettings, setShowSettings] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     setLoading(true);
+    
+    if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    
     try {
-      let sid = localStorage.getItem('session_id') || 'default_session';
-      const response = await fetch(`/api/news?category=${category}`, {
-        headers: { 'x-session-id': sid }
+      // Identity managed securely via server httpOnly cookie
+      const response = await fetch(`/api/news?category=${category}&limit=20`, {
+        signal: abortControllerRef.current.signal
       });
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setArticles(data.articles || []);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error(err);
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [category]);
 
   useEffect(() => {
     fetchNews();
@@ -34,8 +43,14 @@ export default function App() {
       fetchNews();
     };
     window.addEventListener('settings-updated', handleSettingsUpdated);
-    return () => window.removeEventListener('settings-updated', handleSettingsUpdated);
-  }, [category]);
+    
+    return () => {
+      window.removeEventListener('settings-updated', handleSettingsUpdated);
+      if (abortControllerRef.current) {
+         abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchNews]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans select-none flex flex-col p-4 w-full">
@@ -52,7 +67,7 @@ export default function App() {
         
         <div className="flex gap-6 items-center">
           <nav className="flex space-x-2 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded-full overflow-x-auto no-scrollbar">
-            {['all', 'global', 'africa', 'diaspora', 'caribbean', 'finance', 'culture'].map(c => (
+            {['all', 'global', 'politics', 'africa', 'diaspora', 'caribbean', 'finance', 'culture'].map(c => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
@@ -98,14 +113,15 @@ export default function App() {
 
         {loading ? (
           <div className="flex flex-col space-y-6">
-            {[1, 2].map((i) => (
-              <div key={i} className="animate-pulse bg-zinc-900/50 border border-zinc-800 rounded-2xl h-80 w-full"></div>
-            ))}
+             <div className="animate-pulse bg-zinc-900/50 border border-zinc-800 rounded-2xl h-80 w-full"></div>
+             <div className="animate-pulse bg-zinc-900/50 border border-zinc-800 rounded-2xl h-80 w-full"></div>
           </div>
         ) : articles.length === 0 ? (
           <div className="text-center py-20 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
             <h3 className="text-lg font-medium text-white mb-2 tracking-wide">NO STORIES FOUND</h3>
-            <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest">AWAITING INGESTION SYNC...</p>
+            <p className="text-xs text-zinc-500 font-mono tracking-widest max-w-sm mx-auto">
+               WAITING FOR BACKGROUND SYNC, OR CHECK YOUR GEMINI API KEY IN SETTINGS
+            </p>
           </div>
         ) : (
           <div className="flex flex-col space-y-6">

@@ -2,6 +2,34 @@ import db from "./db";
 import fs from "fs";
 import path from "path";
 import { ArticleProps } from "./src/types";
+import PQueue from 'p-queue';
+
+// Respect Gemini Free Tier 15 RPM limits globally
+const aiQueue = new PQueue({ concurrency: 1, intervalCap: 15, interval: 60000 });
+
+let aiClient: any = null;
+const initAI = async () => {
+  if (!aiClient && process.env.GEMINI_API_KEY) {
+    const { GoogleGenAI } = await import('@google/genai');
+    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return aiClient;
+}
+
+const contextCache = new Map<string, string>();
+
+function getContext(lensFile: string) {
+  if (contextCache.has(lensFile)) return contextCache.get(lensFile)!;
+  try {
+     const filePath = path.join(process.cwd(), 'context', lensFile);
+     if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, "utf-8");
+        contextCache.set(lensFile, content);
+        return content;
+     }
+  } catch (e) {}
+  return "Focus on economic equity and historical structural insights.";
+}
 
 export async function processRawArticleForConfig(article: any, readingMode: string, lensIntensity: string) {
   const existing = db.prepare('SELECT 1 FROM article_ai_cache WHERE url_hash = ? AND reading_mode = ? AND lens_intensity = ?').get(article.url_hash, readingMode, lensIntensity);
@@ -15,27 +43,22 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     return;
   }
 
-  if (process.env.GEMINI_API_KEY) {
+  const ai = await initAI();
+  if (ai) {
     try {
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      let contextContent = "Focus on economic equity and historical structural insights.";
-      try {
-        let lensFile = 'economy_wealth.md';
-        if (lensIntensity === 'pan_african') {
-           lensFile = 'geopolitics_diaspora.md';
-        }
-        const filePath = path.join(process.cwd(), 'context', lensFile);
-        if (fs.existsSync(filePath)) {
-           contextContent = fs.readFileSync(filePath, "utf-8");
-        }
-      } catch (e) {}
+      let lensFile = 'economy_wealth.md';
+      if (lensIntensity === 'pan_african') {
+         lensFile = 'geopolitics_diaspora.md';
+      } else if (lensIntensity === 'hyper_local') {
+         lensFile = 'domestic_equity.md';
+      }
       
+      const contextContent = getContext(lensFile);
       let readingInstruction = "explains complex global news to a 10-year-old while providing acute systemic analysis.";
       if (readingMode === 'executive') {
           readingInstruction = "provides high-density, professional executive summaries intended for rapid scanning by advanced professionals.";
       }
-
+      
       const prompt = `
       You are an expert journalist and educator who ${readingInstruction}
       
@@ -44,7 +67,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       
       CURRENT EVENT:
       Title: ${article.original_title}
-      Context: ${article.original_text_dump}
+      Context: ${article.original_text_dump?.substring(0, 3000) || ""}
       Category: ${article.category}
       
       Output strictly valid JSON with NO markdown codeblock wrapping! We need the raw JSON object string.
@@ -65,20 +88,19 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       }
       `;
 
-      // Sleep to respect the 15 RPM limit on Gemini Free Tier.
-      await new Promise(resolve => setTimeout(resolve, 4500));
-
-      const response = await ai.models.generateContent({
+      const response = await aiQueue.add(() => ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: { responseMimeType: 'application/json' }
-      });
+      }));
+      
+      if (!response) throw new Error("AI Queue returned null response");
       
       let aiResponse: any = {};
       try {
         aiResponse = JSON.parse(response.text || '{}');
       } catch (e) {
-        // Fallback gracefully on parsing
+        console.warn("AI JSON parse failure for article:", article.url_hash, "Raw text:", response.text?.substring(0, 200));
       }
 
       db.prepare(`

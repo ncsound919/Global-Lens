@@ -1,9 +1,18 @@
 import express from "express";
 import db from "./db";
 import { syncRSSNews } from "./rss";
-import { ArticleProps } from "./src/types";
+import rateLimit from "express-rate-limit";
+
+// Rate limiting for AI backstory endpoint
+const backstoryLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 requests per minute per IP
+  message: { detail: 'Too many backstory generation requests. Please try again later.' }
+});
 
 export const apiRouter = express.Router();
+// Create simple debounce logic
+let syncTimeout: NodeJS.Timeout;
 
 apiRouter.get("/user/settings", (req, res) => {
   const sessionId = (req as any).sessionId;
@@ -45,8 +54,11 @@ apiRouter.put("/user/settings", (req, res) => {
   );
   res.json({ success: true });
   
-  // Optionally trigger a re-sync if reading mode or lens changes
-  syncRSSNews();
+  // Debounce the resync
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    syncRSSNews();
+  }, 1000);
 });
 
 apiRouter.get("/health", (req, res) => {
@@ -59,16 +71,34 @@ apiRouter.get("/news", (req, res) => {
   if (!settings) settings = { reading_mode: 'simplified', lens_intensity: 'balanced' };
 
   const category = req.query.category as string || "all";
+  const limitStr = req.query.limit as string;
+  const offsetStr = req.query.offset as string;
+  
+  const limit = Math.min(parseInt(limitStr) || 20, 50);
+  const offset = parseInt(offsetStr) || 0;
+  
   let articlesRaw;
   if (category === 'all') {
-    articlesRaw = db.prepare('SELECT * FROM articles ORDER BY created_at DESC LIMIT 50').all();
+    articlesRaw = db.prepare(`
+      SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis, 
+             c.key_takeaways, c.what_this_means_for_us, c.statistical_data
+      FROM articles a
+      LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
+      ORDER BY a.created_at DESC LIMIT ? OFFSET ?
+    `).all(settings.reading_mode, settings.lens_intensity, limit, offset);
   } else {
-    articlesRaw = db.prepare('SELECT * FROM articles WHERE category = ? ORDER BY created_at DESC LIMIT 50').all(category);
+    articlesRaw = db.prepare(`
+      SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis, 
+             c.key_takeaways, c.what_this_means_for_us, c.statistical_data
+      FROM articles a
+      LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
+      WHERE a.category = ?
+      ORDER BY a.created_at DESC LIMIT ? OFFSET ?
+    `).all(settings.reading_mode, settings.lens_intensity, category, limit, offset);
   }
   
-  const articlesOut: ArticleProps[] = articlesRaw.map((raw: any) => {
-    const cache = db.prepare('SELECT * FROM article_ai_cache WHERE url_hash = ? AND reading_mode = ? AND lens_intensity = ?').get(raw.url_hash, settings.reading_mode, settings.lens_intensity) as any;
-    if (cache) {
+  const articlesOut = articlesRaw.map((raw: any) => {
+    if (raw.reframed_headline) {
       return {
         id: raw.url_hash,
         url_hash: raw.url_hash,
@@ -78,12 +108,12 @@ apiRouter.get("/news", (req, res) => {
         original_url: raw.original_url,
         image_url: raw.image_url,
         original_text_dump: raw.original_text_dump,
-        reframed_headline: cache.reframed_headline,
-        reframed_summary: cache.reframed_summary,
-        cultural_lens_analysis: cache.cultural_lens_analysis,
-        key_takeaways: JSON.parse(cache.key_takeaways || '[]'),
-        what_this_means_for_us: JSON.parse(cache.what_this_means_for_us || '[]'),
-        statistical_data: cache.statistical_data ? JSON.parse(cache.statistical_data) : null,
+        reframed_headline: raw.reframed_headline,
+        reframed_summary: raw.reframed_summary,
+        cultural_lens_analysis: raw.cultural_lens_analysis,
+        key_takeaways: JSON.parse(raw.key_takeaways || '[]'),
+        what_this_means_for_us: JSON.parse(raw.what_this_means_for_us || '[]'),
+        statistical_data: raw.statistical_data ? JSON.parse(raw.statistical_data) : null,
       }
     } else {
       return {
@@ -107,7 +137,11 @@ apiRouter.get("/news", (req, res) => {
   res.json({ articles: articlesOut });
 });
 
-apiRouter.get("/news/:id/backstory", async (req, res) => {
+function stripHtml(html: string) {
+  return html.replace(/<[^>]*>?/gm, '');
+}
+
+apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
   const articleId = req.params.id;
   const article = db.prepare('SELECT * FROM articles WHERE url_hash = ?').get(articleId) as any;
   
@@ -125,15 +159,16 @@ apiRouter.get("/news/:id/backstory", async (req, res) => {
       throw new Error("GEMINI_API_KEY is not set");
     }
     
-    // We can't use static import inside dynamic check but it's fine for Express
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
+    const safeContent = stripHtml(article.original_text_dump || '').trim().slice(0, 2000);
     
     const prompt = `
     You are an expert political historian and investigative archivist. 
     A reader is viewing a news story originally titled: "${article.original_title}".
     
-    The raw underlying dispatch context is: ${article.original_text_dump}
+    The raw underlying dispatch context is: ${safeContent}
     
     Provide an interactive, deep-dive historical context file that explains the "how did we get here" behind this current event. 
     Break it down structurally so a reader can easily get caught up on the historical roots of this ongoing situation.
@@ -170,7 +205,7 @@ apiRouter.get("/news/:id/backstory", async (req, res) => {
     );
     return res.json(backstoryJson);
   } catch (e: any) {
-    console.error(e);
-    return res.status(500).json({ detail: `Failed to generate background context: ${e.message}` });
+    console.error("Backstory generation error:", e);
+    return res.status(500).json({ detail: 'Background context unavailable. Try again shortly.' });
   }
 });
