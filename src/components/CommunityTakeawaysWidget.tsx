@@ -4,6 +4,12 @@ interface TakeawayProps {
   takeaways: string[];
 }
 
+const safe = (val: any): string => {
+  if (typeof val === 'string') return val;
+  if (val === null || val === undefined) return '';
+  return JSON.stringify(val);
+};
+
 export default function CommunityTakeawaysWidget({ takeaways }: TakeawayProps) {
   return (
     <div className="mt-6 rounded-xl border border-amber-200 bg-linear-to-br from-amber-50/70 to-orange-50/30 p-5 dark:border-amber-900/40 dark:from-amber-950/20 dark:to-zinc-900">
@@ -21,7 +27,7 @@ export default function CommunityTakeawaysWidget({ takeaways }: TakeawayProps) {
         {takeaways.map((bullet, index) => (
           <li key={index} className="flex items-start space-x-2 text-sm text-zinc-800 dark:text-zinc-300 leading-relaxed">
             <span className="text-amber-600 dark:text-amber-500 select-none font-bold mt-0.5">•</span>
-            <span>{bullet}</span>
+            <span>{safe(bullet)}</span>
           </li>
         ))}
       </ul>

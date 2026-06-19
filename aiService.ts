@@ -241,8 +241,13 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       let aiResponse: any = null;
       try {
         aiResponse = JSON.parse(responseText || '{}');
-        if (typeof aiResponse.cultural_lens_analysis === 'object') {
-           aiResponse.cultural_lens_analysis = JSON.stringify(aiResponse.cultural_lens_analysis);
+        const stringFields = ['reframed_headline', 'reframed_summary', 'cultural_lens_analysis'];
+        for (const field of stringFields) {
+          if (aiResponse[field] !== null && typeof aiResponse[field] === 'object') {
+            aiResponse[field] = Object.values(aiResponse[field])
+              .filter((v: any) => typeof v === 'string')
+              .join(' ') || JSON.stringify(aiResponse[field]);
+          }
         }
         
         if (!aiResponse.reframed_headline && !aiResponse.reframed_summary) throw new Error("Empty AI response");
@@ -254,6 +259,13 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
         return;
       }
 
+        const sanitizedTakeaways = Array.isArray(aiResponse.key_takeaways) 
+          ? aiResponse.key_takeaways.map((t: any) => typeof t === 'string' ? t : JSON.stringify(t))
+          : [];
+        const sanitizedMeans = Array.isArray(aiResponse.what_this_means_for_us)
+          ? aiResponse.what_this_means_for_us.map((t: any) => typeof t === 'string' ? t : JSON.stringify(t))
+          : [];
+
       db.prepare(`
         INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -262,8 +274,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
         aiResponse.reframed_headline || article.original_title,
         aiResponse.reframed_summary || article.original_text_dump?.substring(0, 200) || "",
         aiResponse.cultural_lens_analysis || "Analysis currently unavailable.",
-        JSON.stringify(aiResponse.key_takeaways || []),
-        JSON.stringify(aiResponse.what_this_means_for_us || []),
+        JSON.stringify(sanitizedTakeaways),
+        JSON.stringify(sanitizedMeans),
         aiResponse.statistical_data ? JSON.stringify(aiResponse.statistical_data) : null
       );
     } catch (e: any) {

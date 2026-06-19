@@ -10,11 +10,17 @@ const TwitterIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke
 const FacebookIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>;
 const LinkedinIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>;
 
+const safe = (val: any): string => {
+  if (typeof val === 'string') return val;
+  if (val === null || val === undefined) return '';
+  return JSON.stringify(val);
+};
+
 const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => {
   const [showModal, setShowModal] = useState(false);
 
   const shareUrl = encodeURIComponent(article.original_url || window.location.href);
-  const shareText = encodeURIComponent(`"${article.reframed_headline}" - via Black Global Lens`);
+  const shareText = encodeURIComponent(`"${safe(article.reframed_headline)}" - via Black Global Lens`);
 
   return (
     <section className="group mb-12 flex flex-col overflow-hidden rounded-sm border border-zinc-900 bg-[#0c0c0c] transition-all duration-500 hover:border-zinc-800 hover:shadow-2xl">
@@ -49,7 +55,7 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
             </span>
           )}
           <h2 className="mt-2 mb-6 text-3xl font-medium leading-[1.1] text-white font-serif md:text-5xl lg:text-[3.25rem]">
-            {article.reframed_headline}
+            {safe(article.reframed_headline)}
           </h2>
           
           {article.image_url && (
@@ -60,7 +66,7 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
 
           <div className="mb-8 lg:pr-8">
             <p className="text-zinc-300 text-lg lg:text-xl font-serif leading-relaxed">
-              {article.cultural_lens_analysis}
+              {safe(article.cultural_lens_analysis)}
             </p>
           </div>
 
@@ -80,7 +86,7 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
                 {article.key_takeaways.map((item, idx) => (
                   <li key={idx} className="flex items-start">
                     <span className="text-zinc-600 mr-3 mt-1 inline-block text-[10px]">■</span>
-                    {item}
+                    {safe(item)}
                   </li>
                 ))}
               </ul>
@@ -167,8 +173,8 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
         <ArticleModal 
           articleId={article.id || 0}
           onClose={() => setShowModal(false)}
-          simplifiedText={article.cultural_lens_analysis}
-          headline={article.reframed_headline}
+          simplifiedText={safe(article.cultural_lens_analysis)}
+          headline={safe(article.reframed_headline)}
         />
       )}
     </section>

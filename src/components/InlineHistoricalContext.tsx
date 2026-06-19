@@ -7,6 +7,13 @@ interface BackstoryData {
   timeline: { time: string; event: string }[];
 }
 
+const safe = (val: any): string => {
+  if (typeof val === 'string') return val;
+  if (!val) return '';
+  if (typeof val === 'object') return Object.values(val).filter(v => typeof v === 'string').join(' ') || JSON.stringify(val);
+  return String(val);
+};
+
 export default function InlineHistoricalContext({ articleId }: { articleId: number | string }) {
   const [backstory, setBackstory] = useState<BackstoryData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,7 +76,7 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
       <div className="space-y-8 flex-1">
         <div>
           <h5 className="text-[10px] uppercase font-bold tracking-[0.15em] text-zinc-500 mb-3 border-b border-zinc-800 pb-2">The Roots</h5>
-          <p className="text-zinc-300 font-serif leading-relaxed text-sm lg:text-base">{backstory.the_past_roots}</p>
+          <p className="text-zinc-300 font-serif leading-relaxed text-sm lg:text-base">{safe(backstory.the_past_roots)}</p>
         </div>
 
         <div>
@@ -78,8 +85,8 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
              {backstory.timeline.map((item, idx) => (
                <div key={idx} className="relative">
                  <div className="absolute w-1.5 h-1.5 rounded-full bg-amber-500 -left-[24px] top-1.5 ring-4 ring-[#0f0f0f]"></div>
-                 <span className="font-bold font-mono text-zinc-400 text-[9px] tracking-widest block mb-1 uppercase bg-zinc-900 inline-block px-2 py-0.5 rounded-sm">{item.time}</span>
-                 <p className="text-sm text-zinc-300 leading-relaxed mt-2">{item.event}</p>
+                 <span className="font-bold font-mono text-zinc-400 text-[9px] tracking-widest block mb-1 uppercase bg-zinc-900 inline-block px-2 py-0.5 rounded-sm">{safe(item?.time)}</span>
+                 <p className="text-sm text-zinc-300 leading-relaxed mt-2">{safe(item?.event)}</p>
                </div>
              ))}
            </div>
@@ -90,7 +97,7 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
             <span className="w-1 h-3 block bg-amber-500/80"></span>
             Systemic Insight
           </span>
-          <p className="text-sm mt-3 leading-relaxed text-zinc-400 font-serif">{backstory.insider_insight}</p>
+          <p className="text-sm mt-3 leading-relaxed text-zinc-400 font-serif">{safe(backstory.insider_insight)}</p>
         </div>
       </div>
     </div>

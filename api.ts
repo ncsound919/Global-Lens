@@ -145,10 +145,38 @@ apiRouter.get("/news", (req, res) => {
       return fallback;
     }
   }
+
+  function coerceToString(val: any): string {
+    if (typeof val === 'string') return val;
+    if (val === null || val === undefined) return '';
+    return JSON.stringify(val);
+  }
+
+  function sanitizeArticle(article: any) {
+    if (Array.isArray(article.key_takeaways)) {
+      article.key_takeaways = article.key_takeaways.map(coerceToString);
+    }
+    if (Array.isArray(article.what_this_means_for_us)) {
+      article.what_this_means_for_us = article.what_this_means_for_us.map(coerceToString);
+    }
+    if (article.statistical_data && Array.isArray(article.statistical_data.data)) {
+      article.statistical_data.data = article.statistical_data.data.map((d: any) => ({
+        name: coerceToString(d?.name),
+        value: typeof d?.value === 'number' ? d.value : parseFloat(coerceToString(d?.value)) || 0,
+      }));
+    }
+    const stringFields = ['reframed_headline', 'reframed_summary', 'cultural_lens_analysis'];
+    for (const field of stringFields) {
+      if (article[field] !== null && typeof article[field] === 'object') {
+        article[field] = coerceToString(article[field]);
+      }
+    }
+    return article;
+  }
   
   const articlesOut = articlesRaw.map((raw: any) => {
     if (raw.reframed_headline) {
-      return {
+      return sanitizeArticle({
         id: raw.url_hash,
         url_hash: raw.url_hash,
         category: raw.category,
@@ -163,9 +191,9 @@ apiRouter.get("/news", (req, res) => {
         key_takeaways: safeJSONParse(raw.key_takeaways, []),
         what_this_means_for_us: safeJSONParse(raw.what_this_means_for_us, []),
         statistical_data: raw.statistical_data ? safeJSONParse(raw.statistical_data, null) : null,
-      }
+      });
     } else {
-      return {
+      return sanitizeArticle({
         id: raw.url_hash,
         url_hash: raw.url_hash,
         category: raw.category,
@@ -179,7 +207,7 @@ apiRouter.get("/news", (req, res) => {
         cultural_lens_analysis: "Systemic analysis in queue...",
         key_takeaways: [],
         what_this_means_for_us: []
-      }
+      });
     }
   });
   
@@ -241,9 +269,29 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     let backstoryJson: any = {};
     try {
       backstoryJson = JSON.parse(responseText || '{}');
-      if (typeof backstoryJson.insider_insight === 'object') {
-         backstoryJson.insider_insight = JSON.stringify(backstoryJson.insider_insight);
-      }
+      
+      const coerceField = (val: any): string => {
+        if (typeof val === 'string') return val;
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'object') {
+          return Object.values(val).filter(v => typeof v === 'string').join(' ') || JSON.stringify(val);
+        }
+        return String(val);
+      };
+
+      backstoryJson = {
+        ...backstoryJson,
+        the_past_roots: coerceField(backstoryJson.the_past_roots),
+        ongoing_players: coerceField(backstoryJson.ongoing_players),
+        insider_insight: coerceField(backstoryJson.insider_insight),
+        timeline: Array.isArray(backstoryJson.timeline)
+          ? backstoryJson.timeline.map((item: any) => ({
+              time: coerceField(item?.time),
+              event: coerceField(item?.event),
+            }))
+          : [],
+      };
+      
     } catch(e) {
       console.error("Backstory parse error", e);
     }

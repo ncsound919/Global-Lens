@@ -7,6 +7,13 @@ interface BackstoryData {
   timeline: { time: string; event: string }[];
 }
 
+const safe = (val: any): string => {
+  if (typeof val === 'string') return val;
+  if (!val) return '';
+  if (typeof val === 'object') return Object.values(val).filter(v => typeof v === 'string').join(' ') || JSON.stringify(val);
+  return String(val);
+};
+
 export default function ArticleModal({ 
   articleId, 
   onClose, 
@@ -77,7 +84,7 @@ export default function ArticleModal({
               <div className="space-y-8 text-sm">
                 <div>
                   <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">The Roots</h4>
-                  <p className="text-zinc-300 left-relaxed text-[15px]">{backstory.the_past_roots}</p>
+                  <p className="text-zinc-300 left-relaxed text-[15px]">{safe(backstory.the_past_roots)}</p>
                 </div>
 
                 <div>
@@ -86,8 +93,8 @@ export default function ArticleModal({
                     {backstory.timeline.map((item, idx) => (
                       <div key={idx} className="relative">
                         <div className="absolute w-2 h-2 rounded-full bg-emerald-500/80 -left-[29px] top-1"></div>
-                        <span className="font-bold font-mono text-emerald-400 text-[10px] tracking-widest block mb-1 uppercase">{item.time}</span>
-                        <p className="text-[13px] text-zinc-400 leading-relaxed">{item.event}</p>
+                        <span className="font-bold font-mono text-emerald-400 text-[10px] tracking-widest block mb-1 uppercase">{safe(item?.time)}</span>
+                        <p className="text-[13px] text-zinc-400 leading-relaxed">{safe(item?.event)}</p>
                       </div>
                     ))}
                   </div>
@@ -95,7 +102,7 @@ export default function ArticleModal({
 
                 <div className="bg-emerald-950/20 border border-emerald-900/30 p-5 rounded-xl">
                   <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Systemic Analysis Insight</span>
-                  <p className="text-[13px] mt-2 leading-relaxed text-emerald-100/70">{backstory.insider_insight}</p>
+                  <p className="text-[13px] mt-2 leading-relaxed text-emerald-100/70">{safe(backstory.insider_insight)}</p>
                 </div>
               </div>
             ) : (
