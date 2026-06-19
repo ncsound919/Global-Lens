@@ -330,7 +330,7 @@ export default function App() {
               <SplitViewNewsCard
                 key={article.id || article.url_hash || index}
                 article={article}
-                isDeepLinked={deepLinkedArticle === (article.id || article.url_hash)}
+                isDeepLinked={deepLinkedArticle === String(article.id) || deepLinkedArticle === article.url_hash}
                 onClearDeepLink={() => {
                   setDeepLinkedArticle(null);
                   window.history.replaceState({}, document.title, "/");

@@ -7,6 +7,22 @@ import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 
 // Rate limiting for AI backstory endpoint
+const backstoryLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 50, // 50 requests per minute per IP
+  message: { detail: 'Too many backstory generation requests. Please try again later.' },
+  validate: { xForwardedForHeader: false }
+});
+
+const standardLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  validate: { xForwardedForHeader: false }
+});
+
+export const apiRouter = express.Router();
+apiRouter.use(standardLimiter);
+
 apiRouter.get("/news/:id/share", (req, res) => {
   const articleId = req.params.id;
   const article = db.prepare(`
@@ -14,9 +30,9 @@ apiRouter.get("/news/:id/share", (req, res) => {
            c.reframed_headline, c.cultural_lens_analysis
     FROM articles a
     LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash
-    WHERE a.url_hash = ?
+    WHERE a.url_hash = ? OR a.id = ?
     LIMIT 1
-  `).get(articleId) as any;
+  `).get(articleId, articleId) as any;
 
   if (!article) return res.status(404).send('Not found');
 
@@ -57,22 +73,6 @@ apiRouter.get("/news/:id/share", (req, res) => {
 </body>
 </html>`);
 });
-
-const backstoryLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 50, // 50 requests per minute per IP
-  message: { detail: 'Too many backstory generation requests. Please try again later.' },
-  validate: { xForwardedForHeader: false }
-});
-
-const standardLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
-  validate: { xForwardedForHeader: false }
-});
-
-export const apiRouter = express.Router();
-apiRouter.use(standardLimiter);
 
 // Create simple debounce logic
 let syncTimeout: NodeJS.Timeout;
