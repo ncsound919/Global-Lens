@@ -15,7 +15,6 @@ let roundRobinIndex = 0;
 export const getAvailableProviders = () => {
   const p = [];
   if (process.env.GEMINI_API_KEY) p.push('gemini');
-  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10 && !process.env.OPENAI_API_KEY.includes('YOUR_')) p.push('openai');
   if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY.length > 10) p.push('deepseek');
   if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.length > 10) p.push('openrouter');
   if (process.env.MISTRAL_API_KEY && process.env.MISTRAL_API_KEY.length > 10 && !process.env.MISTRAL_API_KEY.includes('MY_')) p.push('mistral');
@@ -46,14 +45,6 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
             }
           });
           return response.text;
-       } else if (provider === 'openai') {
-          const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-          const res = await client.chat.completions.create({
-             model: 'gpt-4o-mini',
-             response_format: { type: 'json_object' },
-             messages: [{ role: 'user', content: prompt }]
-          });
-          if (res.choices[0].message.content) return res.choices[0].message.content;
        } else if (provider === 'deepseek') {
           const client = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com' });
           const res = await client.chat.completions.create({
@@ -73,8 +64,10 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
           if (res.choices[0].message.content) return res.choices[0].message.content;
        } else if (provider === 'mistral') {
           const client = new OpenAI({ apiKey: process.env.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
+          const mistralModels = ['mistral-large-latest', 'mistral-small-latest'];
+          const modelToUse = mistralModels[roundRobinIndex % mistralModels.length];
           const res = await client.chat.completions.create({
-             model: 'mistral-small-latest',
+             model: modelToUse,
              response_format: { type: 'json_object' },
              messages: [{ role: 'user', content: prompt }]
           });

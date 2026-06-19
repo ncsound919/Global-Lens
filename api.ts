@@ -330,6 +330,12 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     return res.json(backstoryJson);
   } catch (e: any) {
     console.error("Backstory generation error:", e);
-    return res.status(500).json({ detail: 'Background context unavailable. Try again shortly.' });
+    return res.status(200).json({
+      the_past_roots: '',
+      ongoing_players: '',
+      insider_insight: '',
+      timeline: [],
+      _unavailable: true
+    });
   }
 });

@@ -63,6 +63,16 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
     );
   }
 
+  if ((backstory as any)._unavailable || (!backstory.the_past_roots && (!backstory.timeline || backstory.timeline.length === 0))) {
+    return (
+      <div className="bg-[#0f0f0f] border border-zinc-900 rounded-sm p-6 h-full min-h-[300px] flex items-center justify-center">
+        <div className="text-center opacity-70">
+           <p className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">CONTEXT TEMPORARILY UNAVAILABLE — RETRY IN A MOMENT</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#0f0f0f] border border-zinc-900 rounded-sm p-6 lg:p-8 h-full flex flex-col overflow-y-auto max-h-[800px] custom-scrollbar">
       <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-500 mb-6 flex items-center gap-2">

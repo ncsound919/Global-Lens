@@ -107,6 +107,10 @@ export default function ArticleModal({
                 <div className="h-4 bg-zinc-800/50 rounded"></div>
                 <div className="h-4 bg-zinc-800/50 rounded w-5/6"></div>
               </div>
+            ) : backstory && ((backstory as any)._unavailable || (!backstory.the_past_roots && (!backstory.timeline || backstory.timeline.length === 0))) ? (
+              <div className="text-xs text-zinc-500 font-mono tracking-widest py-4">
+                CONTEXT TEMPORARILY UNAVAILABLE — RETRY IN A MOMENT
+              </div>
             ) : backstory ? (
               <div className="space-y-8 text-sm">
                 <div>
