@@ -7,6 +7,57 @@ import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 
 // Rate limiting for AI backstory endpoint
+apiRouter.get("/news/:id/share", (req, res) => {
+  const articleId = req.params.id;
+  const article = db.prepare(`
+    SELECT a.original_url, a.image_url, a.source_name, a.pub_date,
+           c.reframed_headline, c.cultural_lens_analysis
+    FROM articles a
+    LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash
+    WHERE a.url_hash = ?
+    LIMIT 1
+  `).get(articleId) as any;
+
+  if (!article) return res.status(404).send('Not found');
+
+  const headline = sanitizeHtml(article.reframed_headline || 'Global Lens Story', { allowedTags: [] });
+  const description = sanitizeHtml((article.cultural_lens_analysis || '').slice(0, 200), { allowedTags: [] });
+  const image = article.image_url || '';
+  const sourceCredit = sanitizeHtml(article.source_name || '', { allowedTags: [] });
+  const canonicalUrl = `${req.protocol}://${req.get('host')}/?article=${articleId}`;
+
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${headline} — Global Lens</title>
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Global Lens" />
+  <meta property="og:title" content="${headline}" />
+  <meta property="og:description" content="${description} | Via ${sourceCredit}" />
+  <meta property="og:url" content="${canonicalUrl}" />
+  ${image ? `<meta property="og:image" content="${image}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />` : ''}
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${headline}" />
+  <meta name="twitter:description" content="${description} | Via ${sourceCredit}" />
+  ${image ? `<meta name="twitter:image" content="${image}" />` : ''}
+
+  <!-- Redirect humans to the app, crawlers stay for OG tags -->
+  <meta http-equiv="refresh" content="0;url=${canonicalUrl}" />
+</head>
+<body>
+  <p>Redirecting to Global Lens... <a href="${canonicalUrl}">Click here</a></p>
+</body>
+</html>`);
+});
+
 const backstoryLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 50, // 50 requests per minute per IP

@@ -16,18 +16,46 @@ const safe = (val: any): string => {
   return JSON.stringify(val);
 };
 
-const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => {
+const SplitViewNewsCard: React.FC<{ 
+  article: ArticleProps;
+  isDeepLinked?: boolean;
+  onClearDeepLink?: () => void;
+}> = ({ article, isDeepLinked, onClearDeepLink }) => {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const modalScrollRef = React.useRef(0);
 
-  const shareUrl = encodeURIComponent(article.original_url || window.location.href);
+  useEffect(() => {
+    if (isDeepLinked) {
+      setShowModal(true);
+    }
+  }, [isDeepLinked]);
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    if (onClearDeepLink) onClearDeepLink();
+  };
+
+  const shareUrl = `${window.location.origin}/api/news/${article.id || article.url_hash}/share`;
+  const shareUrlEncoded = encodeURIComponent(shareUrl);
   const shareText = encodeURIComponent(`"${safe(article.reframed_headline)}" - via Black Global Lens`);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(`${safe(article.reframed_headline)}\n\n${safe(article.cultural_lens_analysis)}\n\n${article.original_url}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (navigator.share) {
+      navigator.share({
+        title: safe(article.reframed_headline),
+        text: `${safe(article.cultural_lens_analysis)?.slice(0, 100)}... | Source: ${article.source_name}`,
+        url: shareUrl
+      }).catch((e) => {
+        navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const getRelativeTime = (date: string) => {
@@ -110,6 +138,12 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
             <p className="text-zinc-300 text-lg lg:text-xl font-serif leading-relaxed">
               {safe(article.cultural_lens_analysis)}
             </p>
+            <p className="text-[10px] text-zinc-600 font-mono tracking-widest mt-4">
+              SOURCE // <a href={article.original_url} target="_blank" rel="noopener noreferrer"
+                className="hover:text-zinc-400 transition-colors mr-1 underline-offset-2 hover:underline">
+                {article.source_name}
+              </a>
+            </p>
           </div>
 
           {article.what_this_means_for_us && article.what_this_means_for_us.length > 0 && (
@@ -178,7 +212,7 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
                    )}
                  </button>
                  <a 
-                   href={`https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}`}
+                   href={`https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrlEncoded}`}
                    target="_blank"
                    rel="noreferrer"
                    className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
@@ -187,7 +221,7 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
                    <TwitterIcon />
                  </a>
                  <a 
-                   href={`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`}
+                   href={`https://www.facebook.com/sharer/sharer.php?u=${shareUrlEncoded}`}
                    target="_blank"
                    rel="noreferrer"
                    className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
@@ -196,7 +230,7 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
                    <FacebookIcon />
                  </a>
                  <a 
-                   href={`https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`}
+                   href={`https://www.linkedin.com/sharing/share-offsite/?url=${shareUrlEncoded}`}
                    target="_blank"
                    rel="noreferrer"
                    className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"

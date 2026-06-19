@@ -35,9 +35,17 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const isOnlineRef = useRef(isOnline);
 
+  const [deepLinkedArticle, setDeepLinkedArticle] = useState<string | null>(null);
+
   useEffect(() => {
     isOnlineRef.current = isOnline;
   }, [isOnline]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const articleId = params.get('article');
+    if (articleId) setDeepLinkedArticle(articleId);
+  }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasLoadedOnceRef = useRef(false);
@@ -322,6 +330,11 @@ export default function App() {
               <SplitViewNewsCard
                 key={article.id || article.url_hash || index}
                 article={article}
+                isDeepLinked={deepLinkedArticle === (article.id || article.url_hash)}
+                onClearDeepLink={() => {
+                  setDeepLinkedArticle(null);
+                  window.history.replaceState({}, document.title, "/");
+                }}
               />
             ))}
           </section>
