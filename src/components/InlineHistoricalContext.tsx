@@ -21,10 +21,7 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
 
   useEffect(() => {
     setLoading(true);
-    let sid = localStorage.getItem('session_id') || 'default_session';
-    fetch(`/api/news/${encodeURIComponent(articleId)}/backstory`, {
-      headers: { 'x-session-id': sid }
-    })
+    fetch(`/api/news/${encodeURIComponent(articleId)}/backstory`)
       .then(async (res) => {
          if (!res.ok) throw new Error(await res.text());
          return res.json();
@@ -78,6 +75,13 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
           <h5 className="text-[10px] uppercase font-bold tracking-[0.15em] text-zinc-500 mb-3 border-b border-zinc-800 pb-2">The Roots</h5>
           <p className="text-zinc-300 font-serif leading-relaxed text-sm lg:text-base">{safe(backstory.the_past_roots)}</p>
         </div>
+
+        {backstory.ongoing_players && (
+          <div>
+            <h5 className="text-[10px] uppercase font-bold tracking-[0.15em] text-zinc-500 mb-3 border-b border-zinc-800 pb-2">Key Players</h5>
+            <p className="text-zinc-300 font-serif leading-relaxed text-sm lg:text-base">{safe(backstory.ongoing_players)}</p>
+          </div>
+        )}
 
         <div>
            <h5 className="text-[10px] uppercase font-bold tracking-[0.15em] text-zinc-500 mb-4 border-b border-zinc-800 pb-2">Timeline</h5>

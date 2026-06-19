@@ -11,7 +11,16 @@ interface AnalyticsChartProps {
 }
 
 export default function AnalyticsChart({ data }: AnalyticsChartProps) {
-  if (!data || !data.data || data.data.length === 0) return null;
+  if (!data || !data.data || data.data.length === 0) {
+    return (
+      <div className="bg-[#0f0f0f] border border-zinc-900 rounded-sm p-6 mt-6 md:mt-0 h-full flex flex-col items-center justify-center text-center px-10">
+        <span className="w-10 h-10 border border-zinc-800 rounded-full flex items-center justify-center text-zinc-600 mb-4 bg-zinc-950">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none"><path d="M18 20V10M12 20V4M6 20v-6"></path></svg>
+        </span>
+        <p className="text-zinc-500 font-serif text-sm tracking-wide">No quantitative data available for this story.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#0f0f0f] border border-zinc-900 rounded-sm p-6 mt-6 md:mt-0 h-full flex flex-col">

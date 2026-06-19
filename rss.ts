@@ -17,7 +17,15 @@ const parser = new Parser({
 let isSyncing = false;
 let needsSync = false;
 
-const feedHealth = new Map<string, number>();
+const feedHealth = new Map<string, { fails: number, last_success?: number }>();
+
+export function getFeedHealth() {
+  const result: any = {};
+  for (const [url, status] of feedHealth.entries()) {
+    result[url] = status;
+  }
+  return result;
+}
 
 function generateStableHash(sourceName: string, title: string, content: string): string {
   return crypto.createHash('sha256').update(`${sourceName}:${title}:${content.slice(0, 50)}`).digest('hex');
@@ -44,9 +52,10 @@ export async function syncRSSNews() {
     const feedResults = { successes: 0, errors: 0, itemsIngested: 0, skipped: 0 };
 
     for (const feed of feeds) {
-      const fails = feedHealth.get(feed.url) || 0;
+      const status = feedHealth.get(feed.url) || { fails: 0 };
+      const fails = status.fails;
       if (fails >= 3) {
-        feedHealth.set(feed.url, fails - 1);
+        feedHealth.set(feed.url, { ...status, fails: fails - 1 });
         feedResults.skipped++;
         continue;
       }
@@ -56,12 +65,12 @@ export async function syncRSSNews() {
       while (retries > 0 && !parsed) {
         try {
           parsed = await fetchWithTimeout(feed.url, 8000);
-          feedHealth.set(feed.url, 0); // Reset health on success
+          feedHealth.set(feed.url, { fails: 0, last_success: Date.now() }); // Reset health on success
         } catch (err: any) {
           retries--;
           console.warn(`Feed fetch warning for ${feed.url} (retries left: ${retries}) - ${err.message}`);
           if (retries === 0) {
-            feedHealth.set(feed.url, (feedHealth.get(feed.url) || 0) + 1);
+            feedHealth.set(feed.url, { ...status, fails: fails + 1 });
             feedResults.errors++;
           }
           await new Promise(resolve => setTimeout(resolve, 1000));

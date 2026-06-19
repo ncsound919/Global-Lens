@@ -10,6 +10,8 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
   const [lensIntensity, setLensIntensity] = useState('balanced');
   const [regions, setRegions] = useState({ us: true, westAfrica: false, caribbean: true });
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [feedHealth, setFeedHealth] = useState<any>({});
 
   useEffect(() => {
     fetch('/api/user/settings')
@@ -22,7 +24,22 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
         }
       })
       .catch(console.error);
+      
+    fetch('/api/feeds/health')
+      .then(res => res.json())
+      .then(data => setFeedHealth(data.health || {}))
+      .catch(console.error);
   }, []);
+
+  const forceSync = async () => {
+    setSyncing(true);
+    try {
+       await fetch('/api/sync', { method: 'POST' });
+       setTimeout(() => window.dispatchEvent(new Event('settings-updated')), 1500); // Wait a bit then refresh
+    } finally {
+       setTimeout(() => setSyncing(false), 2000);
+    }
+  };
 
   const saveSettings = async () => {
     setLoading(true);
@@ -93,22 +110,77 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
           <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
             <h3 className="text-base font-bold font-serif mb-2 text-white">2. Context Agent Weighting</h3>
             <p className="text-xs text-zinc-500 mb-4 font-mono uppercase tracking-widest">Dictates which analytical documents are injected into the "What This Means For Us" engine.</p>
-            <select 
-              value={lensIntensity} 
-              onChange={(e) => setLensIntensity(e.target.value)}
-              className="w-full md:w-2/3 p-3 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-zinc-200 focus:border-amber-500 focus:outline-none transition-colors"
-            >
-              <option value="balanced">Balanced Sync (Domestic + Transnational Frameworks)</option>
-              <option value="hyper_local">Hyper-Local (Focus heavily on domestic economic equity data)</option>
-              <option value="pan_african">Pan-African (Prioritize Global South trade & historical diaspora context)</option>
-            </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { value: 'balanced', label: 'Balanced', desc: 'Mixes domestic trends with transnational perspectives.' },
+                { value: 'hyper_local', label: 'Hyper-Local', desc: 'Focuses heavily on domestic class and economic equity.' },
+                { value: 'pan_african', label: 'Pan-African', desc: 'Prioritizes Global South solidarity and historical diaspora connections.' },
+                { value: 'indigenous', label: 'Indigenous', desc: 'Centers land rights, ancestral histories, and environmental justice.' },
+                { value: 'marxist', label: 'Marxist', desc: 'Analyzes stories purely through a lens of class struggle and capital.' },
+                { value: 'decolonial', label: 'Decolonial', desc: 'Examines and challenges enduring colonial legacies and imperial power dynamics.' },
+              ].map(lens => (
+                <button
+                  key={lens.value}
+                  onClick={() => setLensIntensity(lens.value)}
+                  className={`p-4 border rounded-lg text-left transition-all cursor-pointer ${
+                    lensIntensity === lens.value
+                      ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-semibold shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                      : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <span className="block text-sm tracking-wide">{lens.label}</span>
+                  <span className={`text-[11px] block font-normal mt-2 leading-relaxed ${lensIntensity === lens.value ? 'text-emerald-400/80' : 'text-zinc-500'}`}>
+                    {lens.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
           </section>
 
-          {/* SECTION 3: SUBSCRIPTION & SUPPORT */}
+          {/* SECTION 3: DATA SOURCES & SYNC */}
+          <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
+            <div className="flex items-center justify-between mb-2">
+               <h3 className="text-base font-bold font-serif text-white">3. Data Sources & Sync</h3>
+               <button 
+                  onClick={forceSync} 
+                  disabled={syncing}
+                  className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] uppercase font-bold tracking-widest text-white disabled:opacity-50 transition-colors"
+               >
+                  {syncing ? 'Syncing...' : 'Force Sync Now'}
+               </button>
+            </div>
+            <p className="text-xs text-zinc-500 mb-4 font-mono uppercase tracking-widest">Live health of editorial ingestion pipelines.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pr-2">
+               {Object.entries(feedHealth).map(([url, status]: any) => {
+                 let host = url;
+                 try { host = new URL(url).hostname.replace('www.', ''); } catch (e) {}
+                 const msAgo = status.last_success ? Date.now() - status.last_success : null;
+                 const minsAgo = msAgo ? Math.floor(msAgo / 60000) : null;
+                 const timeLabel = minsAgo !== null ? (minsAgo === 0 ? 'just now' : `${minsAgo}m ago`) : 'Never';
+                 const isDead = status.fails >= 3;
+                 return (
+                   <div key={url} className="flex flex-col p-3 bg-[#0a0a0a] border border-zinc-800/60 rounded">
+                     <span className="text-xs font-mono text-zinc-300 truncate">{host}</span>
+                     <div className="flex items-center justify-between mt-2">
+                        <span className={`text-[9.5px] uppercase tracking-widest flex items-center gap-1.5 font-bold ${isDead ? 'text-red-500' : 'text-emerald-500'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isDead ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+                          {isDead ? 'Feed Unavailable' : 'Active'}
+                        </span>
+                        <span className="text-[9px] text-zinc-500 font-mono">
+                          {isDead ? `Fails: ${status.fails}` : `Synced ${timeLabel}`}
+                        </span>
+                     </div>
+                   </div>
+                 )
+               })}
+            </div>
+          </section>
+
+          {/* SECTION 4: SUBSCRIPTION & SUPPORT */}
           <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold font-serif mb-2 text-white shadow-amber-500/10">3. Support Black Global Lens</h3>
+                  <h3 className="text-base font-bold font-serif mb-2 text-white shadow-amber-500/10">4. Support Black Global Lens</h3>
                   <p className="text-sm text-zinc-400">Premium AI features and API costs are sustained entirely by community contributions.</p>
                 </div>
                 <div className="text-right">

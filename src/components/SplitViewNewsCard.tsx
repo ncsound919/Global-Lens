@@ -4,7 +4,7 @@ import ArticleModal from './ArticleModal';
 import CommunityTakeawaysWidget from './CommunityTakeawaysWidget';
 import AnalyticsChart from './AnalyticsChart';
 import InlineHistoricalContext from './InlineHistoricalContext';
-import { Share2 } from 'lucide-react';
+import { Share2, ClipboardCopy, CheckCircle2 } from 'lucide-react';
 
 const TwitterIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>;
 const FacebookIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>;
@@ -18,9 +18,41 @@ const safe = (val: any): string => {
 
 const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => {
   const [showModal, setShowModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const modalScrollRef = React.useRef(0);
 
   const shareUrl = encodeURIComponent(article.original_url || window.location.href);
   const shareText = encodeURIComponent(`"${safe(article.reframed_headline)}" - via Black Global Lens`);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(`${safe(article.reframed_headline)}\n\n${safe(article.cultural_lens_analysis)}\n\n${article.original_url}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getRelativeTime = (date: string) => {
+    if (!date) return '';
+    const d = new Date(date);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - d.getTime()) / 60000);
+    if (diffInMinutes < 60) return `${Math.max(1, diffInMinutes)}m ago`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays}d ago`;
+  };
+
+  const wordCount = (safe(article.cultural_lens_analysis)?.length || 0) + (article.key_takeaways?.join(' ')?.length || 0);
+  const readTime = Math.max(1, Math.ceil(wordCount / 1000));
+
+  const getIntensityBars = (intensity: string) => {
+    switch(intensity) {
+      case 'pan_african': case 'marxist': case 'decolonial': return 3;
+      case 'hyper_local': case 'indigenous': return 2;
+      default: return 1;
+    }
+  };
+  const bars = getIntensityBars(article.lens_intensity || 'balanced');
 
   return (
     <section className="group mb-12 flex flex-col overflow-hidden rounded-sm border border-zinc-900 bg-[#0c0c0c] transition-all duration-500 hover:border-zinc-800 hover:shadow-2xl">
@@ -30,8 +62,13 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
             <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-amber-500 opacity-40"></span>
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500"></span>
           </span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
-             Editorial Reframing
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
+             <span>Editorial Reframing</span>
+             <span className="flex gap-0.5 ml-2">
+               {[1,2,3].map(i => (
+                 <span key={i} className={`w-1 h-2 rounded-[1px] ${i <= bars ? 'bg-amber-500' : 'bg-zinc-800'}`}></span>
+               ))}
+             </span>
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -50,9 +87,14 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
         {/* Primary View: Cultural Lens Analysis */}
         <div className="col-span-1 flex flex-col md:col-span-7">
           {article.category && (
-            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500 mb-2">
-              {article.category.replace('_', ' ')}
-            </span>
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500">
+                {article.category.replace(/_/g, ' ')}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
+                ~{readTime} min read
+              </span>
+            </div>
           )}
           <h2 className="mt-2 mb-6 text-3xl font-medium leading-[1.1] text-white font-serif md:text-5xl lg:text-[3.25rem]">
             {safe(article.reframed_headline)}
@@ -94,21 +136,47 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
           </div>
           
           <div className="mt-auto pt-6 flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between border-t border-zinc-900 lg:pr-8">
-            <div className="flex items-center min-w-0">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-600 mr-3 shrink-0">Source /</span>
-              <a 
-                href={article.original_url} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="text-[11px] uppercase tracking-widest text-zinc-300 hover:text-white transition-colors truncate max-w-[200px] lg:max-w-[300px] border-b border-zinc-800 hover:border-zinc-500 pb-0.5"
-              >
-                {article.source_name}
-              </a>
+            <div className="flex flex-wrap items-center min-w-0 gap-3">
+              <div className="flex items-center min-w-0">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-600 mr-2 shrink-0">Source /</span>
+                <a 
+                  href={article.original_url} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="text-[11px] uppercase tracking-widest text-zinc-300 hover:text-white transition-colors truncate max-w-[150px] lg:max-w-[200px] border-b border-zinc-800 hover:border-zinc-500 pb-0.5"
+                >
+                  {article.source_name}
+                </a>
+              </div>
+              {article.bias && (
+                <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-sm">
+                  {article.bias}
+                </span>
+              )}
+              {article.pub_date && (
+                <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-600">
+                  • {getRelativeTime(article.pub_date)}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-4 shrink-0">
                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest hidden sm:inline-block">Share</span>
                <div className="flex gap-2">
+                 <button
+                   onClick={handleCopy}
+                   className="p-2 flex items-center gap-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
+                   aria-label="Copy summary"
+                 >
+                   {copied ? (
+                     <>
+                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                       <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500 pr-1">Copied</span>
+                     </>
+                   ) : (
+                     <ClipboardCopy className="w-4 h-4" />
+                   )}
+                 </button>
                  <a 
                    href={`https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}`}
                    target="_blank"
@@ -136,24 +204,6 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
                  >
                    <LinkedinIcon />
                  </a>
-                 <button
-                   onClick={() => {
-                     if (navigator.share) {
-                       navigator.share({
-                         title: article.reframed_headline,
-                         text: article.cultural_lens_analysis,
-                         url: article.original_url
-                       });
-                     } else {
-                       navigator.clipboard.writeText(`${article.reframed_headline}\n\n${article.original_url}`);
-                       alert("Link copied to clipboard!");
-                     }
-                   }}
-                   className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all sm:hidden"
-                   aria-label="Share natively"
-                 >
-                   <Share2 className="w-4 h-4" />
-                 </button>
                </div>
             </div>
           </div>
@@ -175,6 +225,8 @@ const SplitViewNewsCard: React.FC<{ article: ArticleProps }> = ({ article }) => 
           onClose={() => setShowModal(false)}
           simplifiedText={safe(article.cultural_lens_analysis)}
           headline={safe(article.reframed_headline)}
+          initialScroll={modalScrollRef.current}
+          onScrollChange={(val) => { modalScrollRef.current = val; }}
         />
       )}
     </section>

@@ -1,6 +1,7 @@
 import express from "express";
 import db from "./db";
-import { syncRSSNews } from "./rss";
+import { syncRSSNews, getFeedHealth } from "./rss";
+import { feeds } from "./feeds";
 import rateLimit from "express-rate-limit";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
@@ -102,8 +103,17 @@ apiRouter.get("/health", (req, res) => {
   }
 });
 
+apiRouter.post("/sync", (req, res) => {
+  syncRSSNews();
+  res.json({ success: true, message: "Sync started" });
+});
+
+apiRouter.get("/feeds/health", (req, res) => {
+  res.json({ health: getFeedHealth() });
+});
+
 const NewsQuerySchema = z.object({
-  category: z.enum(["all", "global", "politics", "africa", "diaspora", "caribbean", "finance", "culture", "health"]).catch("all"),
+  category: z.enum(["all", "global", "politics", "diaspora", "finance", "culture", "health", "music", "sports"]).catch("all"),
   limit: z.coerce.number().min(1).max(50).catch(20),
   offset: z.coerce.number().min(0).catch(0)
 });
@@ -175,12 +185,21 @@ apiRouter.get("/news", (req, res) => {
   }
   
   const articlesOut = articlesRaw.map((raw: any) => {
+    let bias = "independent";
+    const feedConfig = feeds.find(f => f.source_name === raw.source_name || f.url === raw.original_url);
+    if (feedConfig && (feedConfig as any).bias) {
+      bias = (feedConfig as any).bias;
+    }
+    
     if (raw.reframed_headline) {
       return sanitizeArticle({
         id: raw.url_hash,
         url_hash: raw.url_hash,
         category: raw.category,
         source_name: raw.source_name,
+        bias,
+        pub_date: raw.pub_date,
+        lens_intensity: settings.lens_intensity,
         original_title: raw.original_title,
         original_url: raw.original_url,
         image_url: raw.image_url,
@@ -198,6 +217,9 @@ apiRouter.get("/news", (req, res) => {
         url_hash: raw.url_hash,
         category: raw.category,
         source_name: raw.source_name,
+        bias,
+        pub_date: raw.pub_date,
+        lens_intensity: settings.lens_intensity,
         original_title: raw.original_title,
         original_url: raw.original_url,
         image_url: raw.image_url,

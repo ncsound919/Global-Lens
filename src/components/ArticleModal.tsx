@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface BackstoryData {
   the_past_roots: string;
@@ -18,23 +18,34 @@ export default function ArticleModal({
   articleId, 
   onClose, 
   simplifiedText, 
-  headline 
+  headline,
+  initialScroll = 0,
+  onScrollChange
 }: { 
   articleId: number | string, 
   onClose: () => void, 
   simplifiedText: string, 
-  headline: string 
+  headline: string,
+  initialScroll?: number,
+  onScrollChange?: (val: number) => void
 }) {
   const [backstory, setBackstory] = useState<BackstoryData | null>(null);
   const [loadingBackstory, setLoadingBackstory] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Focus and handle Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // Fetch the deep context asset only when the user opens the story view
   useEffect(() => {
     setLoadingBackstory(true);
-    let sid = localStorage.getItem('session_id') || 'default_session';
-    fetch(`/api/news/${encodeURIComponent(articleId)}/backstory`, {
-      headers: { 'x-session-id': sid }
-    })
+    fetch(`/api/news/${encodeURIComponent(articleId)}/backstory`)
       .then(async (res) => {
          if (!res.ok) throw new Error(await res.text());
          return res.json();
@@ -49,9 +60,25 @@ export default function ArticleModal({
       });
   }, [articleId]);
 
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = initialScroll;
+    }
+  }, [initialScroll]);
+
+  const handleScroll = () => {
+    if (scrollContainerRef.current && onScrollChange) {
+      onScrollChange(scrollContainerRef.current.scrollTop);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex justify-end z-50 animate-fade-in">
-      <div className="w-full max-w-2xl bg-zinc-950/90 border-l border-zinc-800 h-full overflow-y-auto p-8 shadow-2xl flex flex-col justify-between">
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="w-full max-w-2xl bg-zinc-950/90 border-l border-zinc-800 h-full overflow-y-auto p-8 shadow-2xl flex flex-col justify-between"
+      >
         
         <div>
           {/* Main Simplified Core View */}
@@ -86,6 +113,13 @@ export default function ArticleModal({
                   <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">The Roots</h4>
                   <p className="text-zinc-300 left-relaxed text-[15px]">{safe(backstory.the_past_roots)}</p>
                 </div>
+
+                {backstory.ongoing_players && (
+                  <div>
+                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">Key Players</h4>
+                    <p className="text-zinc-300 left-relaxed text-[15px]">{safe(backstory.ongoing_players)}</p>
+                  </div>
+                )}
 
                 <div>
                   <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-4">Historical Timeline</h4>

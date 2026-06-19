@@ -15,12 +15,12 @@ const CATEGORIES = [
   'all',
   'global',
   'politics',
-  'africa',
   'diaspora',
-  'caribbean',
   'finance',
   'culture',
   'health',
+  'music',
+  'sports'
 ] as const;
 
 type FetchStatus = 'idle' | 'loading' | 'refreshing' | 'success' | 'error';
@@ -43,7 +43,7 @@ export default function App() {
   const hasLoadedOnceRef = useRef(false);
 
   const pageTitle = useMemo(() => {
-    return category === 'all' ? 'Top Stories' : `${category.replace('_', ' ')} News`;
+    return category === 'all' ? 'Top Stories' : `${category.replace(/_/g, ' ')} News`;
   }, [category]);
 
   const fetchNews = useCallback(
@@ -191,7 +191,12 @@ export default function App() {
                       : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200'
                   }`}
                 >
-                  {c.replace('_', ' ')}
+                  {c.replace(/_/g, ' ')}
+                  {active && articles && articles.length > 0 && category === c && (
+                    <span className="ml-2 bg-black text-amber-500 rounded-full px-1.5 py-0.5 text-[9px]">
+                      {articles.length}
+                    </span>
+                  )}
                 </button>
               );
             })}

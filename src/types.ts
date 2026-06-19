@@ -6,6 +6,9 @@ export interface ArticleProps {
   original_url: string;
   image_url?: string;
   source_name: string;
+  bias?: string;
+  pub_date?: string;
+  lens_intensity?: string;
   original_text_dump?: string;
   reframed_headline: string;
   reframed_summary: string;
