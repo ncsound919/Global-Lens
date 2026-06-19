@@ -33,6 +33,11 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const isOnlineRef = useRef(isOnline);
+
+  useEffect(() => {
+    isOnlineRef.current = isOnline;
+  }, [isOnline]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasLoadedOnceRef = useRef(false);
@@ -82,7 +87,7 @@ export default function App() {
         console.error(err);
         setStatus('error');
         setErrorMessage(
-          isOnline
+          isOnlineRef.current
             ? 'The news pipeline could not be reached right now.'
             : 'You appear to be offline.'
         );

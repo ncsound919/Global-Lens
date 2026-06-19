@@ -8,7 +8,7 @@ import { z } from "zod";
 // Rate limiting for AI backstory endpoint
 const backstoryLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 requests per minute per IP
+  max: 50, // 50 requests per minute per IP
   message: { detail: 'Too many backstory generation requests. Please try again later.' },
   validate: { xForwardedForHeader: false }
 });
@@ -26,9 +26,9 @@ apiRouter.use(standardLimiter);
 let syncTimeout: NodeJS.Timeout;
 
 const SettingsSchema = z.object({
-  readingMode: z.string().optional(),
-  lensIntensity: z.string().optional(),
-  oddsFormat: z.string().optional(),
+  readingMode: z.enum(['simplified', 'executive', 'academic', 'raw']).optional(),
+  lensIntensity: z.enum(['balanced', 'pan_african', 'hyper_local', 'indigenous', 'marxist', 'decolonial']).optional(),
+  oddsFormat: z.enum(['american', 'decimal', 'fractional']).optional(),
   regions: z.record(z.string(), z.boolean()).optional()
 });
 
@@ -241,6 +241,9 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     let backstoryJson: any = {};
     try {
       backstoryJson = JSON.parse(responseText || '{}');
+      if (typeof backstoryJson.insider_insight === 'object') {
+         backstoryJson.insider_insight = JSON.stringify(backstoryJson.insider_insight);
+      }
     } catch(e) {
       console.error("Backstory parse error", e);
     }

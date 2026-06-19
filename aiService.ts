@@ -31,12 +31,14 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
      const provider = providers[roundRobinIndex % providers.length];
      roundRobinIndex++;
 
-     try {
+       try {
        if (provider === 'gemini') {
           const { GoogleGenAI } = await import('@google/genai');
           const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+          const geminiModels = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+          const modelToUse = geminiModels[roundRobinIndex % geminiModels.length];
           const response = await client.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: modelToUse,
             contents: prompt,
             config: {
               responseMimeType: "application/json",
@@ -62,8 +64,10 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
           if (res.choices[0].message.content) return res.choices[0].message.content;
        } else if (provider === 'openrouter') {
           const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
+          const openrouterModels = ['nvidia/llama-3.1-nemotron-70b-instruct:free', 'deepseek/deepseek-chat:free'];
+          const modelToUse = openrouterModels[roundRobinIndex % openrouterModels.length];
           const res = await client.chat.completions.create({
-             model: 'liquid/lfm-40b', // OpenRouter supports various models. Using this or openrouter/auto
+             model: modelToUse,
              messages: [{ role: 'user', content: prompt }]
           });
           if (res.choices[0].message.content) return res.choices[0].message.content;
@@ -117,7 +121,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
 
   if (readingMode === 'raw') {
     db.prepare(`
-      INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
+      INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(article.url_hash, readingMode, lensIntensity, article.original_title, article.original_text_dump, "Raw dispatch. No AI analysis.", JSON.stringify([]), JSON.stringify([]), null);
     return;
@@ -170,7 +174,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
      try {
        const fb = generateDeterministicFallback(article, readingMode, lensIntensity);
        db.prepare(`
-         INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
+         INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        `).run(
          article.url_hash, readingMode, lensIntensity,
@@ -237,6 +241,10 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       let aiResponse: any = null;
       try {
         aiResponse = JSON.parse(responseText || '{}');
+        if (typeof aiResponse.cultural_lens_analysis === 'object') {
+           aiResponse.cultural_lens_analysis = JSON.stringify(aiResponse.cultural_lens_analysis);
+        }
+        
         if (!aiResponse.reframed_headline && !aiResponse.reframed_summary) throw new Error("Empty AI response");
       } catch (e) {
         console.warn("AI JSON parse failure for article:", article.url_hash, "Raw text:", responseText?.substring(0, 200));
@@ -247,7 +255,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       }
 
       db.prepare(`
-        INSERT INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
+        INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         article.url_hash, readingMode, lensIntensity,

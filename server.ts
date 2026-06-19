@@ -15,7 +15,7 @@ syncRSSNews();
 cron.schedule("0 6 * * *", () => {
   console.log("Running scheduled morning RSS sync...");
   syncRSSNews();
-});
+}, { timezone: "UTC" });
 
 async function startServer() {
   // Startup assertions
@@ -31,7 +31,7 @@ async function startServer() {
   
   // Explicit CORS Allowlist
   const allowedOrigins = [
-    process.env.APP_URL, 
+    process.env.APP_URL?.replace(/\/$/, ''), 
     'http://localhost:3000', 
     'http://127.0.0.1:3000'
   ].filter(Boolean) as string[];

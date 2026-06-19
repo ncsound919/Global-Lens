@@ -15,6 +15,7 @@ const parser = new Parser({
 });
 
 let isSyncing = false;
+let needsSync = false;
 
 const feedHealth = new Map<string, number>();
 
@@ -30,10 +31,16 @@ async function fetchWithTimeout(url: string, timeoutMs: number) {
 }
 
 export async function syncRSSNews() {
-  if (isSyncing) return;
+  if (isSyncing) {
+    needsSync = true;
+    return;
+  }
   isSyncing = true;
-  try {
-    console.log("Starting RSS Sync Sweep...");
+  
+  do {
+    needsSync = false;
+    try {
+      console.log("Starting RSS Sync Sweep...");
     const feedResults = { successes: 0, errors: 0, itemsIngested: 0, skipped: 0 };
 
     for (const feed of feeds) {
@@ -139,7 +146,8 @@ export async function syncRSSNews() {
     
   } catch (err) {
     console.error("RSS Sync Master Error", err);
-  } finally {
-    isSyncing = false;
   }
+  } while (needsSync);
+  
+  isSyncing = false;
 }
