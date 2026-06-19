@@ -15,10 +15,10 @@ let roundRobinIndex = 0;
 export const getAvailableProviders = () => {
   const p = [];
   if (process.env.GEMINI_API_KEY) p.push('gemini');
-  if (process.env.OPENAI_API_KEY) p.push('openai');
-  if (process.env.DEEPSEEK_API_KEY) p.push('deepseek');
-  if (process.env.OPENROUTER_API_KEY) p.push('openrouter');
-  if (process.env.MISTRAL_API_KEY) p.push('mistral');
+  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10 && !process.env.OPENAI_API_KEY.includes('YOUR_')) p.push('openai');
+  if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY.length > 10) p.push('deepseek');
+  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.length > 10) p.push('openrouter');
+  if (process.env.MISTRAL_API_KEY && process.env.MISTRAL_API_KEY.length > 10 && !process.env.MISTRAL_API_KEY.includes('MY_')) p.push('mistral');
   return p.length ? p : ['gemini'];
 };
 
@@ -240,7 +240,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       
       let aiResponse: any = null;
       try {
-        aiResponse = JSON.parse(responseText || '{}');
+        const jsonMatch = (responseText || '').match(/\{[\s\S]*\}/);
+        aiResponse = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
         const stringFields = ['reframed_headline', 'reframed_summary', 'cultural_lens_analysis'];
         for (const field of stringFields) {
           if (aiResponse[field] !== null && typeof aiResponse[field] === 'object') {

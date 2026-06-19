@@ -124,7 +124,7 @@ export default function ArticleModal({
                 <div>
                   <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-4">Historical Timeline</h4>
                   <div className="border-l-2 border-zinc-800 ml-2 pl-6 space-y-5 my-2">
-                    {backstory.timeline.map((item, idx) => (
+                    {(backstory.timeline ?? []).map((item, idx) => (
                       <div key={idx} className="relative">
                         <div className="absolute w-2 h-2 rounded-full bg-emerald-500/80 -left-[29px] top-1"></div>
                         <span className="font-bold font-mono text-emerald-400 text-[10px] tracking-widest block mb-1 uppercase">{safe(item?.time)}</span>

@@ -86,7 +86,7 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
         <div>
            <h5 className="text-[10px] uppercase font-bold tracking-[0.15em] text-zinc-500 mb-4 border-b border-zinc-800 pb-2">Timeline</h5>
            <div className="border-l border-zinc-800 ml-1.5 pl-5 space-y-6 my-4">
-             {backstory.timeline.map((item, idx) => (
+             {(backstory.timeline ?? []).map((item, idx) => (
                <div key={idx} className="relative">
                  <div className="absolute w-1.5 h-1.5 rounded-full bg-amber-500 -left-[24px] top-1.5 ring-4 ring-[#0f0f0f]"></div>
                  <span className="font-bold font-mono text-zinc-400 text-[9px] tracking-widest block mb-1 uppercase bg-zinc-900 inline-block px-2 py-0.5 rounded-sm">{safe(item?.time)}</span>

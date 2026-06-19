@@ -286,11 +286,17 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     }
     `;
 
-    const responseText = await callAIConfigured(prompt);
+    const responseText: string = await Promise.race([
+      callAIConfigured(prompt) as Promise<string>,
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('Backstory generation timed out')), 15000)
+      )
+    ]);
     
     let backstoryJson: any = {};
     try {
-      backstoryJson = JSON.parse(responseText || '{}');
+      const jsonMatch = (responseText || '').match(/\{[\s\S]*\}/);
+      backstoryJson = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
       
       const coerceField = (val: any): string => {
         if (typeof val === 'string') return val;

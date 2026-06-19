@@ -5,6 +5,9 @@ import { feeds } from "./feeds";
 import crypto from "crypto";
 
 const parser = new Parser({
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
+  },
   customFields: {
     item: [
       ['media:content', 'mediaContent'],
