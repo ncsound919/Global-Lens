@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { syncRSSNews } from "./rss";
 import { apiRouter } from "./api";
+import db from "./db";
 import cookieParser from "cookie-parser";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
@@ -84,6 +85,48 @@ async function startServer() {
 
   // API Routes
   app.use('/api', apiRouter);
+
+  app.get("/robots.txt", (req, res) => {
+    res.type("text/plain");
+    res.send(`User-agent: *\nAllow: /\nSitemap: ${req.protocol}://${req.get("host")}/sitemap.xml`);
+  });
+
+  app.get("/sitemap.xml", (req, res) => {
+    try {
+      const articles = db.prepare("SELECT url_hash, pub_date FROM articles ORDER BY pub_date DESC LIMIT 1000").all() as any[];
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+
+      // Add homepage
+      xml += `
+  <url>
+    <loc>${baseUrl}/</loc>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>`;
+
+      // Add articles
+      for (const article of articles) {
+        xml += `
+  <url>
+    <loc>${baseUrl}/?article=${article.url_hash}</loc>
+    <lastmod>${new Date(article.pub_date || Date.now()).toISOString()}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+      }
+
+      xml += `\n</urlset>`;
+
+      res.header("Content-Type", "application/xml");
+      res.send(xml);
+    } catch (err) {
+      console.error(err);
+      res.status(500).end();
+    }
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

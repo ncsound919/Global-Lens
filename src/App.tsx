@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import SplitViewNewsCard from './components/SplitViewNewsCard';
 import SettingsDashboard from './components/SettingsDashboard';
+import { PrivacyPolicyModal, TermsOfServiceModal } from './components/LegalModals';
 import { ArticleProps } from './types';
 
 const CATEGORIES = [
@@ -36,6 +37,8 @@ export default function App() {
   const isOnlineRef = useRef(isOnline);
 
   const [deepLinkedArticle, setDeepLinkedArticle] = useState<string | null>(null);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
     isOnlineRef.current = isOnline;
@@ -341,7 +344,19 @@ export default function App() {
         )}
       </main>
 
+      <footer className="w-full border-t border-zinc-900 bg-zinc-950 py-8 text-center text-xs text-zinc-500">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <span>&copy; {new Date().getFullYear()} Black Global Lens. All rights reserved.</span>
+          <div className="flex gap-4">
+            <button onClick={() => setShowPrivacy(true)} className="hover:text-zinc-300">Privacy Policy</button>
+            <button onClick={() => setShowTerms(true)} className="hover:text-zinc-300">Terms of Service</button>
+          </div>
+        </div>
+      </footer>
+
       {showSettings && <SettingsDashboard onClose={() => setShowSettings(false)} />}
+      {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
+      {showTerms && <TermsOfServiceModal onClose={() => setShowTerms(false)} />}
     </div>
   );
 }

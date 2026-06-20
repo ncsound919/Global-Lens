@@ -79,7 +79,7 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
    }
    
    if (lastError) {
-      if (lastError.status === 429 || lastError.message?.includes('429')) {
+      if (lastError.status === 429 || lastError.message?.includes('429') || lastError.status === 402 || lastError.message?.includes('402') || lastError.message?.includes('timed out')) {
          // Silently bubble up rate limits without spam
          throw lastError;
       }
@@ -211,6 +211,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       
       Output strictly valid JSON with NO markdown codeblock wrapping! We need the raw JSON object string.
       Do not invent fabricated statistical sources. If there is real statistical data, include it, otherwise use null for statistical_data.
+      You perform critical content moderation. If the text promotes violence, explicit content, or obvious misinformation without credible framing, set "is_safe" to false and provide a "verification_warning".
       Format:
       {
          "reframed_headline": "Simple clear headline",
@@ -218,6 +219,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
          "cultural_lens_analysis": "Systemic analysis paragraph",
          "key_takeaways": ["point 1", "point 2"],
          "what_this_means_for_us": ["community point 1", "community point 2"],
+         "is_safe": true,
+         "verification_warning": null,
          "statistical_data": {
             "title": "Chart Title", 
             "type": "bar", 
@@ -235,6 +238,13 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       try {
         const jsonMatch = (responseText || '').match(/\{[\s\S]*\}/);
         aiResponse = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+        
+        if (aiResponse.is_safe === false) {
+           console.warn(`[Content Moderation] Article filtered out: ${article.url_hash}. Warning: ${aiResponse.verification_warning}`);
+           db.prepare('DELETE FROM articles WHERE url_hash = ?').run(article.url_hash);
+           return;
+        }
+
         const stringFields = ['reframed_headline', 'reframed_summary', 'cultural_lens_analysis'];
         for (const field of stringFields) {
           if (aiResponse[field] !== null && typeof aiResponse[field] === 'object') {
@@ -273,7 +283,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
         aiResponse.statistical_data ? JSON.stringify(aiResponse.statistical_data) : null
       );
     } catch (e: any) {
-      const isRetryable = e?.status === 429 || e?.message?.includes('429') || e?.status === 503 || e?.message?.includes('503') || e?.status === 500;
+      const isRetryable = e?.status === 429 || e?.message?.includes('429') || e?.status === 402 || e?.message?.includes('402') || e?.message?.includes('timed out') || e?.status === 503 || e?.message?.includes('503') || e?.status === 500;
       if (isRetryable) {
          // Silenced: console.warn(`AI Rate Limit / Transient Error`, article.url_hash);
          insertDeterministicFallback();

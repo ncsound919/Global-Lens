@@ -41,35 +41,40 @@ apiRouter.get("/news/:id/share", (req, res) => {
   const image = article.image_url || '';
   const sourceCredit = sanitizeHtml(article.source_name || '', { allowedTags: [] });
   const canonicalUrl = `${req.protocol}://${req.get('host')}/?article=${articleId}`;
+  const publishedTime = article.pub_date ? new Date(article.pub_date).toISOString() : new Date().toISOString();
 
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${headline} — Global Lens</title>
+  <title>${headline} — Black Global Lens</title>
 
   <!-- Open Graph -->
   <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="Global Lens" />
+  <meta property="og:site_name" content="Black Global Lens" />
   <meta property="og:title" content="${headline}" />
-  <meta property="og:description" content="${description} | Via ${sourceCredit}" />
+  <meta property="og:description" content="${description}" />
   <meta property="og:url" content="${canonicalUrl}" />
   ${image ? `<meta property="og:image" content="${image}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />` : ''}
+  
+  <!-- Article Specific -->
+  <meta property="article:published_time" content="${publishedTime}" />
+  <meta property="article:author" content="${sourceCredit}" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${headline}" />
-  <meta name="twitter:description" content="${description} | Via ${sourceCredit}" />
+  <meta name="twitter:description" content="${description}" />
   ${image ? `<meta name="twitter:image" content="${image}" />` : ''}
 
   <!-- Redirect humans to the app, crawlers stay for OG tags -->
   <meta http-equiv="refresh" content="0;url=${canonicalUrl}" />
 </head>
 <body>
-  <p>Redirecting to Global Lens... <a href="${canonicalUrl}">Click here</a></p>
+  <p>Redirecting to Black Global Lens... <a href="${canonicalUrl}">Click here</a></p>
 </body>
 </html>`);
 });
@@ -154,7 +159,14 @@ apiRouter.get("/health", (req, res) => {
   }
 });
 
-apiRouter.post("/sync", (req, res) => {
+const syncLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 2, // 2 syncs per 5 minutes per IP
+  message: { detail: 'Too many sync requests. Please try again later.' },
+  validate: { xForwardedForHeader: false }
+});
+
+apiRouter.post("/sync", syncLimiter, (req, res) => {
   syncRSSNews();
   res.json({ success: true, message: "Sync started" });
 });
@@ -372,7 +384,7 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
       };
       
     } catch(e) {
-      console.error("Backstory parse error", e);
+      // parse error
     }
 
     db.prepare('INSERT OR REPLACE INTO article_backstory_cache (url_hash, historical_backstory) VALUES (?, ?)').run(
@@ -380,7 +392,10 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     );
     return res.json(backstoryJson);
   } catch (e: any) {
-    console.error("Backstory generation error:", e);
+    const msg = e?.message || '';
+    if (!msg.includes('402') && !msg.includes('429') && !msg.includes('timed out')) {
+      console.error("Backstory generation error:", e);
+    }
     return res.status(200).json({
       the_past_roots: '',
       ongoing_players: '',

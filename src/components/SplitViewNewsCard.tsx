@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArticleProps } from '../types';
 import ArticleModal from './ArticleModal';
 import CommunityTakeawaysWidget from './CommunityTakeawaysWidget';
@@ -44,7 +44,7 @@ const SplitViewNewsCard: React.FC<{
     if (navigator.share) {
       navigator.share({
         title: safe(article.reframed_headline),
-        text: `${safe(article.cultural_lens_analysis)?.slice(0, 100)}... | Source: ${article.source_name}`,
+        text: `${safe(article.cultural_lens_analysis)?.slice(0, 100)}... via Black Global Lens`,
         url: shareUrl
       }).catch((e) => {
         navigator.clipboard.writeText(shareUrl);
@@ -130,7 +130,7 @@ const SplitViewNewsCard: React.FC<{
           
           {article.image_url && (
             <div className="mb-8 rounded-sm overflow-hidden border border-zinc-900 bg-zinc-950">
-               <img src={article.image_url} alt={article.reframed_headline} className="w-full h-auto object-cover max-h-[400px] hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+               <img src={article.image_url} alt={article.reframed_headline} loading="lazy" className="w-full h-auto object-cover max-h-[400px] hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
             </div>
           )}
 
@@ -256,7 +256,7 @@ const SplitViewNewsCard: React.FC<{
       {showModal && (
         <ArticleModal 
           articleId={article.id || 0}
-          onClose={() => setShowModal(false)}
+          onClose={handleCloseModal}
           simplifiedText={safe(article.cultural_lens_analysis)}
           headline={safe(article.reframed_headline)}
           initialScroll={modalScrollRef.current}
