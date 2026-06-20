@@ -48,6 +48,9 @@ export default function ArticleModal({
     fetch(`/api/news/${encodeURIComponent(articleId)}/backstory`)
       .then(async (res) => {
          if (!res.ok) throw new Error(await res.text());
+         if (!res.headers.get("content-type")?.includes("application/json")) {
+           throw new Error("Invalid response");
+         }
          return res.json();
       })
       .then((data) => {

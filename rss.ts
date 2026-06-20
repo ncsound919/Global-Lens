@@ -151,7 +151,11 @@ export async function syncRSSNews() {
       if (unprocessedArticles.length > 0) {
          console.log(`Processing ${unprocessedArticles.length} new articles for config [${config.reading_mode}/${config.lens_intensity}]`);
          for (const article of unprocessedArticles) {
-           await processRawArticleForConfig(article, config.reading_mode, config.lens_intensity);
+           try {
+             await processRawArticleForConfig(article, config.reading_mode, config.lens_intensity);
+           } catch (e: any) {
+             console.error(`Article process threw for ${article.url_hash}:`, e.message);
+           }
          }
       }
     }

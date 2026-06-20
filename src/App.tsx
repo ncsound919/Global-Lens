@@ -10,6 +10,7 @@ import {
 import SplitViewNewsCard from './components/SplitViewNewsCard';
 import SettingsDashboard from './components/SettingsDashboard';
 import { PrivacyPolicyModal, TermsOfServiceModal } from './components/LegalModals';
+import CookieConsent from './components/CookieConsent';
 import { ArticleProps } from './types';
 
 import AuthModal from './components/AuthModal';
@@ -87,6 +88,10 @@ export default function App() {
 
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        if (!response.headers.get("content-type")?.includes("application/json")) {
+           throw new Error("Invalid response");
         }
 
         const data = await response.json();
@@ -193,7 +198,7 @@ export default function App() {
               className="inline-flex h-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 px-5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline sm:ml-2">Sync</span>
+              <span className="hidden sm:inline sm:ml-2">Refresh</span>
             </button>
 
             <button
@@ -368,11 +373,28 @@ export default function App() {
       </main>
 
       <footer className="w-full border-t border-zinc-900 bg-zinc-950 py-8 text-center text-xs text-zinc-500">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <span>&copy; {new Date().getFullYear()} Black Global Lens. All rights reserved.</span>
-          <div className="flex gap-4">
-            <button onClick={() => setShowPrivacy(true)} className="hover:text-zinc-300">Privacy Policy</button>
-            <button onClick={() => setShowTerms(true)} className="hover:text-zinc-300">Terms of Service</button>
+        <div className="flex flex-col items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <span>&copy; {new Date().getFullYear()} Black Global Lens. All rights reserved.</span>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setShowPrivacy(true)} 
+                className="hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-zinc-950 rounded"
+              >
+                Privacy Policy
+              </button>
+              <button 
+                onClick={() => setShowTerms(true)} 
+                className="hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-zinc-950 rounded"
+              >
+                Terms of Service
+              </button>
+            </div>
+          </div>
+          <div className="text-[10px] text-zinc-600 max-w-2xl px-4 mt-2">
+            AI-generated summaries and analyses are provided for educational and context-building purposes. 
+            Original news content is linked and sourced from their respective publishers under fair use principles. 
+            Logos, trademarks, and original headlines belong to their respective owners.
           </div>
         </div>
       </footer>
@@ -386,6 +408,7 @@ export default function App() {
       )}
       {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
       {showTerms && <TermsOfServiceModal onClose={() => setShowTerms(false)} />}
+      <CookieConsent />
     </div>
   );
 }

@@ -10,7 +10,6 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
   const [lensIntensity, setLensIntensity] = useState('balanced');
   const [regions, setRegions] = useState({ us: true, westAfrica: false, caribbean: true });
   const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [feedHealth, setFeedHealth] = useState<any>({});
 
   useEffect(() => {
@@ -30,16 +29,6 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
       .then(data => setFeedHealth(data.health || {}))
       .catch(console.error);
   }, []);
-
-  const forceSync = async () => {
-    setSyncing(true);
-    try {
-       await fetch('/api/sync', { method: 'POST' });
-       setTimeout(() => window.dispatchEvent(new Event('settings-updated')), 1500); // Wait a bit then refresh
-    } finally {
-       setTimeout(() => setSyncing(false), 2000);
-    }
-  };
 
   const saveSettings = async () => {
     setLoading(true);
@@ -141,13 +130,6 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
           <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
             <div className="flex items-center justify-between mb-2">
                <h3 className="text-base font-bold font-serif text-white">3. Data Sources & Sync</h3>
-               <button 
-                  onClick={forceSync} 
-                  disabled={syncing}
-                  className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] uppercase font-bold tracking-widest text-white disabled:opacity-50 transition-colors"
-               >
-                  {syncing ? 'Syncing...' : 'Force Sync Now'}
-               </button>
             </div>
             <p className="text-xs text-zinc-500 mb-4 font-mono uppercase tracking-widest">Live health of editorial ingestion pipelines.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pr-2">

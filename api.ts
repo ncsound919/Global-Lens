@@ -81,9 +81,6 @@ apiRouter.get("/news/:id/share", (req, res) => {
 </html>`);
 });
 
-// Create simple debounce logic
-let syncTimeout: NodeJS.Timeout;
-
 const SettingsSchema = z.object({
   readingMode: z.enum(['simplified', 'executive', 'academic', 'raw']).optional(),
   lensIntensity: z.enum(['balanced', 'pan_african', 'hyper_local', 'indigenous', 'marxist', 'decolonial']).optional(),
@@ -136,12 +133,6 @@ apiRouter.put("/user/settings", (req, res) => {
      JSON.stringify(body.regions || {})
   );
   res.json({ success: true });
-  
-  // Debounce the resync
-  clearTimeout(syncTimeout);
-  syncTimeout = setTimeout(() => {
-    syncRSSNews();
-  }, 1000);
 });
 
 apiRouter.get("/health", (req, res) => {

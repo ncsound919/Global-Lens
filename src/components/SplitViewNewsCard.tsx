@@ -135,6 +135,12 @@ const SplitViewNewsCard: React.FC<{
           )}
 
           <div className="mb-8 lg:pr-8">
+            <div className="flex items-center gap-2 mb-4 text-zinc-500">
+              <span className="flex h-2 w-2 rounded-full bg-red-600 shrink-0"></span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                AI-Generated Cultural Analysis & Context
+              </span>
+            </div>
             <p className="text-zinc-300 text-lg lg:text-xl font-serif leading-relaxed">
               {safe(article.cultural_lens_analysis)}
             </p>
