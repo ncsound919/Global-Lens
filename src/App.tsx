@@ -12,6 +12,8 @@ import SettingsDashboard from './components/SettingsDashboard';
 import { PrivacyPolicyModal, TermsOfServiceModal } from './components/LegalModals';
 import { ArticleProps } from './types';
 
+import AuthModal from './components/AuthModal';
+
 const CATEGORIES = [
   'all',
   'global',
@@ -39,6 +41,8 @@ export default function App() {
   const [deepLinkedArticle, setDeepLinkedArticle] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [user, setUser] = useState<{id: string, email: string} | null>(null);
 
   useEffect(() => {
     isOnlineRef.current = isOnline;
@@ -163,6 +167,25 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            {user ? (
+              <button
+                onClick={() => {
+                  fetch('/api/auth/logout', { method: 'POST' });
+                  setUser(null);
+                }}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 px-5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
+              >
+                Sign Out
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAuth(true)}
+                className="inline-flex h-10 items-center justify-center rounded-full bg-red-600 border border-red-500 px-5 text-[11px] font-bold uppercase tracking-widest text-white transition-all hover:bg-red-500"
+              >
+                Sign In
+              </button>
+            )}
+
             <button
               onClick={() => fetchNews('refresh')}
               disabled={isLoading || isRefreshing}
@@ -355,6 +378,12 @@ export default function App() {
       </footer>
 
       {showSettings && <SettingsDashboard onClose={() => setShowSettings(false)} />}
+      {showAuth && (
+        <AuthModal 
+          onClose={() => setShowAuth(false)} 
+          onSuccess={(u) => { setUser(u); setShowAuth(false); }} 
+        />
+      )}
       {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
       {showTerms && <TermsOfServiceModal onClose={() => setShowTerms(false)} />}
     </div>

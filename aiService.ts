@@ -10,7 +10,10 @@ const PQueue = (PQueueMod as any).default || PQueueMod;
 // Respect limits globally (leave buffer for user actions)
 const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 });
 
-let roundRobinIndex = 0;
+let providerIndex = 0;
+let geminiModelIndex = 0;
+let openrouterModelIndex = 0;
+let mistralModelIndex = 0;
 
 export const getAvailableProviders = () => {
   const p = [];
@@ -27,15 +30,16 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
    let lastError: any = null;
    
    for (let i = 0; i < providers.length; i++) {
-     const provider = providers[roundRobinIndex % providers.length];
-     roundRobinIndex++;
+     const provider = providers[providerIndex % providers.length];
+     providerIndex++;
 
        try {
        if (provider === 'gemini') {
           const { GoogleGenAI } = await import('@google/genai');
           const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-          const geminiModels = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
-          const modelToUse = geminiModels[roundRobinIndex % geminiModels.length];
+          const geminiModels = ['gemini-2.0-flash-001', 'gemini-1.5-flash'];
+          const modelToUse = geminiModels[geminiModelIndex % geminiModels.length];
+          geminiModelIndex++;
           const response = await client.models.generateContent({
             model: modelToUse,
             contents: prompt,
@@ -56,7 +60,8 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
        } else if (provider === 'openrouter') {
           const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: 'https://openrouter.ai/api/v1' });
           const openrouterModels = ['nvidia/llama-3.1-nemotron-70b-instruct:free', 'deepseek/deepseek-chat:free'];
-          const modelToUse = openrouterModels[roundRobinIndex % openrouterModels.length];
+          const modelToUse = openrouterModels[openrouterModelIndex % openrouterModels.length];
+          openrouterModelIndex++;
           const res = await client.chat.completions.create({
              model: modelToUse,
              messages: [{ role: 'user', content: prompt }]
@@ -65,7 +70,8 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
        } else if (provider === 'mistral') {
           const client = new OpenAI({ apiKey: process.env.MISTRAL_API_KEY, baseURL: 'https://api.mistral.ai/v1' });
           const mistralModels = ['mistral-large-latest', 'mistral-small-latest'];
-          const modelToUse = mistralModels[roundRobinIndex % mistralModels.length];
+          const modelToUse = mistralModels[mistralModelIndex % mistralModels.length];
+          mistralModelIndex++;
           const res = await client.chat.completions.create({
              model: modelToUse,
              response_format: { type: 'json_object' },
@@ -75,15 +81,20 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
        }
      } catch (e: any) {
         lastError = e;
+        console.error(JSON.stringify({ 
+            severity: 'ERROR', 
+            message: `AI provider ${provider} failed.`, 
+            error: e.message || e.toString() 
+        }));
      }
    }
    
    if (lastError) {
       if (lastError.status === 429 || lastError.message?.includes('429') || lastError.status === 402 || lastError.message?.includes('402') || lastError.message?.includes('timed out')) {
-         // Silently bubble up rate limits without spam
+         console.error(JSON.stringify({ severity: 'WARNING', message: 'Rate limited or timed out across all providers', error: lastError.message }));
          throw lastError;
       }
-      console.warn(`All AI providers failed. Last error: ${lastError.message || 'Unknown'}`);
+      console.error(JSON.stringify({ severity: 'CRITICAL', message: `All AI providers failed. Last error: ${lastError.message || 'Unknown'}`, error: lastError.message }));
       throw lastError;
    }
    return null;

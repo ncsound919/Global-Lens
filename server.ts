@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { syncRSSNews } from "./rss";
 import { apiRouter } from "./api";
@@ -128,6 +129,49 @@ async function startServer() {
     }
   });
 
+  const renderHtml = async (req: express.Request, res: express.Response, rawHtml: string) => {
+    const articleId = req.query.article as string;
+    let finalHtml = rawHtml;
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+    if (articleId) {
+      try {
+        const article = db.prepare(`
+          SELECT a.original_url, a.image_url, a.source_name, a.pub_date,
+                 c.reframed_headline, c.cultural_lens_analysis
+          FROM articles a
+          LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash
+          WHERE a.url_hash = ? OR a.id = ?
+          LIMIT 1
+        `).get(articleId, articleId) as any;
+
+        if (article) {
+          const headline = (article.reframed_headline || 'Global Lens Story').replace(/"/g, '&quot;');
+          const description = (article.cultural_lens_analysis || '').slice(0, 200).replace(/"/g, '&quot;');
+          const image = article.image_url || '';
+          const canonicalUrl = `${baseUrl}/?article=${articleId}`;
+
+          const ogTags = `
+            <title>${headline} — Black Global Lens</title>
+            <link rel="canonical" href="${canonicalUrl}" />
+            <meta property="og:type" content="article" />
+            <meta property="og:title" content="${headline}" />
+            <meta property="og:description" content="${description}" />
+            <meta property="og:url" content="${canonicalUrl}" />
+            ${image ? `<meta property="og:image" content="${image}" />` : ''}
+            <meta name="twitter:card" content="summary_large_image" />
+          `;
+          finalHtml = finalHtml.replace(/<title>.*?<\/title>/, ogTags);
+        }
+      } catch (err) {
+        console.error("Error generating OG tags", err);
+      }
+    } else {
+       finalHtml = finalHtml.replace('</head>', `<link rel="canonical" href="${baseUrl}/" />\n  </head>`);
+    }
+    res.send(finalHtml);
+  };
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -135,12 +179,25 @@ async function startServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
+    
+    app.use("*", async (req, res, next) => {
+      try {
+        const url = req.originalUrl;
+        let template = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf-8");
+        template = await vite.transformIndexHtml(url, template);
+        await renderHtml(req, res, template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
   } else {
     // Production static serving
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, { index: false }));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      const template = fs.readFileSync(path.join(distPath, "index.html"), "utf-8");
+      renderHtml(req, res, template);
     });
   }
 

@@ -5,6 +5,8 @@ import { feeds } from "./feeds";
 import rateLimit from "express-rate-limit";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+import { v4 as uuidv4 } from "uuid";
 
 // Rate limiting for AI backstory endpoint
 const backstoryLimiter = rateLimit({
@@ -404,4 +406,57 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
       _unavailable: true
     });
   }
+});
+
+const AuthSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6)
+});
+
+apiRouter.post("/auth/register", async (req, res) => {
+  try {
+    const parsed = AuthSchema.parse(req.body);
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(parsed.email);
+    if (existing) return res.status(400).json({ error: "Email already exists" });
+
+    const id = uuidv4();
+    const hash = await bcrypt.hash(parsed.password, 10);
+    db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)').run(id, parsed.email, hash);
+    
+    // Auto login
+    const sessionId = uuidv4();
+    db.prepare('INSERT INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, id);
+    res.cookie('bgl_session', sessionId, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
+    
+    res.json({ success: true, user: { id, email: parsed.email } });
+  } catch(e: any) {
+    res.status(400).json({ error: e.message || "Registration failed" });
+  }
+});
+
+apiRouter.post("/auth/login", async (req, res) => {
+  try {
+    const parsed = AuthSchema.parse(req.body);
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(parsed.email) as any;
+    if (!user || !(await bcrypt.compare(parsed.password, user.password_hash))) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const sessionId = uuidv4();
+    db.prepare('INSERT INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, user.id);
+    res.cookie('bgl_session', sessionId, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
+    
+    res.json({ success: true, user: { id: user.id, email: user.email } });
+  } catch(e: any) {
+    res.status(400).json({ error: "Login failed" });
+  }
+});
+
+apiRouter.post("/auth/logout", (req, res) => {
+  const sessionId = (req as any).sessionId;
+  if (sessionId) {
+    db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
+  }
+  res.clearCookie('bgl_session');
+  res.json({ success: true });
 });
