@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
 import cron from "node-cron";
+import rateLimit from "express-rate-limit";
 
 // kick off initial sync in bg
 syncRSSNews();
@@ -84,8 +85,14 @@ async function startServer() {
     next();
   });
 
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    validate: { xForwardedForHeader: false }
+  });
+
   // API Routes
-  app.use('/api', apiRouter);
+  app.use('/api', apiLimiter, apiRouter);
 
   app.get("/robots.txt", (req, res) => {
     res.type("text/plain");
@@ -129,6 +136,12 @@ async function startServer() {
     }
   });
 
+  let cachedProdTemplate: string | null = null;
+  if (isProd) {
+    const distPath = path.join(process.cwd(), "dist");
+    cachedProdTemplate = fs.readFileSync(path.join(distPath, "index.html"), "utf-8");
+  }
+
   const renderHtml = async (req: express.Request, res: express.Response, rawHtml: string) => {
     const articleId = req.query.article as string;
     let finalHtml = rawHtml;
@@ -148,26 +161,28 @@ async function startServer() {
         if (article) {
           const headline = (article.reframed_headline || 'Global Lens Story').replace(/"/g, '&quot;');
           const description = (article.cultural_lens_analysis || '').slice(0, 200).replace(/"/g, '&quot;');
-          const image = article.image_url || '';
+          const image = article.image_url || `${baseUrl}/og-default.jpg`;
           const canonicalUrl = `${baseUrl}/?article=${articleId}`;
 
           const ogTags = `
-            <title>${headline} — Black Global Lens</title>
-            <link rel="canonical" href="${canonicalUrl}" />
             <meta property="og:type" content="article" />
             <meta property="og:title" content="${headline}" />
             <meta property="og:description" content="${description}" />
             <meta property="og:url" content="${canonicalUrl}" />
-            ${image ? `<meta property="og:image" content="${image}" />` : ''}
+            <meta property="og:image" content="${image}" />
             <meta name="twitter:card" content="summary_large_image" />
           `;
-          finalHtml = finalHtml.replace(/<title>.*?<\/title>/, ogTags);
+          
+          const titleTag = `<title>${headline} — Black Global Lens</title>`;
+          finalHtml = finalHtml
+            .replace(/<title>.*?<\/title>/, titleTag)
+            .replace('</head>', `    <link rel="canonical" href="${canonicalUrl}" />\n    ${ogTags}\n  </head>`);
         }
       } catch (err) {
         console.error("Error generating OG tags", err);
       }
     } else {
-       finalHtml = finalHtml.replace('</head>', `<link rel="canonical" href="${baseUrl}/" />\n  </head>`);
+       finalHtml = finalHtml.replace('</head>', `    <link rel="canonical" href="${baseUrl}/" />\n  </head>`);
     }
     res.send(finalHtml);
   };
@@ -196,8 +211,7 @@ async function startServer() {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath, { index: false }));
     app.get("*", (req, res) => {
-      const template = fs.readFileSync(path.join(distPath, "index.html"), "utf-8");
-      renderHtml(req, res, template);
+      renderHtml(req, res, cachedProdTemplate as string);
     });
   }
 

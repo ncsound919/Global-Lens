@@ -25,12 +25,12 @@ export const PrivacyPolicyModal: React.FC<LegalModalProps> = ({ onClose }) => (
       <div className="p-6 overflow-y-auto font-sans text-zinc-300 leading-relaxed space-y-6 text-sm">
         <h3 className="text-lg font-medium text-white mb-2">1. Information We Collect</h3>
         <p>
-          We automatically collect certain information when you visit, use, or navigate the Services. This information does not reveal your specific identity but may include device and usage information, such as your IP address, browser and device characteristics, operating system, language preferences, referring URLs, device name, country, location, information about how and when you use our Services, and other technical information.
+          We collect personal information that you voluntarily provide to us when you register on the Services. The personal information that we collect depends on the context of your interactions with us and the Services, the choices you make, and the products and features you use. The personal information we collect may include the following: email addresses and passwords. Passwords are cryptographically hashed and never stored in plain text.
         </p>
 
         <h3 className="text-lg font-medium text-white mb-2">2. How We Use Your Information</h3>
         <p>
-          We process your information for purposes based on legitimate business interests, the fulfillment of our contract with you, compliance with our legal obligations, and/or your consent. This includes rendering personalized news feeds, maintaining system health, and ensuring basic application functionality. We do not sell your personal data to third parties.
+          We process your information for purposes based on legitimate business interests, the fulfillment of our contract with you, compliance with our legal obligations, and/or your consent. This includes rendering personalized news feeds, account authentication, maintaining system health, and ensuring basic application functionality. We do not sell your personal data to third parties.
         </p>
 
         <h3 className="text-lg font-medium text-white mb-2">3. Intellectual Property Rights</h3>
@@ -80,7 +80,7 @@ export const TermsOfServiceModal: React.FC<LegalModalProps> = ({ onClose }) => (
 
         <h3 className="text-lg font-medium text-white mb-2">3. User Representations</h3>
         <p>
-          By using the Service, you represent and warrant that: (1) you have the legal capacity and you agree to comply with these Terms of Use; (2) you are not a minor in the jurisdiction in which you reside; (3) you will not access the Service through automated or non-human means, whether through a bot, script or otherwise.
+          By using the Service, you represent and warrant that: (1) all registration information you submit will be true, accurate, current, and complete; (2) you will maintain the accuracy of such information and promptly update such registration information as necessary; (3) you have the legal capacity and you agree to comply with these Terms of Use; (4) you are not a minor in the jurisdiction in which you reside; (5) you will not access the Service through automated or non-human means, whether through a bot, script or otherwise.
         </p>
       </div>
 

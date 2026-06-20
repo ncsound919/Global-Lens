@@ -20,7 +20,7 @@ WORKDIR /app
 # Copy built assets
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+RUN npm ci --omit=dev
 
 # Expose port
 EXPOSE 3000

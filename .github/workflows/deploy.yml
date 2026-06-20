@@ -37,3 +37,9 @@ jobs:
           region: us-central1
           env_vars: |
             NODE_ENV=production
+          secrets: |
+            GEMINI_API_KEY=GEMINI_API_KEY:latest
+            OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest
+            MISTRAL_API_KEY=MISTRAL_API_KEY:latest
+            SESSION_SECRET=SESSION_SECRET:latest
+            APP_URL=APP_URL:latest
