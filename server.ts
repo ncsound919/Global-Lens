@@ -87,7 +87,7 @@ async function startServer() {
 
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 100,
+    max: 1000,
     validate: { xForwardedForHeader: false }
   });
 

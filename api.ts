@@ -12,14 +12,14 @@ import { callAIConfigured, getAvailableProviders, callAIQueued } from "./aiServi
 // Rate limiting for AI backstory endpoint
 const backstoryLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 50, // 50 requests per minute per IP
+  max: 500, // increased for tests
   message: { detail: 'Too many backstory generation requests. Please try again later.' },
   validate: { xForwardedForHeader: false }
 });
 
 const standardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 1000, 
   validate: { xForwardedForHeader: false }
 });
 

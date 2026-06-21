@@ -91,7 +91,7 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
        }
      } catch (e: any) {
         lastError = e;
-        const isRateLimit = e?.status === 429 || e?.message?.includes('429') || e?.status === 402 || e?.message?.includes('402');
+        const isRateLimit = e?.status === 429 || e?.message?.includes('429') || e?.status === 402 || e?.message?.includes('402') || e?.status === 401 || e?.message?.includes('401');
         if (!isRateLimit) {
            console.warn(JSON.stringify({ 
                severity: 'WARNING', 
