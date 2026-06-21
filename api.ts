@@ -7,6 +7,7 @@ import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
+import { callAIConfigured, getAvailableProviders, callAIQueued } from "./aiService";
 
 // Rate limiting for AI backstory endpoint
 const backstoryLimiter = rateLimit({
@@ -42,7 +43,8 @@ apiRouter.get("/news/:id/share", (req, res) => {
   const description = sanitizeHtml((article.cultural_lens_analysis || '').slice(0, 200), { allowedTags: [] });
   const image = article.image_url || '';
   const sourceCredit = sanitizeHtml(article.source_name || '', { allowedTags: [] });
-  const canonicalUrl = `${req.protocol}://${req.get('host')}/?article=${articleId}`;
+  const baseUrl = process.env.PUBLIC_URL || process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+  const canonicalUrl = `${baseUrl}/?article=${articleId}`;
   const publishedTime = article.pub_date ? new Date(article.pub_date).toISOString() : new Date().toISOString();
 
   res.setHeader('Content-Type', 'text/html');
@@ -313,7 +315,6 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
   }
 
   try {
-    const { callAIConfigured, getAvailableProviders } = await import('./aiService');
     const providers = getAvailableProviders();
     if (providers.length === 0 || (providers.length === 1 && providers[0] === 'gemini' && !process.env.GEMINI_API_KEY)) {
       throw new Error("No AI API keys are configured");
@@ -343,9 +344,9 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     `;
 
     const responseText: string = await Promise.race([
-      callAIConfigured(prompt) as Promise<string>,
+      callAIQueued(prompt) as Promise<string>,
       new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Backstory generation timed out')), 15000)
+        setTimeout(() => reject(new Error('Backstory generation timed out')), 90000)
       )
     ]);
     

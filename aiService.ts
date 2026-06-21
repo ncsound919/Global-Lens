@@ -4,6 +4,7 @@ import path from "path";
 import { ArticleProps } from "./src/types";
 import PQueueMod from 'p-queue';
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 
 const PQueue = (PQueueMod as any).default || PQueueMod;
 
@@ -17,15 +18,18 @@ let mistralModelIndex = 0;
 
 export const getAvailableProviders = () => {
   const p = [];
-  if (process.env.OPENCODE_API_KEY && process.env.OPENCODE_API_KEY.length > 10) p.push('opencode');
-  if (process.env.GEMINI_API_KEY) p.push('gemini');
+  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.length > 10 && !process.env.OPENROUTER_API_KEY.includes('OPENROUTER_API_KEY')) p.push('openrouter');
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10 && !process.env.GEMINI_API_KEY.includes('GEMINI_API_KEY')) p.push('gemini');
   if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY.length > 10) p.push('deepseek');
   if (process.env.MISTRAL_API_KEY && process.env.MISTRAL_API_KEY.length > 10 && !process.env.MISTRAL_API_KEY.includes('MY_')) p.push('mistral');
-  return p.length ? p : ['opencode', 'gemini'];
+  return p;
 };
+
+export const callAIQueued = (prompt: string) => aiQueue.add(() => callAIConfigured(prompt));
 
 export const callAIConfigured = async (prompt: string): Promise<string | null> => {
    const providers = getAvailableProviders();
+   if (!providers.length) throw new Error("No AI API keys are configured.");
    
    let lastError: any = null;
    
@@ -35,9 +39,8 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
 
        try {
        if (provider === 'gemini') {
-          const { GoogleGenAI } = await import('@google/genai');
           const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-          const geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+          const geminiModels = ['gemini-2.0-flash'];
           const modelToUse = geminiModels[geminiModelIndex % geminiModels.length];
           geminiModelIndex++;
           const response = await client.models.generateContent({
@@ -57,10 +60,17 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
              messages: [{ role: 'user', content: prompt }]
           });
           if (res.choices && res.choices[0] && res.choices[0].message.content) return res.choices[0].message.content;
-       } else if (provider === 'opencode') {
-          const client = new OpenAI({ apiKey: process.env.OPENCODE_API_KEY, baseURL: 'https://api.opencode.ai/v1' });
-          const opencodeModels = ['deepseek-v4-flash-free', 'nemotron-3-free'];
-          const modelToUse = opencodeModels[openrouterModelIndex % opencodeModels.length];
+       } else if (provider === 'openrouter') {
+          const client = new OpenAI({ 
+             apiKey: process.env.OPENROUTER_API_KEY, 
+             baseURL: 'https://openrouter.ai/api/v1',
+             defaultHeaders: {
+               "HTTP-Referer": process.env.APP_URL || "https://local.io",
+               "X-Title": "Black Global Lens",
+             }
+          });
+          const openrouterModels = ['nvidia/llama-3.1-nemotron-70b-instruct:free', 'deepseek/deepseek-chat:free', 'google/gemini-2.0-flash-lite-preview-02-05:free', 'google/gemini-2.0-pro-exp-02-05:free'];
+          const modelToUse = openrouterModels[openrouterModelIndex % openrouterModels.length];
           openrouterModelIndex++;
           const res = await client.chat.completions.create({
              model: modelToUse,
@@ -81,20 +91,23 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
        }
      } catch (e: any) {
         lastError = e;
-        console.error(JSON.stringify({ 
-            severity: 'ERROR', 
-            message: `AI provider ${provider} failed.`, 
-            error: e.message || e.toString() 
-        }));
+        const isRateLimit = e?.status === 429 || e?.message?.includes('429') || e?.status === 402 || e?.message?.includes('402');
+        if (!isRateLimit) {
+           console.warn(JSON.stringify({ 
+               severity: 'WARNING', 
+               message: `AI provider ${provider} failed.`, 
+               error: e.message || e.toString() 
+           }));
+        }
      }
    }
    
    if (lastError) {
       if (lastError.status === 429 || lastError.message?.includes('429') || lastError.status === 402 || lastError.message?.includes('402') || lastError.message?.includes('timed out')) {
-         console.error(JSON.stringify({ severity: 'WARNING', message: 'Rate limited or timed out across all providers', error: lastError.message }));
+         // Silenced for transient rate limits
          throw lastError;
       }
-      console.error(JSON.stringify({ severity: 'CRITICAL', message: `All AI providers failed. Last error: ${lastError.message || 'Unknown'}`, error: lastError.message }));
+      console.warn(JSON.stringify({ severity: 'WARNING', message: `All AI providers failed. Last error: ${lastError.message || 'Unknown'}`, error: lastError.message }));
       throw lastError;
    }
    return null;

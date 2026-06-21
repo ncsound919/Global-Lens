@@ -145,7 +145,7 @@ async function startServer() {
   const renderHtml = async (req: express.Request, res: express.Response, rawHtml: string) => {
     const articleId = req.query.article as string;
     let finalHtml = rawHtml;
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const baseUrl = process.env.PUBLIC_URL || process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
 
     if (articleId) {
       try {
@@ -175,7 +175,7 @@ async function startServer() {
           
           const titleTag = `<title>${headline} — Black Global Lens</title>`;
           finalHtml = finalHtml
-            .replace(/<title>.*?<\/title>/, titleTag)
+            .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
             .replace('</head>', `    <link rel="canonical" href="${canonicalUrl}" />\n    ${ogTags}\n  </head>`);
         }
       } catch (err) {
@@ -223,11 +223,9 @@ async function startServer() {
     console.log('Shutting down gracefully...');
     server.close(() => {
       console.log('HTTP server closed.');
-      import('./db').then(({ default: db }) => {
-         db.close();
-         console.log('Database connection closed.');
-         process.exit(0);
-      });
+      db.close();
+      console.log('Database connection closed.');
+      process.exit(0);
     });
   };
 

@@ -53,6 +53,10 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const articleId = params.get('article');
     if (articleId) setDeepLinkedArticle(articleId);
+
+    const path = window.location.pathname;
+    if (path === '/privacy') setShowPrivacy(true);
+    if (path === '/terms') setShowTerms(true);
   }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
