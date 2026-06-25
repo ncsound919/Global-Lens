@@ -18,10 +18,7 @@ let mistralModelIndex = 0;
 
 export const getAvailableProviders = () => {
   const p = [];
-  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.length > 10 && !process.env.OPENROUTER_API_KEY.includes('OPENROUTER_API_KEY')) p.push('openrouter');
   if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10 && !process.env.GEMINI_API_KEY.includes('GEMINI_API_KEY')) p.push('gemini');
-  if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY.length > 10) p.push('deepseek');
-  if (process.env.MISTRAL_API_KEY && process.env.MISTRAL_API_KEY.length > 10 && !process.env.MISTRAL_API_KEY.includes('MY_')) p.push('mistral');
   return p;
 };
 

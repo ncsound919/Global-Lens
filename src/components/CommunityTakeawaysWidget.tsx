@@ -24,7 +24,7 @@ export default function CommunityTakeawaysWidget({ takeaways }: TakeawayProps) {
 
       {/* Bullets List Output Grid */}
       <ul className="space-y-3">
-        {takeaways.map((bullet, index) => (
+        {(takeaways ?? []).map((bullet, index) => (
           <li key={index} className="flex items-start space-x-2 text-sm text-zinc-800 dark:text-zinc-300 leading-relaxed">
             <span className="text-amber-600 dark:text-amber-500 select-none font-bold mt-0.5">•</span>
             <span>{safe(bullet)}</span>

@@ -15,6 +15,8 @@ import { ArticleProps } from './types';
 
 import AuthModal from './components/AuthModal';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 const CATEGORIES = [
   'all',
   'global',
@@ -362,15 +364,16 @@ export default function App() {
             )}
 
             {articles.map((article: ArticleProps, index) => (
-              <SplitViewNewsCard
-                key={article.id || article.url_hash || index}
-                article={article}
-                isDeepLinked={deepLinkedArticle === String(article.id) || deepLinkedArticle === article.url_hash}
-                onClearDeepLink={() => {
-                  setDeepLinkedArticle(null);
-                  window.history.replaceState({}, document.title, "/");
-                }}
-              />
+              <ErrorBoundary key={article.id || article.url_hash || index}>
+                <SplitViewNewsCard
+                  article={article}
+                  isDeepLinked={deepLinkedArticle === String(article.id) || deepLinkedArticle === article.url_hash}
+                  onClearDeepLink={() => {
+                    setDeepLinkedArticle(null);
+                    window.history.replaceState({}, document.title, "/");
+                  }}
+                />
+              </ErrorBoundary>
             ))}
           </section>
         )}

@@ -165,7 +165,7 @@ const SplitViewNewsCard: React.FC<{
                 Key Takeaways
               </span>
               <ul className="list-none text-zinc-400 space-y-3">
-                {article.key_takeaways.map((item, idx) => (
+                {(article.key_takeaways ?? []).map((item, idx) => (
                   <li key={idx} className="flex items-start">
                     <span className="text-zinc-600 mr-3 mt-1 inline-block text-[10px]">■</span>
                     {safe(item)}
