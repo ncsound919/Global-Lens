@@ -26,7 +26,8 @@ const CATEGORIES = [
   'culture',
   'health',
   'music',
-  'sports'
+  'sports',
+  'saved'
 ] as const;
 
 type FetchStatus = 'idle' | 'loading' | 'refreshing' | 'success' | 'error';
@@ -82,6 +83,16 @@ export default function App() {
       abortControllerRef.current = controller;
 
       try {
+        if (category === 'saved') {
+           const savedData = localStorage.getItem('globalLens_saved');
+           const nextArticles = savedData ? JSON.parse(savedData) : [];
+           setArticles(nextArticles);
+           setStatus('success');
+           setLastUpdated(new Date());
+           hasLoadedOnceRef.current = true;
+           return;
+        }
+
         const response = await fetch(
           `/api/news?category=${encodeURIComponent(category)}&limit=20`,
           {
@@ -178,25 +189,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {user ? (
-              <button
-                onClick={() => {
-                  fetch('/api/auth/logout', { method: 'POST' });
-                  setUser(null);
-                }}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 px-5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
-              >
-                Sign Out
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowAuth(true)}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-red-600 border border-red-500 px-5 text-[11px] font-bold uppercase tracking-widest text-white transition-all hover:bg-red-500"
-              >
-                Sign In
-              </button>
-            )}
-
             <button
               onClick={() => fetchNews('refresh')}
               disabled={isLoading || isRefreshing}
@@ -250,6 +242,14 @@ export default function App() {
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 sm:px-8 lg:px-12 py-8 sm:py-12">
+        
+        {/* About / Editorial Statement */}
+        <section className="mb-12 bg-[#0c0c0c] border border-zinc-900 rounded-sm p-6 lg:p-8">
+          <h2 className="text-[10px] uppercase font-bold tracking-[0.25em] text-amber-500 mb-4">About Black Global Lens</h2>
+          <p className="text-zinc-300 text-sm md:text-base leading-relaxed font-serif max-w-4xl">
+            Black Global Lens automatically aggregates top stories across the global Black diaspora and uses AI to dynamically reframe them. Every story is given a Pan-African, decolonial, or hyper-local context, offering readers historical depth and cultural analysis that standard news feeds lack. This is an experiment in contextual news intelligence.
+          </p>
+        </section>
         <section className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-serif font-medium uppercase tracking-[0.16em] text-white sm:text-3xl">

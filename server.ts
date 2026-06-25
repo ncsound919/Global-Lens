@@ -14,8 +14,8 @@ import rateLimit from "express-rate-limit";
 // kick off initial sync in bg
 syncRSSNews();
 
-// Run cron job every morning at 6:00 AM
-cron.schedule("0 6 * * *", () => {
+// Run cron job every 3 hours
+cron.schedule("0 */3 * * *", () => {
   console.log("Running scheduled morning RSS sync...");
   syncRSSNews();
 }, { timezone: "UTC" });

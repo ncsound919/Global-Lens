@@ -4,7 +4,7 @@ import ArticleModal from './ArticleModal';
 import CommunityTakeawaysWidget from './CommunityTakeawaysWidget';
 import AnalyticsChart from './AnalyticsChart';
 import InlineHistoricalContext from './InlineHistoricalContext';
-import { Share2, ClipboardCopy, CheckCircle2 } from 'lucide-react';
+import { Share2, ClipboardCopy, CheckCircle2, Bookmark } from 'lucide-react';
 
 const TwitterIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>;
 const FacebookIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>;
@@ -23,6 +23,7 @@ const SplitViewNewsCard: React.FC<{
 }> = ({ article, isDeepLinked, onClearDeepLink }) => {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const modalScrollRef = React.useRef(0);
 
   useEffect(() => {
@@ -31,9 +32,38 @@ const SplitViewNewsCard: React.FC<{
     }
   }, [isDeepLinked]);
 
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem('globalLens_saved');
+      if (savedData) {
+        const savedArticles = JSON.parse(savedData) as ArticleProps[];
+        setIsSaved(savedArticles.some(a => a.url_hash === article.url_hash || a.id === article.id));
+      }
+    } catch (e) {}
+  }, [article.url_hash, article.id]);
+
   const handleCloseModal = () => {
     setShowModal(false);
     if (onClearDeepLink) onClearDeepLink();
+  };
+
+  const toggleSave = () => {
+    try {
+      const savedData = localStorage.getItem('globalLens_saved');
+      let savedArticles = savedData ? JSON.parse(savedData) as ArticleProps[] : [];
+      
+      if (isSaved) {
+        savedArticles = savedArticles.filter(a => a.url_hash !== article.url_hash && a.id !== article.id);
+        setIsSaved(false);
+      } else {
+        savedArticles = [article, ...savedArticles];
+        setIsSaved(true);
+      }
+      
+      localStorage.setItem('globalLens_saved', JSON.stringify(savedArticles));
+    } catch (e) {
+      console.error('Error saving article', e);
+    }
   };
 
   const shareUrl = `${window.location.origin}/api/news/${article.id || article.url_hash}/share`;
@@ -124,13 +154,19 @@ const SplitViewNewsCard: React.FC<{
               </span>
             </div>
           )}
-          <h2 className="mt-2 mb-6 text-3xl font-medium leading-[1.1] text-white font-serif md:text-5xl lg:text-[3.25rem]">
+          <h2 className="mt-2 mb-6 text-3xl font-medium leading-[1.1] text-white font-serif md:text-4xl lg:text-[3.25rem] break-words">
             {safe(article.reframed_headline)}
           </h2>
           
+          {article.reframed_summary && (
+            <p className="mb-8 text-zinc-400 text-lg md:text-xl font-sans leading-relaxed">
+              {safe(article.reframed_summary)}
+            </p>
+          )}
+          
           {article.image_url && (
             <div className="mb-8 rounded-sm overflow-hidden border border-zinc-900 bg-zinc-950">
-               <img src={article.image_url} alt={article.reframed_headline} loading="lazy" className="w-full h-auto object-cover max-h-[400px] hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+               <img src={article.image_url} alt={article.reframed_headline} loading="lazy" className="w-full h-auto object-cover max-h-[250px] md:max-h-[400px] hover:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
             </div>
           )}
 
@@ -165,12 +201,16 @@ const SplitViewNewsCard: React.FC<{
                 Key Takeaways
               </span>
               <ul className="list-none text-zinc-400 space-y-3">
-                {(article.key_takeaways ?? []).map((item, idx) => (
-                  <li key={idx} className="flex items-start">
-                    <span className="text-zinc-600 mr-3 mt-1 inline-block text-[10px]">■</span>
-                    {safe(item)}
-                  </li>
-                ))}
+                {(article.key_takeaways && article.key_takeaways.length > 0) ? (
+                  article.key_takeaways.map((item, idx) => (
+                    <li key={idx} className="flex items-start">
+                      <span className="text-zinc-600 mr-3 mt-1 inline-block text-[10px]">■</span>
+                      {safe(item)}
+                    </li>
+                  ))
+                ) : (
+                  <li className="flex items-start text-zinc-600 italic text-sm">Key takeaways are not available for this article.</li>
+                )}
               </ul>
             </div>
           </div>
@@ -201,6 +241,17 @@ const SplitViewNewsCard: React.FC<{
             </div>
 
             <div className="flex items-center gap-4 shrink-0">
+               <button
+                 onClick={toggleSave}
+                 className={`p-2 rounded-full border transition-all ${
+                   isSaved 
+                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500 hover:bg-amber-500/20' 
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
+                 }`}
+                 aria-label={isSaved ? "Remove from saved" : "Save article"}
+               >
+                 <Bookmark className="w-4 h-4" fill={isSaved ? "currentColor" : "none"} />
+               </button>
                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest hidden sm:inline-block">Share</span>
                <div className="flex gap-2">
                  <button
@@ -250,12 +301,11 @@ const SplitViewNewsCard: React.FC<{
         </div>
 
         {/* Analytics & Data View */}
-        <div className="col-span-1 md:col-span-5 h-full">
-           {article.statistical_data ? (
+        <div className="col-span-1 md:col-span-5 h-full flex flex-col gap-6">
+           {article.statistical_data && (
              <AnalyticsChart data={article.statistical_data} />
-           ) : (
-             <InlineHistoricalContext articleId={article.id || 0} />
            )}
+           <InlineHistoricalContext articleId={article.id || 0} />
         </div>
       </div>
       

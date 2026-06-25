@@ -146,7 +146,7 @@ export async function syncRSSNews() {
           AND c.lens_intensity = ?
         WHERE c.id IS NULL
         ORDER BY a.created_at DESC 
-        LIMIT 25 -- Backlog batch max per sync
+        LIMIT 200 -- Backlog batch max per sync
       `).all(config.reading_mode, config.lens_intensity) as any[];
       
       if (unprocessedArticles.length > 0) {

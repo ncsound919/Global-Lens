@@ -5,6 +5,8 @@ export const feeds = [
   { url: "https://www.theroot.com/rss", category: "diaspora", source_name: "The Root", bias: "corporate" },
   { url: "https://afro.com/feed/", category: "diaspora", source_name: "AFRO News", bias: "independent" },
   { url: "https://blackhealthmatters.com/feed/", category: "health", source_name: "Black Health Matters", bias: "independent" },
+  { url: "https://blackdoctor.org/feed/", category: "health", source_name: "BlackDoctor.org", bias: "independent" },
+  { url: "https://www.statnews.com/feed/", category: "health", source_name: "STAT News", bias: "investigative" },
   { url: "https://www.jamaicaobserver.com/feed/", category: "global", source_name: "Jamaica Observer", bias: "corporate" },
   { url: "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", category: "global", source_name: "AllAfrica", bias: "independent" },
   { url: "https://www.africanews.com/feed/", category: "global", source_name: "Africa News", bias: "state-adjacent" },
@@ -15,6 +17,10 @@ export const feeds = [
   { url: "https://theintercept.com/feed/?lang=en", category: "politics", source_name: "The Intercept", bias: "investigative" },
   { url: "https://feeds.propublica.org/propublica/main", category: "politics", source_name: "ProPublica", bias: "investigative" },
   { url: "https://thesource.com/feed/", category: "music", source_name: "The Source", bias: "corporate" },
+  { url: "https://allhiphop.com/feed/", category: "music", source_name: "AllHipHop", bias: "independent" },
+  { url: "https://hiphopdx.com/rss/news.xml", category: "music", source_name: "HipHopDX", bias: "independent" },
   { url: "https://blacksportsonline.com/feed/", category: "sports", source_name: "Black Sports Online", bias: "independent" },
-  { url: "https://andscape.com/feed/", category: "sports", source_name: "Andscape", bias: "corporate" }
+  { url: "https://andscape.com/feed/", category: "sports", source_name: "Andscape", bias: "corporate" },
+  { url: "https://theshadowleague.com/feed/", category: "sports", source_name: "The Shadow League", bias: "independent" },
+  { url: "https://defendernetwork.com/category/sports/feed/", category: "sports", source_name: "Defender Network", bias: "independent" }
 ];
