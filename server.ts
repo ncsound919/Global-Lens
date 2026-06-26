@@ -2,10 +2,10 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { syncRSSNews } from "./rss";
-import { syncSportsAPI } from "./sports";
-import { apiRouter } from "./api";
-import db from "./db";
+import { syncRSSNews } from "./server/rss";
+import { syncSportsAPI } from "./server/sports";
+import { apiRouter } from "./server/api";
+import db from "./server/db";
 import cookieParser from "cookie-parser";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
@@ -90,7 +90,7 @@ async function startServer() {
 
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 1000,
+    max: 100, // Reduced from 1000 to 100/min for secure rate limiting
     validate: { xForwardedForHeader: false }
   });
 
@@ -146,9 +146,16 @@ async function startServer() {
   }
 
   const renderHtml = async (req: express.Request, res: express.Response, rawHtml: string) => {
-    const articleId = req.query.article as string;
+    let articleId = req.query.article as string;
+    if (articleId && typeof articleId === "string") {
+      // Validate that articleId is purely alphanumeric with dashes/underscores to block XSS vector completely
+      if (!/^[a-zA-Z0-9\-_]+$/.test(articleId)) {
+        articleId = "";
+      }
+    }
+    
     let finalHtml = rawHtml;
-    const baseUrl = process.env.PUBLIC_URL || process.env.APP_URL || `${req.protocol}://${req.get("host")}`;
+    const baseUrl = (process.env.PUBLIC_URL || process.env.APP_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, '');
 
     if (articleId) {
       try {
@@ -172,8 +179,8 @@ async function startServer() {
           };
           const headline = escapeHtml(article.reframed_headline || 'Global Lens Story');
           const description = escapeHtml((article.cultural_lens_analysis || '').slice(0, 200));
-          const image = article.image_url || `${baseUrl}/og-default.jpg`;
-          const canonicalUrl = `${baseUrl}/?article=${articleId}`;
+          const image = escapeHtml(article.image_url || `${baseUrl}/og-default.jpg`);
+          const canonicalUrl = `${baseUrl}/?article=${escapeHtml(articleId)}`;
 
           const ogTags = `
             <meta property="og:type" content="article" />
