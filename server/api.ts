@@ -8,7 +8,7 @@ import { newsRouter } from "./news";
 
 const standardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 1000, 
+  max: 120, // max 120 requests per minute for public API protection
   validate: { xForwardedForHeader: false }
 });
 
@@ -24,9 +24,10 @@ apiRouter.use(standardLimiter);
 
 /**
  * Validates session against database to return authenticated details.
+ * Strictly uses the secure HTTP-only bgl_session cookie for session identification.
  */
 export function getAuthSession(req: express.Request) {
-  const sessionId = req.cookies?.bgl_session || req.headers['x-session-id'] as string | undefined;
+  const sessionId = req.cookies?.bgl_session as string | undefined;
   if (!sessionId) return null;
   
   try {
@@ -44,17 +45,6 @@ export function getAuthSession(req: express.Request) {
     console.error("getAuthSession error:", e);
     return null;
   }
-}
-
-/**
- * Returns user_id for authenticated sessions, or anonymous sessionId fallback for guest settings personalization.
- */
-export function getSettingsIdentifier(req: express.Request): string {
-  const authSession = getAuthSession(req);
-  if (authSession) {
-    return authSession.user_id;
-  }
-  return (req as any).sessionId || "";
 }
 
 // Register sub-routers

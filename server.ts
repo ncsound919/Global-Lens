@@ -68,10 +68,10 @@ async function startServer() {
 
   // Reliable session handling
   app.use((req, res, next) => {
-    let sessionId = req.headers['x-session-id'] as string;
+    let sessionId: string | undefined = undefined;
     
-    if (!sessionId && req.cookies) {
-       sessionId = req.cookies.bgl_session || req.cookies.session_id;
+    if (req.cookies) {
+       sessionId = req.cookies.bgl_session;
     }
     
     if (sessionId) {

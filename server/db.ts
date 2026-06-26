@@ -30,13 +30,14 @@ db.pragma('foreign_keys = ON');
 
 // Secure key derivation without hardcoded fallback strings
 const getSecretKey = (): Buffer => {
-  const secret = process.env.SESSION_SECRET || process.env.GEMINI_API_KEY;
+  const secret = process.env.SESSION_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error("CRITICAL SECURITY ERROR: SESSION_SECRET is required in production environments but was not set.");
     }
-    // In development, throw clear instructions instead of quiet insecure fallback
-    throw new Error("Environment configuration error: Either SESSION_SECRET or GEMINI_API_KEY must be set in the environment to derive secure keys.");
+    // In development, warn the user and use a consistent dev fallback secret
+    console.warn("⚠️ WARNING: SESSION_SECRET is not set in the environment. Using a default development key. Do NOT use this in production!");
+    return crypto.createHash('sha256').update('global-lens-default-dev-secret-key-12345').digest();
   }
   return crypto.createHash('sha256').update(secret).digest();
 };
@@ -85,8 +86,9 @@ export function decrypt(text: string): string {
       return decrypted;
     }
     return "";
-  } catch (e) {
-    // Silent failure on decryption errors to prevent security log noise/telemetry leakage
+  } catch (e: any) {
+    // Log decryption failures securely without leaking raw ciphertext or key values
+    console.error("[Database Decryption] Decryption failed. This may indicate a wrong or rotated SESSION_SECRET, payload corruption, or a key derivation mismatch. Details:", e.message);
     return "";
   }
 }
@@ -204,6 +206,35 @@ export function runMigrations() {
         db.exec('ALTER TABLE user_settings ADD COLUMN gemini_api_key TEXT DEFAULT "";');
       }
     }
+  });
+
+  // Migration 3: Transition user_settings to hold strictly user accounts with foreign key to users
+  runMigration('003_user_settings_foreign_key', () => {
+    // 1. Create a temporary new table with the foreign key constraint
+    db.exec(`
+      CREATE TABLE user_settings_new (
+        owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        reading_mode TEXT DEFAULT 'simplified',
+        lens_intensity TEXT DEFAULT 'balanced',
+        odds_format TEXT DEFAULT 'american',
+        regions TEXT DEFAULT '{"us":true,"westAfrica":false,"caribbean":true}' CHECK(json_valid(regions)),
+        gemini_api_key TEXT DEFAULT '',
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 2. Copy existing settings that belong to real users (if any)
+    const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user_settings'").get();
+    if (tableExists) {
+      db.exec(`
+        INSERT INTO user_settings_new (owner_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key, updated_at)
+        SELECT s.owner_id, s.reading_mode, s.lens_intensity, s.odds_format, s.regions, s.gemini_api_key, s.updated_at
+        FROM user_settings s
+        JOIN users u ON s.owner_id = u.id;
+      `);
+      db.exec(`DROP TABLE user_settings;`);
+    }
+    db.exec(`ALTER TABLE user_settings_new RENAME TO user_settings;`);
   });
 }
 

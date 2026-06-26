@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import db, { decrypt } from "./db";
-import { getSettingsIdentifier } from "./api";
+import { getAuthSession } from "./api";
 import { getAvailableProviders, callAIQueued, generateImage } from "./aiService";
 import { feeds } from "./feeds";
 
@@ -86,9 +86,29 @@ newsRouter.get("/:id/share", (req, res) => {
 });
 
 newsRouter.get("/", (req, res) => {
-  const identifier = getSettingsIdentifier(req);
-  let settings = db.prepare('SELECT reading_mode, lens_intensity FROM user_settings WHERE owner_id = ?').get(identifier) as any;
-  if (!settings) settings = { reading_mode: 'simplified', lens_intensity: 'balanced' };
+  const session = getAuthSession(req);
+  let settings: any = null;
+
+  if (session) {
+    settings = db.prepare('SELECT reading_mode, lens_intensity FROM user_settings WHERE owner_id = ?').get(session.user_id) as any;
+  } else {
+    const cookieVal = req.cookies?.bgl_guest_settings;
+    if (cookieVal) {
+      try {
+        const parsed = JSON.parse(cookieVal);
+        settings = {
+          reading_mode: parsed.readingMode,
+          lens_intensity: parsed.lensIntensity
+        };
+      } catch (e) {
+        // Safe fallback on parse error
+      }
+    }
+  }
+
+  if (!settings) {
+    settings = { reading_mode: 'simplified', lens_intensity: 'balanced' };
+  }
 
   const parsedQuery = NewsQuerySchema.parse(req.query);
   const { category, limit, offset } = parsedQuery;
@@ -347,11 +367,27 @@ newsRouter.post("/:id/generate-image", async (req, res) => {
   const article = db.prepare('SELECT original_title FROM articles WHERE url_hash = ?').get(articleId) as any;
   if (!article) return res.status(404).json({ error: "Article not found" });
 
-  const identifier = getSettingsIdentifier(req);
-  const settings = db.prepare('SELECT gemini_api_key FROM user_settings WHERE owner_id = ?').get(identifier) as any;
+  const session = getAuthSession(req);
+  let settings: any = null;
+
+  if (session) {
+    settings = db.prepare('SELECT gemini_api_key FROM user_settings WHERE owner_id = ?').get(session.user_id) as any;
+  } else {
+    const cookieVal = req.cookies?.bgl_guest_settings;
+    if (cookieVal) {
+      try {
+        const parsed = JSON.parse(cookieVal);
+        settings = {
+          gemini_api_key: parsed.geminiApiKey
+        };
+      } catch (e) {
+        // Safe fallback
+      }
+    }
+  }
   
   try {
-    const decryptedKey = settings?.gemini_api_key ? decrypt(settings.gemini_api_key) : undefined;
+    const decryptedKey = settings?.gemini_api_key ? (settings.gemini_api_key === "••••" || settings.gemini_api_key === "••••••••••••••••" ? undefined : decrypt(settings.gemini_api_key)) : undefined;
     const imageUrl = await generateImage(article.original_title, style, decryptedKey || undefined);
     res.json({ imageUrl });
   } catch (e: any) {

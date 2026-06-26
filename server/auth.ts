@@ -3,8 +3,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import db from "./db";
-import { getAuthSession } from "./api"; // we'll export getAuthSession from api or keep a copy
+import db, { encrypt } from "./db";
 
 export const authRouter = express.Router();
 
@@ -20,6 +19,55 @@ const AuthSchema = z.object({
   password: z.string().min(6)
 });
 
+/**
+ * Migrates settings from bgl_guest_settings cookie into user_settings table for authenticated user.
+ */
+function migrateGuestSettings(req: express.Request, res: express.Response, userId: string) {
+  try {
+    const guestSettingsCookie = req.cookies?.bgl_guest_settings;
+    if (guestSettingsCookie) {
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(guestSettingsCookie);
+      } catch (e) {}
+
+      if (parsed) {
+        let finalEncryptedKey = "";
+        if (parsed.geminiApiKey && parsed.geminiApiKey !== "••••" && parsed.geminiApiKey !== "••••••••••••••••") {
+          finalEncryptedKey = encrypt(parsed.geminiApiKey);
+        }
+
+        db.prepare(`
+          INSERT INTO user_settings (owner_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(owner_id) DO UPDATE SET
+            reading_mode=excluded.reading_mode,
+            lens_intensity=excluded.lens_intensity,
+            odds_format=excluded.odds_format,
+            regions=excluded.regions,
+            gemini_api_key=excluded.gemini_api_key,
+            updated_at=CURRENT_TIMESTAMP
+        `).run(
+          userId,
+          parsed.readingMode || "simplified",
+          parsed.lensIntensity || "balanced",
+          parsed.oddsFormat || "american",
+          JSON.stringify(parsed.regions || {}),
+          finalEncryptedKey
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Failed to migrate anonymous guest settings:", err);
+  } finally {
+    res.clearCookie('bgl_guest_settings', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax'
+    });
+  }
+}
+
 authRouter.post("/register", authLimiter, async (req, res) => {
   try {
     const parsed = AuthSchema.parse(req.body);
@@ -31,28 +79,12 @@ authRouter.post("/register", authLimiter, async (req, res) => {
     db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)').run(id, parsed.email, hash);
     
     // Auto login
-    const sessionId = (req as any).sessionId || uuidv4();
+    const sessionId = uuidv4();
     db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, id);
     res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
-    // Migrate anonymous settings to authenticated user_id if present
-    try {
-      const anonId = (req as any).sessionId;
-      if (anonId && anonId !== id) {
-        const anonSettings = db.prepare('SELECT * FROM user_settings WHERE owner_id = ?').get(anonId) as any;
-        if (anonSettings) {
-          const userSettings = db.prepare('SELECT 1 FROM user_settings WHERE owner_id = ?').get(id);
-          if (!userSettings) {
-            db.prepare(`
-              INSERT INTO user_settings (owner_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `).run(id, anonSettings.reading_mode, anonSettings.lens_intensity, anonSettings.odds_format, anonSettings.regions, anonSettings.gemini_api_key);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Failed to migrate anonymous settings during registration:", err);
-    }
+    // Migrate anonymous settings from cookie to authenticated user_id if present
+    migrateGuestSettings(req, res, id);
 
     res.json({ success: true, user: { id, email: parsed.email } });
   } catch(e: any) {
@@ -68,28 +100,12 @@ authRouter.post("/login", authLimiter, async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const sessionId = (req as any).sessionId || uuidv4();
+    const sessionId = uuidv4();
     db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
     res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
-    // Migrate anonymous settings to authenticated user_id if present
-    try {
-      const anonId = (req as any).sessionId;
-      if (anonId && anonId !== user.id) {
-        const anonSettings = db.prepare('SELECT * FROM user_settings WHERE owner_id = ?').get(anonId) as any;
-        if (anonSettings) {
-          const userSettings = db.prepare('SELECT 1 FROM user_settings WHERE owner_id = ?').get(user.id);
-          if (!userSettings) {
-            db.prepare(`
-              INSERT INTO user_settings (owner_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `).run(user.id, anonSettings.reading_mode, anonSettings.lens_intensity, anonSettings.odds_format, anonSettings.regions, anonSettings.gemini_api_key);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Failed to migrate anonymous settings during login:", err);
-    }
+    // Migrate anonymous settings from cookie to authenticated user_id if present
+    migrateGuestSettings(req, res, user.id);
 
     res.json({ success: true, user: { id: user.id, email: user.email } });
   } catch(e: any) {
@@ -99,7 +115,6 @@ authRouter.post("/login", authLimiter, async (req, res) => {
 
 authRouter.post("/logout", (req, res) => {
   const authSessionId = req.cookies?.bgl_session as string | undefined;
-  const anonSessionId = req.cookies?.session_id as string | undefined;
 
   if (authSessionId) {
     db.prepare('DELETE FROM sessions WHERE session_id = ?').run(authSessionId);
@@ -110,14 +125,6 @@ authRouter.post("/logout", (req, res) => {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax'
   });
-
-  if (anonSessionId) {
-    res.clearCookie('session_id', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-    });
-  }
 
   res.json({ success: true });   
 });
