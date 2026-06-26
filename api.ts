@@ -7,7 +7,7 @@ import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import { callAIConfigured, getAvailableProviders, callAIQueued } from "./aiService";
+import { callAIConfigured, getAvailableProviders, callAIQueued, generateImage } from "./aiService";
 
 // Rate limiting for AI backstory endpoint
 const backstoryLimiter = rateLimit({
@@ -87,7 +87,8 @@ const SettingsSchema = z.object({
   readingMode: z.enum(['simplified', 'executive', 'academic', 'raw']).optional(),
   lensIntensity: z.enum(['balanced', 'pan_african', 'hyper_local', 'indigenous', 'marxist', 'decolonial']).optional(),
   oddsFormat: z.enum(['american', 'decimal', 'fractional']).optional(),
-  regions: z.record(z.string(), z.boolean()).optional()
+  regions: z.record(z.string(), z.boolean()).optional(),
+  geminiApiKey: z.string().optional()
 });
 
 apiRouter.get("/user/settings", (req, res) => {
@@ -99,10 +100,11 @@ apiRouter.get("/user/settings", (req, res) => {
        reading_mode: "simplified",
        lens_intensity: "balanced",
        odds_format: "american",
-       regions: '{"us":true,"westAfrica":false,"caribbean":true}'
+       regions: '{"us":true,"westAfrica":false,"caribbean":true}',
+       gemini_api_key: ""
      };
-     db.prepare('INSERT OR IGNORE INTO user_settings (session_id, reading_mode, lens_intensity, odds_format, regions) VALUES (?, ?, ?, ?, ?)').run(
-       sessionId, settings.reading_mode, settings.lens_intensity, settings.odds_format, settings.regions
+     db.prepare('INSERT OR IGNORE INTO user_settings (session_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key) VALUES (?, ?, ?, ?, ?, ?)').run(
+       sessionId, settings.reading_mode, settings.lens_intensity, settings.odds_format, settings.regions, settings.gemini_api_key
      );
   }
   try { settings.regions = JSON.parse(settings.regions); } catch (e) {}
@@ -119,20 +121,22 @@ apiRouter.put("/user/settings", (req, res) => {
   const body = parsed.data;
 
   db.prepare(`
-    INSERT INTO user_settings (session_id, reading_mode, lens_intensity, odds_format, regions) 
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO user_settings (session_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key) 
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(session_id) DO UPDATE SET 
       reading_mode=excluded.reading_mode, 
       lens_intensity=excluded.lens_intensity, 
       odds_format=excluded.odds_format, 
       regions=excluded.regions,
+      gemini_api_key=excluded.gemini_api_key,
       updated_at=CURRENT_TIMESTAMP
   `).run(
      sessionId, 
      body.readingMode || "simplified", 
      body.lensIntensity || "balanced", 
      body.oddsFormat || "american", 
-     JSON.stringify(body.regions || {})
+     JSON.stringify(body.regions || {}),
+     body.geminiApiKey || ""
   );
   res.json({ success: true });
 });
@@ -450,6 +454,25 @@ apiRouter.post("/auth/logout", (req, res) => {
   if (sessionId) {
     db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
   }
-  res.clearCookie('bgl_session');
+  res.clearCookie('session_id');
   res.json({ success: true });
+});
+
+apiRouter.post("/news/:id/generate-image", async (req, res) => {
+  const articleId = req.params.id;
+  const allowedStyles = ['photorealistic', 'cyberpunk', 'artistic', 'minimalist'];
+  const style = allowedStyles.includes(req.body.style) ? req.body.style : 'photorealistic';
+  const article = db.prepare('SELECT original_title FROM articles WHERE url_hash = ?').get(articleId) as any;
+  if (!article) return res.status(404).json({ error: "Article not found" });
+
+  const sessionId = (req as any).sessionId;
+  const settings = db.prepare('SELECT gemini_api_key FROM user_settings WHERE session_id = ?').get(sessionId) as any;
+  
+  try {
+    const imageUrl = await generateImage(article.original_title, style, settings?.gemini_api_key || undefined);
+    res.json({ imageUrl });
+  } catch (e: any) {
+    console.error("Image generation error:", e);
+    res.status(500).json({ error: e.message || "Failed to generate image" });
+  }
 });

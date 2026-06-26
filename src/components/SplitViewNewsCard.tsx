@@ -114,17 +114,18 @@ const SplitViewNewsCard: React.FC<{
             </div>
           )}
 
-          <div className="mb-8 lg:pr-8">
-            <div className="flex items-center gap-2 mb-4 text-zinc-500">
-              <span className="flex h-2 w-2 rounded-full bg-red-600 shrink-0"></span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                AI-Generated Cultural Analysis & Context
+          <div className="mb-10 lg:pr-8">
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">
+                Contextual Analysis
               </span>
+              <div className="h-px flex-1 bg-zinc-900"></div>
+              <span className="flex h-2 w-2 rounded-full bg-amber-500 shrink-0"></span>
             </div>
-            <p className="text-zinc-300 text-lg lg:text-xl font-serif leading-relaxed">
+            <p className="text-zinc-200 text-xl lg:text-2xl font-serif leading-[1.6]">
               {safe(article.cultural_lens_analysis)}
             </p>
-            <p className="text-[10px] text-zinc-600 font-mono tracking-widest mt-4">
+            <p className="text-[10px] text-zinc-600 font-mono tracking-widest mt-6 pt-4 border-t border-zinc-900">
               SOURCE // <a href={article.original_url} target="_blank" rel="noopener noreferrer"
                 className="hover:text-zinc-400 transition-colors mr-1 underline-offset-2 hover:underline">
                 {article.source_name}

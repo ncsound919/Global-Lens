@@ -31,6 +31,7 @@ export default function ArticleModal({
 }) {
   const [backstory, setBackstory] = useState<BackstoryData | null>(null);
   const [loadingBackstory, setLoadingBackstory] = useState(false);
+  const [imageStyle, setImageStyle] = useState('photorealistic');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Focus and handle Escape key
@@ -93,6 +94,38 @@ export default function ArticleModal({
             LEVEL 1 // ACCESSIBLE SYNTHESIS
           </span>
           <h1 className="text-3xl font-serif text-white mb-6 leading-tight">{headline}</h1>
+          
+          <div className="flex items-center gap-4 mb-6">
+            <button 
+               onClick={async () => {
+                  const res = await fetch(`/api/news/${encodeURIComponent(articleId)}/generate-image`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ style: imageStyle })
+                  });
+                  const data = await res.json();
+                  if (data.imageUrl) {
+                     window.open(data.imageUrl, '_blank');
+                  } else {
+                     alert(data.error || "Failed to generate image");
+                  }
+               }}
+               className="text-xs uppercase font-bold tracking-widest text-emerald-500 hover:text-emerald-300 flex items-center gap-2 cursor-pointer transition-colors"
+            >
+               ✨ Generate {imageStyle} Image
+            </button>
+            <select 
+              value={imageStyle}
+              onChange={(e) => setImageStyle(e.target.value)}
+              className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-widest p-2 rounded cursor-pointer outline-none border border-zinc-700"
+            >
+              <option value="photorealistic">Photorealistic</option>
+              <option value="cyberpunk">Cyberpunk</option>
+              <option value="artistic">Artistic</option>
+              <option value="minimalist">Minimalist</option>
+            </select>
+          </div>
+          
           <p className="text-base text-zinc-300 leading-relaxed mb-8 bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
             {simplifiedText}
           </p>

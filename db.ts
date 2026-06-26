@@ -87,3 +87,9 @@ try {
 } catch (e) {
   // Column might already exist
 }
+
+try {
+  db.prepare("ALTER TABLE user_settings ADD COLUMN gemini_api_key TEXT").run();
+} catch (e) {
+  // Column might already exist
+}

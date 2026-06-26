@@ -9,6 +9,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
   const [readingMode, setReadingMode] = useState('simplified');
   const [lensIntensity, setLensIntensity] = useState('balanced');
   const [regions, setRegions] = useState({ us: true, westAfrica: false, caribbean: true });
+  const [geminiApiKey, setGeminiApiKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedHealth, setFeedHealth] = useState<any>({});
 
@@ -20,6 +21,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
           setReadingMode(data.reading_mode || 'simplified');
           setLensIntensity(data.lens_intensity || 'balanced');
           if (data.regions) setRegions(data.regions);
+          setGeminiApiKey(data.gemini_api_key || '');
         }
       })
       .catch(console.error);
@@ -36,7 +38,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
       const response = await fetch('/api/user/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ readingMode, lensIntensity, regions }),
+        body: JSON.stringify({ readingMode, lensIntensity, regions, geminiApiKey }),
       });
       if (response.ok) {
         // success
@@ -69,6 +71,19 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
         </header>
 
         <div className="space-y-8 pl-9">
+          {/* SECTION 0: API KEY */}
+          <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
+            <h3 className="text-base font-bold font-serif mb-2 text-white">0. Personal API Integration</h3>
+            <p className="text-xs text-zinc-500 mb-4 font-mono uppercase tracking-widest">Optional: Provide your own Gemini API key for image generation.</p>
+            <input
+              type="password"
+              value={geminiApiKey}
+              onChange={(e) => setGeminiApiKey(e.target.value)}
+              placeholder="AIza..."
+              className="w-full p-4 border border-zinc-700 bg-zinc-950 rounded-lg text-white placeholder-zinc-600 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none font-mono"
+            />
+          </section>
+
           {/* SECTION 1: COMPREHENSION MODEL */}
           <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
             <h3 className="text-base font-bold font-serif mb-2 text-white">1. Comprehension & Reading Profile</h3>

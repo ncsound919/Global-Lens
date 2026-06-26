@@ -1,10 +1,37 @@
+import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import db from "./db";
 import fs from "fs";
 import path from "path";
 import { ArticleProps } from "./src/types";
 import PQueueMod from 'p-queue';
 import OpenAI from 'openai';
-import { GoogleGenAI } from '@google/genai';
+
+export async function generateImage(prompt: string, style: string, userApiKey?: string): Promise<string> {
+    const apiKey = userApiKey || process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("No Gemini API key configured.");
+    
+    const client = new GoogleGenAI({ apiKey });
+    
+    const response: GenerateContentResponse = await client.models.generateContent({
+        model: 'gemini-3.1-flash-image',
+        contents: {
+            parts: [{ text: `Generate a ${style} image based on this prompt: ${prompt}` }],
+        },
+        config: {
+            imageConfig: {
+                aspectRatio: "16:9",
+                imageSize: "1K"
+            }
+        },
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+            return `data:image/png;base64,${part.inlineData.data}`;
+        }
+    }
+    throw new Error("No image generated.");
+}
 
 const PQueue = (PQueueMod as any).default || PQueueMod;
 
