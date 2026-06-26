@@ -255,6 +255,11 @@ export default function App() {
             <h2 className="text-2xl font-serif font-medium uppercase tracking-[0.16em] text-white sm:text-3xl">
               {pageTitle}
             </h2>
+            {category === 'saved' && (
+              <p className="mt-2 text-xs text-amber-500/80 font-mono tracking-wide">
+                * Note: Saved articles are stored locally on this device. They will not sync across other devices or private browsing sessions.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2 border border-zinc-900 bg-zinc-950 px-4 py-2 rounded-sm shadow-sm">

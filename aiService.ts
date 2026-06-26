@@ -227,6 +227,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       
       CURRENT EVENT:
       Title: ${safeTitle}
+      Source: ${article.source_name}
+      ${['Al Jazeera', 'France 24', 'Africa News'].includes(article.source_name) ? "Note: This source is a state-adjacent international broadcaster. In your cultural_lens_analysis, explicitly acknowledge or critique its geopolitical framing." : ""}
       Context: ${safeContext}
       Category: ${article.category}
       
@@ -251,7 +253,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       }
       `;
 
-      const responseText = await aiQueue.add(() => callAIConfigured(prompt));
+      const responseText = await callAIQueued(prompt);
       
       if (!responseText) throw new Error("AI Queue returned null response");
       
@@ -262,7 +264,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
         
         if (aiResponse.is_safe === false) {
            console.warn(`[Content Moderation] Article filtered out: ${article.url_hash}. Warning: ${aiResponse.verification_warning}`);
-           db.prepare('DELETE FROM articles WHERE url_hash = ?').run(article.url_hash);
+           db.prepare('UPDATE articles SET is_moderated = 1 WHERE url_hash = ?').run(article.url_hash);
            return;
         }
 

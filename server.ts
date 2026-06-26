@@ -159,8 +159,16 @@ async function startServer() {
         `).get(articleId, articleId) as any;
 
         if (article) {
-          const headline = (article.reframed_headline || 'Global Lens Story').replace(/"/g, '&quot;');
-          const description = (article.cultural_lens_analysis || '').slice(0, 200).replace(/"/g, '&quot;');
+          const escapeHtml = (unsafe: string) => {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+          };
+          const headline = escapeHtml(article.reframed_headline || 'Global Lens Story');
+          const description = escapeHtml((article.cultural_lens_analysis || '').slice(0, 200));
           const image = article.image_url || `${baseUrl}/og-default.jpg`;
           const canonicalUrl = `${baseUrl}/?article=${articleId}`;
 

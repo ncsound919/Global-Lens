@@ -20,7 +20,8 @@ db.exec(`
     image_url TEXT,
     original_text_dump TEXT,
     pub_date TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_moderated INTEGER DEFAULT 0
   );
 `);
 
@@ -81,3 +82,8 @@ db.exec(`
 `);
 
 export default db;
+try {
+  db.prepare("ALTER TABLE articles ADD COLUMN is_moderated INTEGER DEFAULT 0").run();
+} catch (e) {
+  // Column might already exist
+}

@@ -77,7 +77,11 @@ export async function syncRSSNews() {
             feedHealth.set(feed.url, { ...status, fails: fails + 1 });
             feedResults.errors++;
           }
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          if (err.message && (err.message.includes('429') || err.message.includes('rate'))) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          } else {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
       }
 
@@ -88,7 +92,29 @@ export async function syncRSSNews() {
            const textDump = `${item.title || ""}\n\n${item.contentSnippet || item.content || ""}`.trim();
            
            // Robust dedupe fallback
-           let urlHash = item.link || item.guid;
+           let rawUrl = item.link || item.guid;
+           let urlHash = rawUrl;
+           if (rawUrl && typeof rawUrl === 'string') {
+             try {
+               const parsedUrl = new URL(rawUrl);
+               // Remove tracking params
+               parsedUrl.searchParams.delete('utm_source');
+               parsedUrl.searchParams.delete('utm_medium');
+               parsedUrl.searchParams.delete('utm_campaign');
+               parsedUrl.searchParams.delete('utm_term');
+               parsedUrl.searchParams.delete('utm_content');
+               parsedUrl.searchParams.delete('traffic_source');
+               let cleanUrl = parsedUrl.toString();
+               // Remove trailing slash
+               if (cleanUrl.endsWith('/')) {
+                 cleanUrl = cleanUrl.slice(0, -1);
+               }
+               urlHash = cleanUrl;
+             } catch (e) {
+               // Fallback if not a valid URL
+               if (urlHash.endsWith('/')) urlHash = urlHash.slice(0, -1);
+             }
+           }
            if (!urlHash) {
              urlHash = generateStableHash(feed.source_name, item.title || "", textDump);
            }
@@ -146,7 +172,7 @@ export async function syncRSSNews() {
           AND c.lens_intensity = ?
         WHERE c.id IS NULL
         ORDER BY a.created_at DESC 
-        LIMIT 200 -- Backlog batch max per sync
+        LIMIT 50 -- Backlog batch max per sync
       `).all(config.reading_mode, config.lens_intensity) as any[];
       
       if (unprocessedArticles.length > 0) {

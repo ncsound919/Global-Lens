@@ -6,7 +6,7 @@ export const feeds = [
   { url: "https://afro.com/feed/", category: "diaspora", source_name: "AFRO News", bias: "independent" },
   { url: "https://blackhealthmatters.com/feed/", category: "health", source_name: "Black Health Matters", bias: "independent" },
   { url: "https://blackdoctor.org/feed/", category: "health", source_name: "BlackDoctor.org", bias: "independent" },
-  { url: "https://www.statnews.com/feed/", category: "health", source_name: "STAT News", bias: "investigative" },
+  { url: "https://www.minorityhealth.hhs.gov/rss/", category: "health", source_name: "HHS Minority Health", bias: "state-adjacent" },
   { url: "https://www.jamaicaobserver.com/feed/", category: "global", source_name: "Jamaica Observer", bias: "corporate" },
   { url: "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", category: "global", source_name: "AllAfrica", bias: "independent" },
   { url: "https://www.africanews.com/feed/", category: "global", source_name: "Africa News", bias: "state-adjacent" },
