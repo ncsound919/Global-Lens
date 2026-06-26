@@ -116,7 +116,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     session_id TEXT PRIMARY KEY,
     user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME
   );
 
   CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
@@ -137,9 +138,14 @@ if (!userSettingsInfo.some(column => column.name === 'gemini_api_key')) {
   db.exec('ALTER TABLE user_settings ADD COLUMN gemini_api_key TEXT;');
 }
 
+const sessionsInfo = db.pragma('table_info(sessions)') as any[];
+if (!sessionsInfo.some(column => column.name === 'expires_at')) {
+  db.exec('ALTER TABLE sessions ADD COLUMN expires_at DATETIME;');
+}
+
 // Clean up expired sessions (older than 30 days) on startup
 try {
-  db.prepare("DELETE FROM sessions WHERE datetime(created_at, '+30 days') < datetime('now')").run();
+  db.prepare("DELETE FROM sessions WHERE datetime(created_at, '+30 days') < datetime('now') OR (expires_at IS NOT NULL AND datetime(expires_at) < datetime('now'))").run();
 } catch (e) {
   console.error("Failed to clean up expired sessions on startup:", e);
 }

@@ -77,11 +77,12 @@ async function startServer() {
     if (sessionId) {
       // Validate session is not expired
       try {
-        const session = db.prepare('SELECT created_at FROM sessions WHERE session_id = ?').get(sessionId) as any;
+        const session = db.prepare('SELECT created_at, expires_at FROM sessions WHERE session_id = ?').get(sessionId) as any;
         if (session) {
           const createdAt = new Date(session.created_at).getTime();
           const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-          if (createdAt < thirtyDaysAgo) {
+          const isExpired = (session.expires_at && new Date(session.expires_at).getTime() < Date.now()) || (createdAt < thirtyDaysAgo);
+          if (isExpired) {
             // Expired! Clean up from database
             db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
             sessionId = undefined;

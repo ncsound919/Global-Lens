@@ -95,6 +95,35 @@ apiRouter.get("/news/:id/share", (req, res) => {
 </html>`);
 });
 
+export function getAuthSession(req: express.Request) {
+  const sessionId = req.cookies?.bgl_session || req.headers['x-session-id'] as string | undefined;
+  if (!sessionId) return null;
+  
+  try {
+    const session = db.prepare(`
+      SELECT s.session_id, s.user_id, u.email 
+      FROM sessions s 
+      JOIN users u ON s.user_id = u.id 
+      WHERE s.session_id = ? 
+        AND (s.expires_at IS NULL OR datetime(s.expires_at) > datetime('now'))
+        AND datetime(s.created_at, '+30 days') > datetime('now')
+    `).get(sessionId) as any;
+    
+    return session || null;
+  } catch (e) {
+    console.error("getAuthSession error:", e);
+    return null;
+  }
+}
+
+export function getSettingsIdentifier(req: express.Request): string {
+  const authSession = getAuthSession(req);
+  if (authSession) {
+    return authSession.user_id;
+  }
+  return (req as any).sessionId || "";
+}
+
 const SettingsSchema = z.object({
   readingMode: z.enum(['simplified', 'executive', 'academic', 'raw']).optional(),
   lensIntensity: z.enum(['balanced', 'pan_african', 'hyper_local', 'indigenous', 'marxist', 'decolonial']).optional(),
@@ -104,11 +133,11 @@ const SettingsSchema = z.object({
 });
 
 apiRouter.get("/user/settings", (req, res) => {
-  const sessionId = (req as any).sessionId;
-  let settings = db.prepare('SELECT * FROM user_settings WHERE session_id = ?').get(sessionId) as any;
+  const identifier = getSettingsIdentifier(req);
+  let settings = db.prepare('SELECT * FROM user_settings WHERE session_id = ?').get(identifier) as any;
   if (!settings) {
      settings = {
-       session_id: sessionId,
+       session_id: identifier,
        reading_mode: "simplified",
        lens_intensity: "balanced",
        odds_format: "american",
@@ -116,15 +145,14 @@ apiRouter.get("/user/settings", (req, res) => {
        gemini_api_key: ""
      };
      db.prepare('INSERT OR IGNORE INTO user_settings (session_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key) VALUES (?, ?, ?, ?, ?, ?)').run(
-       sessionId, settings.reading_mode, settings.lens_intensity, settings.odds_format, settings.regions, settings.gemini_api_key
+       identifier, settings.reading_mode, settings.lens_intensity, settings.odds_format, settings.regions, settings.gemini_api_key
      );
   }
   try { settings.regions = JSON.parse(settings.regions); } catch (e) {}
 
   // Decrypt and mask gemini_api_key before sending to frontend
   if (settings.gemini_api_key) {
-    const decrypted = decrypt(settings.gemini_api_key);
-    settings.gemini_api_key = decrypted ? "••••••••••••••••" : "";
+    settings.gemini_api_key = "••••••••••••••••";
   } else {
     settings.gemini_api_key = "";
   }
@@ -133,7 +161,7 @@ apiRouter.get("/user/settings", (req, res) => {
 });
 
 apiRouter.put("/user/settings", (req, res) => {
-  const sessionId = (req as any).sessionId;
+  const identifier = getSettingsIdentifier(req);
   
   const parsed = SettingsSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -143,7 +171,7 @@ apiRouter.put("/user/settings", (req, res) => {
 
   let finalEncryptedKey = "";
   if (body.geminiApiKey === "••••••••••••••••") {
-    const existing = db.prepare('SELECT gemini_api_key FROM user_settings WHERE session_id = ?').get(sessionId) as any;
+    const existing = db.prepare('SELECT gemini_api_key FROM user_settings WHERE session_id = ?').get(identifier) as any;
     finalEncryptedKey = existing?.gemini_api_key || "";
   } else if (body.geminiApiKey) {
     finalEncryptedKey = encrypt(body.geminiApiKey);
@@ -160,7 +188,7 @@ apiRouter.put("/user/settings", (req, res) => {
       gemini_api_key=excluded.gemini_api_key,
       updated_at=CURRENT_TIMESTAMP
   `).run(
-     sessionId, 
+     identifier, 
      body.readingMode || "simplified", 
      body.lensIntensity || "balanced", 
      body.oddsFormat || "american", 
@@ -210,8 +238,8 @@ const NewsQuerySchema = z.object({
 });
 
 apiRouter.get("/news", (req, res) => {
-  const sessionId = (req as any).sessionId;
-  let settings = db.prepare('SELECT reading_mode, lens_intensity FROM user_settings WHERE session_id = ?').get(sessionId) as any;
+  const identifier = getSettingsIdentifier(req);
+  let settings = db.prepare('SELECT reading_mode, lens_intensity FROM user_settings WHERE session_id = ?').get(identifier) as any;
   if (!settings) settings = { reading_mode: 'simplified', lens_intensity: 'balanced' };
 
   const parsedQuery = NewsQuerySchema.parse(req.query);
@@ -481,7 +509,7 @@ apiRouter.post("/auth/register", authLimiter, async (req, res) => {
     
     // Auto login
     const sessionId = (req as any).sessionId || uuidv4();
-    db.prepare('INSERT OR REPLACE INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, id);
+    db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, id);
     res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
     res.json({ success: true, user: { id, email: parsed.email } });
@@ -499,7 +527,7 @@ apiRouter.post("/auth/login", authLimiter, async (req, res) => {
     }
 
     const sessionId = (req as any).sessionId || uuidv4();
-    db.prepare('INSERT OR REPLACE INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, user.id);
+    db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
     res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
     res.json({ success: true, user: { id: user.id, email: user.email } });
@@ -509,13 +537,28 @@ apiRouter.post("/auth/login", authLimiter, async (req, res) => {
 });
 
 apiRouter.post("/auth/logout", (req, res) => {
-  const sessionId = (req as any).sessionId;
-  if (sessionId) {
-    db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
+  const authSessionId = req.cookies?.bgl_session as string | undefined;
+  const anonSessionId = req.cookies?.session_id as string | undefined;
+
+  if (authSessionId) {
+    db.prepare('DELETE FROM sessions WHERE session_id = ?').run(authSessionId);
   }
-  res.clearCookie('bgl_session');
-  res.clearCookie('session_id');
-  res.json({ success: true });
+
+  res.clearCookie('bgl_session', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+
+  if (anonSessionId) {
+    res.clearCookie('session_id', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    });
+  }
+
+  res.json({ success: true });   
 });
 
 apiRouter.post("/news/:id/generate-image", async (req, res) => {
@@ -525,8 +568,8 @@ apiRouter.post("/news/:id/generate-image", async (req, res) => {
   const article = db.prepare('SELECT original_title FROM articles WHERE url_hash = ?').get(articleId) as any;
   if (!article) return res.status(404).json({ error: "Article not found" });
 
-  const sessionId = (req as any).sessionId;
-  const settings = db.prepare('SELECT gemini_api_key FROM user_settings WHERE session_id = ?').get(sessionId) as any;
+  const identifier = getSettingsIdentifier(req);
+  const settings = db.prepare('SELECT gemini_api_key FROM user_settings WHERE session_id = ?').get(identifier) as any;
   
   try {
     const decryptedKey = settings?.gemini_api_key ? decrypt(settings.gemini_api_key) : undefined;
