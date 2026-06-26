@@ -53,8 +53,12 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {
-        // Return offline fallback if network fails
+      }).catch((err) => {
+        // Return a valid Response for offline fallback instead of resolving to undefined
+        return new Response('Offline fallback: connection failed.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain' }
+        });
       });
     })
   );

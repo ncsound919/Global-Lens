@@ -1,5 +1,5 @@
 import express from "express";
-import db from "./db";
+import db, { encrypt, decrypt } from "./db";
 import { syncRSSNews, getFeedHealth } from "./rss";
 import { feeds } from "./feeds";
 import rateLimit from "express-rate-limit";
@@ -12,7 +12,7 @@ import { callAIConfigured, getAvailableProviders, callAIQueued, generateImage } 
 // Rate limiting for AI backstory endpoint
 const backstoryLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 500, // increased for tests
+  max: process.env.NODE_ENV === "production" ? 15 : 500, // dynamically decreased for prod
   message: { detail: 'Too many backstory generation requests. Please try again later.' },
   validate: { xForwardedForHeader: false }
 });
@@ -23,11 +23,23 @@ const standardLimiter = rateLimit({
   validate: { xForwardedForHeader: false }
 });
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 requests per 15 minutes
+  message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' },
+  validate: { xForwardedForHeader: false }
+});
+
 export const apiRouter = express.Router();
 apiRouter.use(standardLimiter);
 
 apiRouter.get("/news/:id/share", (req, res) => {
   const articleId = req.params.id;
+  const isValidId = /^[a-zA-Z0-9\-_]+$/.test(articleId) || 
+                    /^https?:\/\/[a-zA-Z0-9\-\._~:\/\?#\[\]@!\$&'\(\)\*\+,;=%]+$/.test(articleId);
+  if (!isValidId) {
+    return res.status(400).send('Invalid article ID');
+  }
   const article = db.prepare(`
     SELECT a.original_url, a.image_url, a.source_name, a.pub_date,
            c.reframed_headline, c.cultural_lens_analysis
@@ -44,7 +56,7 @@ apiRouter.get("/news/:id/share", (req, res) => {
   const image = article.image_url || '';
   const sourceCredit = sanitizeHtml(article.source_name || '', { allowedTags: [] });
   const baseUrl = process.env.PUBLIC_URL || process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-  const canonicalUrl = `${baseUrl}/?article=${articleId}`;
+  const canonicalUrl = `${baseUrl}/?article=${encodeURIComponent(articleId)}`;
   const publishedTime = article.pub_date ? new Date(article.pub_date).toISOString() : new Date().toISOString();
 
   res.setHeader('Content-Type', 'text/html');
@@ -108,6 +120,15 @@ apiRouter.get("/user/settings", (req, res) => {
      );
   }
   try { settings.regions = JSON.parse(settings.regions); } catch (e) {}
+
+  // Decrypt and mask gemini_api_key before sending to frontend
+  if (settings.gemini_api_key) {
+    const decrypted = decrypt(settings.gemini_api_key);
+    settings.gemini_api_key = decrypted ? "••••••••••••••••" : "";
+  } else {
+    settings.gemini_api_key = "";
+  }
+
   res.json(settings);
 });
 
@@ -119,6 +140,14 @@ apiRouter.put("/user/settings", (req, res) => {
     return res.status(400).json({ error: "Invalid parameters" });
   }
   const body = parsed.data;
+
+  let finalEncryptedKey = "";
+  if (body.geminiApiKey === "••••••••••••••••") {
+    const existing = db.prepare('SELECT gemini_api_key FROM user_settings WHERE session_id = ?').get(sessionId) as any;
+    finalEncryptedKey = existing?.gemini_api_key || "";
+  } else if (body.geminiApiKey) {
+    finalEncryptedKey = encrypt(body.geminiApiKey);
+  }
 
   db.prepare(`
     INSERT INTO user_settings (session_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key) 
@@ -136,7 +165,7 @@ apiRouter.put("/user/settings", (req, res) => {
      body.lensIntensity || "balanced", 
      body.oddsFormat || "american", 
      JSON.stringify(body.regions || {}),
-     body.geminiApiKey || ""
+     finalEncryptedKey
   );
   res.json({ success: true });
 });
@@ -306,6 +335,8 @@ function stripHtml(html: string) {
   });
 }
 
+const ongoingBackstories = new Map<string, Promise<any>>();
+
 apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
   const articleId = req.params.id;
   const article = db.prepare('SELECT * FROM articles WHERE url_hash = ?').get(articleId) as any;
@@ -319,7 +350,24 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     return res.json(JSON.parse(cache.historical_backstory));
   }
 
-  try {
+  // If there's already an active generation promise for this article, await it.
+  if (ongoingBackstories.has(articleId)) {
+    try {
+      const result = await ongoingBackstories.get(articleId);
+      return res.json(result);
+    } catch (err) {
+      return res.status(200).json({
+        the_past_roots: '',
+        ongoing_players: '',
+        insider_insight: '',
+        timeline: [],
+        _unavailable: true
+      });
+    }
+  }
+
+  // Create a new generation promise
+  const generationPromise = (async () => {
     const providers = getAvailableProviders();
     if (providers.length === 0) {
       throw new Error("No AI API keys are configured");
@@ -389,7 +437,15 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
     db.prepare('INSERT OR REPLACE INTO article_backstory_cache (url_hash, historical_backstory) VALUES (?, ?)').run(
        articleId, JSON.stringify(backstoryJson)
     );
-    return res.json(backstoryJson);
+    return backstoryJson;
+  })();
+
+  // Store the promise in the map
+  ongoingBackstories.set(articleId, generationPromise);
+
+  try {
+    const result = await generationPromise;
+    return res.json(result);
   } catch (e: any) {
     const msg = e?.message || '';
     if (!msg.includes('402') && !msg.includes('429') && !msg.includes('timed out')) {
@@ -402,6 +458,9 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
       timeline: [],
       _unavailable: true
     });
+  } finally {
+    // Clean up the promise map once finished
+    ongoingBackstories.delete(articleId);
   }
 });
 
@@ -410,7 +469,7 @@ const AuthSchema = z.object({
   password: z.string().min(6)
 });
 
-apiRouter.post("/auth/register", async (req, res) => {
+apiRouter.post("/auth/register", authLimiter, async (req, res) => {
   try {
     const parsed = AuthSchema.parse(req.body);
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(parsed.email);
@@ -421,9 +480,9 @@ apiRouter.post("/auth/register", async (req, res) => {
     db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)').run(id, parsed.email, hash);
     
     // Auto login
-    const sessionId = uuidv4();
-    db.prepare('INSERT INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, id);
-    res.cookie('bgl_session', sessionId, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
+    const sessionId = (req as any).sessionId || uuidv4();
+    db.prepare('INSERT OR REPLACE INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, id);
+    res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
     res.json({ success: true, user: { id, email: parsed.email } });
   } catch(e: any) {
@@ -431,7 +490,7 @@ apiRouter.post("/auth/register", async (req, res) => {
   }
 });
 
-apiRouter.post("/auth/login", async (req, res) => {
+apiRouter.post("/auth/login", authLimiter, async (req, res) => {
   try {
     const parsed = AuthSchema.parse(req.body);
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(parsed.email) as any;
@@ -439,9 +498,9 @@ apiRouter.post("/auth/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const sessionId = uuidv4();
-    db.prepare('INSERT INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, user.id);
-    res.cookie('bgl_session', sessionId, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
+    const sessionId = (req as any).sessionId || uuidv4();
+    db.prepare('INSERT OR REPLACE INTO sessions (session_id, user_id) VALUES (?, ?)').run(sessionId, user.id);
+    res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
     res.json({ success: true, user: { id: user.id, email: user.email } });
   } catch(e: any) {
@@ -454,6 +513,7 @@ apiRouter.post("/auth/logout", (req, res) => {
   if (sessionId) {
     db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
   }
+  res.clearCookie('bgl_session');
   res.clearCookie('session_id');
   res.json({ success: true });
 });
@@ -469,7 +529,8 @@ apiRouter.post("/news/:id/generate-image", async (req, res) => {
   const settings = db.prepare('SELECT gemini_api_key FROM user_settings WHERE session_id = ?').get(sessionId) as any;
   
   try {
-    const imageUrl = await generateImage(article.original_title, style, settings?.gemini_api_key || undefined);
+    const decryptedKey = settings?.gemini_api_key ? decrypt(settings.gemini_api_key) : undefined;
+    const imageUrl = await generateImage(article.original_title, style, decryptedKey || undefined);
     res.json({ imageUrl });
   } catch (e: any) {
     console.error("Image generation error:", e);

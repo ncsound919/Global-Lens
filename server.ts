@@ -70,19 +70,39 @@ async function startServer() {
   app.use((req, res, next) => {
     let sessionId = req.headers['x-session-id'] as string;
     
-    if (!sessionId && req.cookies && req.cookies.session_id) {
-       sessionId = req.cookies.session_id;
+    if (!sessionId && req.cookies) {
+       sessionId = req.cookies.bgl_session || req.cookies.session_id;
+    }
+    
+    if (sessionId) {
+      // Validate session is not expired
+      try {
+        const session = db.prepare('SELECT created_at FROM sessions WHERE session_id = ?').get(sessionId) as any;
+        if (session) {
+          const createdAt = new Date(session.created_at).getTime();
+          const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+          if (createdAt < thirtyDaysAgo) {
+            // Expired! Clean up from database
+            db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
+            sessionId = undefined;
+          }
+        }
+      } catch (e) {
+        console.error("Session verification failed:", e);
+      }
     }
     
     if (!sessionId) {
        sessionId = uuidv4();
-       res.cookie('session_id', sessionId, {
-          httpOnly: true,
-          secure: isProd,
-          sameSite: isProd ? 'none' : 'lax', // Support cross-origin split deployment safely
-          maxAge: 1000 * 60 * 60 * 24 * 365 // 1 year
-       });
     }
+    
+    // Set consolidated bgl_session cookie
+    res.cookie('bgl_session', sessionId, {
+       httpOnly: true,
+       secure: isProd,
+       sameSite: isProd ? 'none' : 'lax', // Support cross-origin split deployment safely
+       maxAge: 1000 * 60 * 60 * 24 * 30 // 30 days
+    });
     
     (req as any).sessionId = sessionId;
     next();

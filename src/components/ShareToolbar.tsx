@@ -14,7 +14,7 @@ interface ShareToolbarProps {
 export default function ShareToolbar({ articleId, headline, analysis }: ShareToolbarProps) {
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = `${window.location.origin}/api/news/${articleId}/share`;
+  const shareUrl = `${window.location.origin}/api/news/${encodeURIComponent(articleId)}/share`;
   const shareUrlEncoded = encodeURIComponent(shareUrl);
   const shareText = encodeURIComponent(`"${headline}" - via Black Global Lens`);
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { RefreshCw, ImageIcon, AlertTriangle, X } from 'lucide-react';
 
 interface BackstoryData {
   the_past_roots: string;
@@ -32,6 +33,9 @@ export default function ArticleModal({
   const [backstory, setBackstory] = useState<BackstoryData | null>(null);
   const [loadingBackstory, setLoadingBackstory] = useState(false);
   const [imageStyle, setImageStyle] = useState('photorealistic');
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Focus and handle Escape key
@@ -95,35 +99,89 @@ export default function ArticleModal({
           </span>
           <h1 className="text-3xl font-serif text-white mb-6 leading-tight">{headline}</h1>
           
-          <div className="flex items-center gap-4 mb-6">
-            <button 
-               onClick={async () => {
-                  const res = await fetch(`/api/news/${encodeURIComponent(articleId)}/generate-image`, { 
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ style: imageStyle })
-                  });
-                  const data = await res.json();
-                  if (data.imageUrl) {
-                     window.open(data.imageUrl, '_blank');
-                  } else {
-                     alert(data.error || "Failed to generate image");
-                  }
-               }}
-               className="text-xs uppercase font-bold tracking-widest text-emerald-500 hover:text-emerald-300 flex items-center gap-2 cursor-pointer transition-colors"
-            >
-               ✨ Generate {imageStyle} Image
-            </button>
-            <select 
-              value={imageStyle}
-              onChange={(e) => setImageStyle(e.target.value)}
-              className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-widest p-2 rounded cursor-pointer outline-none border border-zinc-700"
-            >
-              <option value="photorealistic">Photorealistic</option>
-              <option value="cyberpunk">Cyberpunk</option>
-              <option value="artistic">Artistic</option>
-              <option value="minimalist">Minimalist</option>
-            </select>
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center gap-4">
+              <button 
+                 onClick={async () => {
+                    setGeneratingImage(true);
+                    setGeneratedImageUrl(null);
+                    setGenerationError(null);
+                    try {
+                      const res = await fetch(`/api/news/${encodeURIComponent(articleId)}/generate-image`, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ style: imageStyle })
+                      });
+                      const text = await res.text();
+                      let data;
+                      try {
+                        data = JSON.parse(text);
+                      } catch (parseErr) {
+                        throw new Error(text || "Failed to generate image (Invalid server response)");
+                      }
+                      if (res.ok && data?.imageUrl) {
+                         setGeneratedImageUrl(data.imageUrl);
+                      } else {
+                         setGenerationError(data?.error || "Failed to generate image");
+                      }
+                    } catch (err: any) {
+                      console.error("Image generation error:", err);
+                      setGenerationError(err?.message || "An error occurred while generating the image.");
+                    } finally {
+                      setGeneratingImage(false);
+                    }
+                 }}
+                 disabled={generatingImage}
+                 className="text-xs uppercase font-bold tracking-widest text-emerald-500 hover:text-emerald-300 disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                 {generatingImage ? (
+                   <>
+                     <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-500" />
+                     <span>Generating Image...</span>
+                   </>
+                 ) : (
+                   <>
+                     <span>✨ Generate {imageStyle} Image</span>
+                   </>
+                 )}
+              </button>
+              <select 
+                value={imageStyle}
+                onChange={(e) => setImageStyle(e.target.value)}
+                disabled={generatingImage}
+                className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-widest p-2 rounded cursor-pointer outline-none border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="photorealistic">Photorealistic</option>
+                <option value="cyberpunk">Cyberpunk</option>
+                <option value="artistic">Artistic</option>
+                <option value="minimalist">Minimalist</option>
+              </select>
+            </div>
+
+            {generationError && (
+              <div className="bg-red-950/20 border border-red-900/30 text-red-400 text-xs p-3 rounded flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+                <span>{generationError}</span>
+              </div>
+            )}
+
+            {generatedImageUrl && (
+              <div className="relative group bg-zinc-900 p-2 rounded-xl border border-zinc-800 overflow-hidden">
+                <img 
+                  src={generatedImageUrl} 
+                  alt="AI Generated Visualization" 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-auto rounded-lg max-h-80 object-cover"
+                />
+                <button 
+                  onClick={() => setGeneratedImageUrl(null)} 
+                  className="absolute top-4 right-4 bg-black/80 hover:bg-black text-white p-1.5 rounded-full transition-colors"
+                  title="Dismiss image"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
           
           <p className="text-base text-zinc-300 leading-relaxed mb-8 bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
