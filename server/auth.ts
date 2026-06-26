@@ -139,3 +139,162 @@ authRouter.post("/logout", (req, res) => {
 
   res.json({ success: true });   
 });
+
+authRouter.get("/google/url", (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return res.status(400).json({ error: "Google OAuth is not configured. Please set GOOGLE_CLIENT_ID in the app's Secrets panel." });
+  }
+  
+  const redirectUri = req.query.redirectUri as string;
+  if (!redirectUri) {
+    return res.status(400).json({ error: "redirectUri query parameter is required" });
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state: redirectUri, // Pass redirectUri in state so callback knows where to post
+    access_type: 'offline',
+    prompt: 'consent'
+  });
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  res.json({ url: authUrl });
+});
+
+authRouter.get("/google/callback", async (req, res) => {
+  const { code, error, state } = req.query;
+
+  if (error) {
+    return res.send(`
+      <html>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_FAILURE', error: "${error}" }, '*');
+              window.close();
+            } else {
+              window.location.href = '/?error=' + encodeURIComponent(String("${error}"));
+            }
+          </script>
+          <p>Authentication failed: ${error}</p>
+        </body>
+      </html>
+    `);
+  }
+
+  if (!code) {
+    return res.status(400).send("Authorization code is required");
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    return res.status(500).send("Google client credentials are not configured on the server. Please check your secrets configuration.");
+  }
+
+  const originalRedirectUri = state ? String(state) : "";
+  if (!originalRedirectUri) {
+    return res.status(400).send("OAuth state (redirect URI) is missing");
+  }
+
+  try {
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: originalRedirectUri,
+        grant_type: "authorization_code"
+      })
+    });
+
+    const tokenData = await tokenResponse.json() as any;
+    if (!tokenResponse.ok) {
+      throw new Error(tokenData.error_description || tokenData.error || "Failed to exchange authorization code");
+    }
+
+    const { access_token } = tokenData;
+
+    const userinfoResponse = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { "Authorization": `Bearer ${access_token}` }
+    });
+
+    const userinfo = await userinfoResponse.json() as any;
+    if (!userinfoResponse.ok) {
+      throw new Error("Failed to fetch user profile from Google");
+    }
+
+    const email = userinfo.email;
+    if (!email) {
+      throw new Error("Google account does not have a verified email address");
+    }
+
+    // Check if user exists by email
+    let user = db.prepare('SELECT id, email FROM users WHERE email = ?').get(email) as any;
+    
+    if (!user) {
+      // Create user. Google authenticated users don't have a local password_hash.
+      const id = uuidv4();
+      db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, NULL)').run(id, email);
+      user = { id, email };
+    }
+
+    // Auto login
+    const sessionId = uuidv4();
+    db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
+    
+    res.cookie('bgl_session', sessionId, { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === "production", 
+      sameSite: 'lax', 
+      maxAge: 30 * 24 * 60 * 60 * 1000 
+    });
+    
+    // Migrate anonymous settings
+    migrateGuestSettings(req, res, user.id);
+
+    const userJson = JSON.stringify({ id: user.id, email: user.email });
+
+    return res.send(`
+      <html>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', user: ${userJson} }, '*');
+              window.close();
+            } else {
+              window.location.href = '/';
+            }
+          </script>
+          <p>Authentication successful. This window should close automatically.</p>
+        </body>
+      </html>
+    `);
+  } catch (err: any) {
+    console.error("Google OAuth Callback Error:", err);
+    const errorMsg = err.message || String(err);
+    return res.send(`
+      <html>
+        <body>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ type: 'OAUTH_AUTH_FAILURE', error: "${errorMsg.replace(/"/g, '\\"')}" }, '*');
+              window.close();
+            } else {
+              window.location.href = '/?error=' + encodeURIComponent("${errorMsg}");
+            }
+          </script>
+          <p>Authentication failed: ${errorMsg}</p>
+        </body>
+      </html>
+    `);
+  }
+});
+

@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import helmet from "helmet";
 import { createServer as createViteServer } from "vite";
 import { syncRSSNews } from "./server/rss";
 import { syncSportsAPI } from "./server/sports";
@@ -23,6 +24,15 @@ cron.schedule("0 */3 * * *", () => {
   syncSportsAPI();
 }, { timezone: "UTC" });
 
+function escapeHtml(unsafe: string): string {
+  return (unsafe || "")
+       .replace(/&/g, "&amp;")
+       .replace(/</g, "&lt;")
+       .replace(/>/g, "&gt;")
+       .replace(/"/g, "&quot;")
+       .replace(/'/g, "&#039;");
+}
+
 async function startServer() {
   // Startup assertions
   const isProd = process.env.NODE_ENV === "production";
@@ -34,6 +44,13 @@ async function startServer() {
   const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.set("trust proxy", 1);
+
+  // Secure helmet HTTP headers configured for AI Studio's sandbox frame and Vite development environments
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    frameguard: false,
+    crossOriginEmbedderPolicy: false
+  }));
   
   // Explicit CORS Allowlist
   const allowedOrigins = [
@@ -101,7 +118,7 @@ async function startServer() {
     res.cookie('bgl_session', sessionId, {
        httpOnly: true,
        secure: isProd,
-       sameSite: isProd ? 'none' : 'lax', // Support cross-origin split deployment safely
+       sameSite: 'lax', // Unified to Lax to guarantee stable session cookie behavior on single-domain deployment
        maxAge: 1000 * 60 * 60 * 24 * 30 // 30 days
     });
     
@@ -143,7 +160,7 @@ async function startServer() {
       for (const article of articles) {
         xml += `
   <url>
-    <loc>${baseUrl}/?article=${article.url_hash}</loc>
+    <loc>${baseUrl}/?article=${escapeHtml(article.url_hash)}</loc>
     <lastmod>${new Date(article.pub_date || Date.now()).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -190,14 +207,6 @@ async function startServer() {
         `).get(articleId, articleId) as any;
 
         if (article) {
-          const escapeHtml = (unsafe: string) => {
-            return unsafe
-                 .replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;")
-                 .replace(/"/g, "&quot;")
-                 .replace(/'/g, "&#039;");
-          };
           const headline = escapeHtml(article.reframed_headline || 'Global Lens Story');
           const description = escapeHtml((article.cultural_lens_analysis || '').slice(0, 200));
           const image = escapeHtml(article.image_url || `${baseUrl}/og-default.jpg`);
