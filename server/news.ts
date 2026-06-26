@@ -25,8 +25,7 @@ const NewsQuerySchema = z.object({
 
 newsRouter.get("/:id/share", (req, res) => {
   const articleId = req.params.id;
-  const isValidId = /^[a-zA-Z0-9\-_]+$/.test(articleId) || 
-                    /^https?:\/\/[a-zA-Z0-9\-\._~:\/\?#\[\]@!\$&'\(\)\*\+,;=%]+$/.test(articleId);
+  const isValidId = /^[a-zA-Z0-9\-_]{10,128}$/.test(articleId);
   if (!isValidId) {
     return res.status(400).send('Invalid article ID');
   }
@@ -378,7 +377,7 @@ newsRouter.post("/:id/generate-image", async (req, res) => {
       try {
         const parsed = JSON.parse(cookieVal);
         settings = {
-          gemini_api_key: parsed.geminiApiKey
+          gemini_api_key: parsed.encryptedGeminiApiKey
         };
       } catch (e) {
         // Safe fallback

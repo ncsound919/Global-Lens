@@ -4,6 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import db, { encrypt } from "./db";
+import { SettingsSchema } from "./settings";
 
 export const authRouter = express.Router();
 
@@ -26,15 +27,25 @@ function migrateGuestSettings(req: express.Request, res: express.Response, userI
   try {
     const guestSettingsCookie = req.cookies?.bgl_guest_settings;
     if (guestSettingsCookie) {
-      let parsed: any = null;
+      let rawParsed: any = null;
       try {
-        parsed = JSON.parse(guestSettingsCookie);
+        rawParsed = JSON.parse(guestSettingsCookie);
       } catch (e) {}
 
-      if (parsed) {
+      if (rawParsed) {
+        // Validate with identical strict SettingsSchema to prevent unvalidated input injection
+        const parsedResult = SettingsSchema.safeParse(rawParsed);
+        if (!parsedResult.success) {
+          console.warn("[migrateGuestSettings] Invalid guest settings rejected:", parsedResult.error.format());
+          return;
+        }
+        const validated = parsedResult.data;
+
         let finalEncryptedKey = "";
-        if (parsed.geminiApiKey && parsed.geminiApiKey !== "••••" && parsed.geminiApiKey !== "••••••••••••••••") {
-          finalEncryptedKey = encrypt(parsed.geminiApiKey);
+        if (rawParsed.encryptedGeminiApiKey) {
+          finalEncryptedKey = String(rawParsed.encryptedGeminiApiKey);
+        } else if (validated.geminiApiKey && validated.geminiApiKey !== "••••" && validated.geminiApiKey !== "••••••••••••••••") {
+          finalEncryptedKey = encrypt(validated.geminiApiKey);
         }
 
         db.prepare(`
@@ -49,10 +60,10 @@ function migrateGuestSettings(req: express.Request, res: express.Response, userI
             updated_at=CURRENT_TIMESTAMP
         `).run(
           userId,
-          parsed.readingMode || "simplified",
-          parsed.lensIntensity || "balanced",
-          parsed.oddsFormat || "american",
-          JSON.stringify(parsed.regions || {}),
+          validated.readingMode || "simplified",
+          validated.lensIntensity || "balanced",
+          validated.oddsFormat || "american",
+          JSON.stringify(validated.regions || {}),
           finalEncryptedKey
         );
       }

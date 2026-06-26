@@ -5,12 +5,12 @@ import { getAuthSession } from "./api";
 
 export const settingsRouter = express.Router();
 
-const SettingsSchema = z.object({
+export const SettingsSchema = z.object({
   readingMode: z.enum(['simplified', 'executive', 'academic', 'raw']).optional(),
   lensIntensity: z.enum(['balanced', 'pan_african', 'hyper_local', 'indigenous', 'marxist', 'decolonial']).optional(),
   oddsFormat: z.enum(['american', 'decimal', 'fractional']).optional(),
-  regions: z.record(z.string(), z.boolean()).optional(),
-  geminiApiKey: z.string().optional()
+  regions: z.record(z.string().max(50), z.boolean()).optional(),
+  geminiApiKey: z.string().max(250).optional()
 });
 
 settingsRouter.get("/settings", (req, res) => {
@@ -38,21 +38,21 @@ settingsRouter.get("/settings", (req, res) => {
        );
     }
     
-    // Format response matching expected front-end schema
-    settings.session_id = settings.owner_id;
+    let parsedRegions = { us: true, westAfrica: false, caribbean: true };
     try { 
-      settings.regions = JSON.parse(settings.regions); 
-    } catch (e) {
-      settings.regions = { us: true, westAfrica: false, caribbean: true };
-    }
+      parsedRegions = JSON.parse(settings.regions); 
+    } catch (e) {}
 
-    if (settings.gemini_api_key) {
-      settings.gemini_api_key = "••••";
-    } else {
-      settings.gemini_api_key = "";
-    }
+    const isKeySet = !!settings.gemini_api_key;
 
-    return res.json(settings);
+    // Do NOT return any owner_id or session_id to protect user privacy
+    return res.json({
+      reading_mode: settings.reading_mode,
+      lens_intensity: settings.lens_intensity,
+      odds_format: settings.odds_format,
+      regions: parsedRegions,
+      gemini_api_key: isKeySet ? "••••" : ""
+    });
   } else {
     // Anonymous/Guest path: Use secure cookie-based preference isolation
     let guestSettings = {
@@ -72,7 +72,7 @@ settingsRouter.get("/settings", (req, res) => {
           lens_intensity: parsed.lensIntensity || "balanced",
           odds_format: parsed.oddsFormat || "american",
           regions: parsed.regions || { us: true, westAfrica: false, caribbean: true },
-          gemini_api_key: parsed.geminiApiKey ? "••••" : ""
+          gemini_api_key: parsed.encryptedGeminiApiKey ? "••••" : ""
         };
       } catch (e) {
         // Fallback to defaults on corrupt cookie
@@ -80,9 +80,11 @@ settingsRouter.get("/settings", (req, res) => {
     }
 
     return res.json({
-      owner_id: "guest",
-      session_id: "guest",
-      ...guestSettings
+      reading_mode: guestSettings.reading_mode,
+      lens_intensity: guestSettings.lens_intensity,
+      odds_format: guestSettings.odds_format,
+      regions: guestSettings.regions,
+      gemini_api_key: guestSettings.gemini_api_key
     });
   }
 });
@@ -135,10 +137,37 @@ settingsRouter.put("/settings", (req, res) => {
 
     return res.json({ success: true });
   } else {
-    // Guest path: Store the settings in an isolated, client-session cookie
-    // Ensure we do not save any actual secret keys in a readable plaintext cookie!
-    // If they set a geminiApiKey, we mask it or keep it as-is for the transient session.
-    res.cookie('bgl_guest_settings', JSON.stringify(body), {
+    // Guest path: Store settings securely in cookie. Encrypt sensitive keys first.
+    let existingEncryptedKey = "";
+    const cookieVal = req.cookies?.bgl_guest_settings;
+    if (cookieVal) {
+      try {
+        const parsedCookie = JSON.parse(cookieVal);
+        existingEncryptedKey = parsedCookie.encryptedGeminiApiKey || "";
+      } catch (e) {}
+    }
+
+    let finalEncryptedKey = "";
+    if (body.geminiApiKey === "••••" || body.geminiApiKey === "••••••••••••••••") {
+      finalEncryptedKey = existingEncryptedKey;
+    } else if (body.geminiApiKey) {
+      finalEncryptedKey = encrypt(body.geminiApiKey);
+    }
+
+    const cookiePayload = {
+      readingMode: body.readingMode || "simplified",
+      lensIntensity: body.lensIntensity || "balanced",
+      oddsFormat: body.oddsFormat || "american",
+      regions: body.regions || { us: true, westAfrica: false, caribbean: true },
+      encryptedGeminiApiKey: finalEncryptedKey
+    };
+
+    const serialized = JSON.stringify(cookiePayload);
+    if (serialized.length > 2000) {
+      return res.status(400).json({ error: "Settings payload exceeds safe cookie size limits" });
+    }
+
+    res.cookie('bgl_guest_settings', serialized, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: 'lax',
