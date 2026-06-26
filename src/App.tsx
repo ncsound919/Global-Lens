@@ -14,21 +14,10 @@ import CookieConsent from './components/CookieConsent';
 import { ArticleProps } from './types';
 
 import AuthModal from './components/AuthModal';
+import AboutMission from './components/AboutMission';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
-
-const CATEGORIES = [
-  'all',
-  'global',
-  'politics',
-  'diaspora',
-  'finance',
-  'culture',
-  'health',
-  'music',
-  'sports',
-  'saved'
-] as const;
+import CategoryNav from './components/CategoryNav';
 
 type FetchStatus = 'idle' | 'loading' | 'refreshing' | 'success' | 'error';
 
@@ -209,47 +198,12 @@ export default function App() {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-7xl px-4 pb-4">
-          <nav
-            aria-label="News categories"
-            className="flex gap-2 overflow-x-auto rounded-full bg-zinc-900/50 p-1.5 no-scrollbar ring-1 ring-inset ring-zinc-800/50"
-          >
-            {CATEGORIES.map((c) => {
-              const active = category === c;
-
-              return (
-                <button
-                  key={c}
-                  onClick={() => setCategory(c)}
-                  aria-pressed={active}
-                  className={`relative flex min-w-max items-center justify-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] transition-all duration-300 active:scale-95 ${
-                    active
-                      ? 'bg-amber-500 text-zinc-950 shadow-[0_2px_8px_rgba(245,158,11,0.2)]'
-                      : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200'
-                  }`}
-                >
-                  {c.replace(/_/g, ' ')}
-                  {active && articles && articles.length > 0 && category === c && (
-                    <span className="ml-2 bg-black text-amber-500 rounded-full px-1.5 py-0.5 text-[9px]">
-                      {articles.length}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+        <CategoryNav category={category} setCategory={setCategory} articles={articles} />
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 sm:px-8 lg:px-12 py-8 sm:py-12">
         
-        {/* About / Editorial Statement */}
-        <section className="mb-12 bg-[#0c0c0c] border border-zinc-900 rounded-sm p-6 lg:p-8">
-          <h2 className="text-[10px] uppercase font-bold tracking-[0.25em] text-amber-500 mb-4">About Black Global Lens</h2>
-          <p className="text-zinc-300 text-sm md:text-base leading-relaxed font-serif max-w-4xl">
-            Black Global Lens automatically aggregates top stories across the global Black diaspora and uses AI to dynamically reframe them. Every story is given a Pan-African, decolonial, or hyper-local context, offering readers historical depth and cultural analysis that standard news feeds lack. This is an experiment in contextual news intelligence.
-          </p>
-        </section>
+        {category === 'all' && <AboutMission />}
         <section className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-serif font-medium uppercase tracking-[0.16em] text-white sm:text-3xl">

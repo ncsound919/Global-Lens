@@ -33,7 +33,12 @@ export const PrivacyPolicyModal: React.FC<LegalModalProps> = ({ onClose }) => (
           We process your information for purposes based on legitimate business interests, the fulfillment of our contract with you, compliance with our legal obligations, and/or your consent. This includes rendering personalized news feeds, account authentication, maintaining system health, and ensuring basic application functionality. We do not sell your personal data to third parties.
         </p>
 
-        <h3 className="text-lg font-medium text-white mb-2">3. Intellectual Property Rights</h3>
+        <h3 className="text-lg font-medium text-white mb-2">3. AI Data Processing & Editorial Reframing</h3>
+        <p>
+          Black Global Lens utilizes generative artificial intelligence (AI) models to analyze, summarize, and contextually reframe news content. When processing articles, no personally identifiable user data is transmitted to these AI models. The AI systems are solely used to analyze public text and provide cultural and historical lenses. We do not use user data to train our AI models.
+        </p>
+
+        <h3 className="text-lg font-medium text-white mb-2">4. Intellectual Property Rights</h3>
         <p>
           Unless otherwise indicated, the Services are our proprietary property and all source code, databases, functionality, software, website designs, audio, video, text, photographs, and graphics on the Services (collectively, the "Content") and the trademarks, service marks, and logos contained therein are owned or controlled by us or licensed to us.
         </p>

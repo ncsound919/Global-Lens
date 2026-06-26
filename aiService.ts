@@ -19,6 +19,10 @@ let mistralModelIndex = 0;
 export const getAvailableProviders = () => {
   const p = [];
   if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10 && !process.env.GEMINI_API_KEY.includes('GEMINI_API_KEY')) p.push('gemini');
+  if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY.length > 10) p.push('deepseek');
+  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.length > 10) p.push('openrouter');
+  if (process.env.MISTRAL_API_KEY && process.env.MISTRAL_API_KEY.length > 10) p.push('mistral');
+  if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.length > 10) p.push('groq');
   return p;
 };
 
@@ -37,7 +41,7 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
        try {
        if (provider === 'gemini') {
           const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-          const geminiModels = ['gemini-2.0-flash'];
+          const geminiModels = ['gemini-2.5-flash', 'gemini-2.0-flash'];
           const modelToUse = geminiModels[geminiModelIndex % geminiModels.length];
           geminiModelIndex++;
           const response = await client.models.generateContent({
@@ -85,6 +89,14 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
              messages: [{ role: 'user', content: prompt }]
           });
           if (res.choices[0].message.content) return res.choices[0].message.content;
+       } else if (provider === 'groq') {
+          const client = new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' });
+          const res = await client.chat.completions.create({
+             model: 'llama-3.3-70b-versatile',
+             response_format: { type: 'json_object' },
+             messages: [{ role: 'user', content: prompt }]
+          });
+          if (res.choices && res.choices[0] && res.choices[0].message.content) return res.choices[0].message.content;
        }
      } catch (e: any) {
         lastError = e;

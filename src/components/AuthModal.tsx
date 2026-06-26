@@ -45,10 +45,15 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-medium text-white font-sans tracking-tight">
-            {isLogin ? 'Reader Login' : 'Create Account'}
-          </h2>
-          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900 rounded-sm">
+          <div>
+            <h2 className="text-xl font-medium text-white font-sans tracking-tight">
+              {isLogin ? 'Reader Login' : 'Create Account'}
+            </h2>
+            <p className="text-sm text-zinc-400 mt-1">
+              Create an account to sync your saved articles across devices and maintain your reading preferences.
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900 rounded-sm self-start">
             <X className="w-4 h-4" />
           </button>
         </div>

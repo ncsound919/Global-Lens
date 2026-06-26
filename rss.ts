@@ -128,7 +128,13 @@ export async function syncRSSNews() {
              imageUrl = typeof item.image === 'string' ? item.image : item.image.url;
            }
            
-           const pubDate = item.pubDate || item.isoDate || null;
+           let pubDate = item.isoDate || item.pubDate || new Date().toISOString();
+           try {
+             pubDate = new Date(pubDate).toISOString();
+           } catch(e) {
+             // Fallback to current time if parsing fails
+             pubDate = new Date().toISOString();
+           }
            
            const stmt = db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
            const info = stmt.run(

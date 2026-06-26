@@ -4,11 +4,8 @@ import ArticleModal from './ArticleModal';
 import CommunityTakeawaysWidget from './CommunityTakeawaysWidget';
 import AnalyticsChart from './AnalyticsChart';
 import InlineHistoricalContext from './InlineHistoricalContext';
-import { Share2, ClipboardCopy, CheckCircle2, Bookmark } from 'lucide-react';
-
-const TwitterIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>;
-const FacebookIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>;
-const LinkedinIcon = () => <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>;
+import BookmarkButton from './BookmarkButton';
+import ShareToolbar from './ShareToolbar';
 
 const safe = (val: any): string => {
   if (typeof val === 'string') return val;
@@ -22,8 +19,6 @@ const SplitViewNewsCard: React.FC<{
   onClearDeepLink?: () => void;
 }> = ({ article, isDeepLinked, onClearDeepLink }) => {
   const [showModal, setShowModal] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const modalScrollRef = React.useRef(0);
 
   useEffect(() => {
@@ -32,60 +27,9 @@ const SplitViewNewsCard: React.FC<{
     }
   }, [isDeepLinked]);
 
-  useEffect(() => {
-    try {
-      const savedData = localStorage.getItem('globalLens_saved');
-      if (savedData) {
-        const savedArticles = JSON.parse(savedData) as ArticleProps[];
-        setIsSaved(savedArticles.some(a => a.url_hash === article.url_hash || a.id === article.id));
-      }
-    } catch (e) {}
-  }, [article.url_hash, article.id]);
-
   const handleCloseModal = () => {
     setShowModal(false);
     if (onClearDeepLink) onClearDeepLink();
-  };
-
-  const toggleSave = () => {
-    try {
-      const savedData = localStorage.getItem('globalLens_saved');
-      let savedArticles = savedData ? JSON.parse(savedData) as ArticleProps[] : [];
-      
-      if (isSaved) {
-        savedArticles = savedArticles.filter(a => a.url_hash !== article.url_hash && a.id !== article.id);
-        setIsSaved(false);
-      } else {
-        savedArticles = [article, ...savedArticles];
-        setIsSaved(true);
-      }
-      
-      localStorage.setItem('globalLens_saved', JSON.stringify(savedArticles));
-    } catch (e) {
-      console.error('Error saving article', e);
-    }
-  };
-
-  const shareUrl = `${window.location.origin}/api/news/${article.id || article.url_hash}/share`;
-  const shareUrlEncoded = encodeURIComponent(shareUrl);
-  const shareText = encodeURIComponent(`"${safe(article.reframed_headline)}" - via Black Global Lens`);
-
-  const handleCopy = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: safe(article.reframed_headline),
-        text: `${safe(article.cultural_lens_analysis)?.slice(0, 100)}... via Black Global Lens`,
-        url: shareUrl
-      }).catch((e) => {
-        navigator.clipboard.writeText(shareUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
-    } else {
-      navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
   };
 
   const getRelativeTime = (date: string) => {
@@ -241,61 +185,9 @@ const SplitViewNewsCard: React.FC<{
             </div>
 
             <div className="flex items-center gap-4 shrink-0">
-               <button
-                 onClick={toggleSave}
-                 className={`p-2 rounded-full border transition-all ${
-                   isSaved 
-                    ? 'bg-amber-500/10 border-amber-500/50 text-amber-500 hover:bg-amber-500/20' 
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
-                 }`}
-                 aria-label={isSaved ? "Remove from saved" : "Save article"}
-               >
-                 <Bookmark className="w-4 h-4" fill={isSaved ? "currentColor" : "none"} />
-               </button>
+               <BookmarkButton article={article} />
                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest hidden sm:inline-block">Share</span>
-               <div className="flex gap-2">
-                 <button
-                   onClick={handleCopy}
-                   className="p-2 flex items-center gap-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
-                   aria-label="Copy summary"
-                 >
-                   {copied ? (
-                     <>
-                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500 pr-1">Copied</span>
-                     </>
-                   ) : (
-                     <ClipboardCopy className="w-4 h-4" />
-                   )}
-                 </button>
-                 <a 
-                   href={`https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrlEncoded}`}
-                   target="_blank"
-                   rel="noreferrer"
-                   className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
-                   aria-label="Share on Twitter"
-                 >
-                   <TwitterIcon />
-                 </a>
-                 <a 
-                   href={`https://www.facebook.com/sharer/sharer.php?u=${shareUrlEncoded}`}
-                   target="_blank"
-                   rel="noreferrer"
-                   className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
-                   aria-label="Share on Facebook"
-                 >
-                   <FacebookIcon />
-                 </a>
-                 <a 
-                   href={`https://www.linkedin.com/sharing/share-offsite/?url=${shareUrlEncoded}`}
-                   target="_blank"
-                   rel="noreferrer"
-                   className="p-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-all"
-                   aria-label="Share on LinkedIn"
-                 >
-                   <LinkedinIcon />
-                 </a>
-               </div>
+               <ShareToolbar articleId={String(article.id || article.url_hash || "")} headline={safe(article.reframed_headline)} analysis={safe(article.cultural_lens_analysis)} />
             </div>
           </div>
         </div>

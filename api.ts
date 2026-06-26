@@ -192,7 +192,7 @@ apiRouter.get("/news", (req, res) => {
       FROM articles a
       LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
       WHERE a.is_moderated = 0
-      ORDER BY a.created_at DESC LIMIT ? OFFSET ?
+      ORDER BY COALESCE(a.pub_date, a.created_at) DESC LIMIT ? OFFSET ?
     `).all(settings.reading_mode, settings.lens_intensity, limit, offset);
   } else {
     articlesRaw = db.prepare(`
@@ -201,7 +201,7 @@ apiRouter.get("/news", (req, res) => {
       FROM articles a
       LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
       WHERE a.category = ? AND a.is_moderated = 0
-      ORDER BY a.created_at DESC LIMIT ? OFFSET ?
+      ORDER BY COALESCE(a.pub_date, a.created_at) DESC LIMIT ? OFFSET ?
     `).all(settings.reading_mode, settings.lens_intensity, category, limit, offset);
   }
   
@@ -317,7 +317,7 @@ apiRouter.get("/news/:id/backstory", backstoryLimiter, async (req, res) => {
 
   try {
     const providers = getAvailableProviders();
-    if (providers.length === 0 || (providers.length === 1 && providers[0] === 'gemini' && !process.env.GEMINI_API_KEY)) {
+    if (providers.length === 0) {
       throw new Error("No AI API keys are configured");
     }
     

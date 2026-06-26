@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { syncRSSNews } from "./rss";
+import { syncSportsAPI } from "./sports";
 import { apiRouter } from "./api";
 import db from "./db";
 import cookieParser from "cookie-parser";
@@ -13,11 +14,13 @@ import rateLimit from "express-rate-limit";
 
 // kick off initial sync in bg
 syncRSSNews();
+syncSportsAPI();
 
 // Run cron job every 3 hours
 cron.schedule("0 */3 * * *", () => {
-  console.log("Running scheduled morning RSS sync...");
+  console.log("Running scheduled morning RSS and Sports sync...");
   syncRSSNews();
+  syncSportsAPI();
 }, { timezone: "UTC" });
 
 async function startServer() {

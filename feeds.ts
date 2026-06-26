@@ -21,6 +21,5 @@ export const feeds = [
   { url: "https://hiphopdx.com/rss/news.xml", category: "music", source_name: "HipHopDX", bias: "independent" },
   { url: "https://blacksportsonline.com/feed/", category: "sports", source_name: "Black Sports Online", bias: "independent" },
   { url: "https://andscape.com/feed/", category: "sports", source_name: "Andscape", bias: "corporate" },
-  { url: "https://theshadowleague.com/feed/", category: "sports", source_name: "The Shadow League", bias: "independent" },
   { url: "https://defendernetwork.com/category/sports/feed/", category: "sports", source_name: "Defender Network", bias: "independent" }
 ];
