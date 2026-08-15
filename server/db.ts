@@ -3,7 +3,10 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
 
-// Select db path safely, preferring custom path or mounted volumes
+// Select db path safely, preferring custom paths or mounted volumes.
+// Independent of the current working directory: if a database already exists
+// in the project dir (module-relative) it wins, so launching the bundled
+// server from any cwd still uses the same SQLite file.
 const getDbPath = (): string => {
   if (process.env.DB_PATH) {
     return process.env.DB_PATH;
@@ -14,10 +17,18 @@ const getDbPath = (): string => {
     }
   } catch (e) {}
 
+  const candidates = [
+    path.join(process.cwd(), 'app.sqlite'),
+    path.resolve(__dirname, 'app.sqlite'), // dev (tsx server.ts): project root
+    path.resolve(__dirname, '..', 'app.sqlite'), // prod bundle (dist/server.cjs): project root
+  ];
+  const existing = candidates.find((p) => fs.existsSync(p));
+  if (existing) return existing;
+
   if (process.env.NODE_ENV === 'production') {
     console.warn("🚨 SECURITY & PERSISTENCE WARNING: Running in production without DB_PATH or /data volume. Data will be volatile!");
   }
-  return path.join(process.cwd(), 'app.sqlite');
+  return candidates[0];
 };
 
 const dbPath = getDbPath();
@@ -235,6 +246,96 @@ export function runMigrations() {
       db.exec(`DROP TABLE user_settings;`);
     }
     db.exec(`ALTER TABLE user_settings_new RENAME TO user_settings;`);
+  });
+
+  // Migration 4: Overlay Global Lens — ecosystem content tables (papers, trends, discoveries, metaphors)
+  runMigration('004_insights_content', () => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS research_papers (
+        id TEXT PRIMARY KEY,
+        source TEXT,
+        title TEXT,
+        url TEXT,
+        year INTEGER,
+        authors TEXT,
+        abstract TEXT,
+        summary TEXT,
+        category TEXT,
+        pillar TEXT,
+        evidence_tier TEXT,
+        payload TEXT,
+        pub_date TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_research_papers_pillar ON research_papers(pillar);
+      CREATE INDEX IF NOT EXISTS idx_research_papers_pub_date ON research_papers(pub_date DESC);
+
+      CREATE TABLE IF NOT EXISTS trends (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        summary TEXT,
+        direction TEXT,
+        slope REAL,
+        confidence REAL,
+        evidence_tier TEXT,
+        recommended_action TEXT,
+        source TEXT,
+        category TEXT,
+        payload TEXT,
+        pub_date TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trends_evidence_tier ON trends(evidence_tier);
+      CREATE INDEX IF NOT EXISTS idx_trends_pub_date ON trends(pub_date DESC);
+
+      CREATE TABLE IF NOT EXISTS discoveries (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        insight TEXT,
+        evidence_tier TEXT,
+        hypothesis_id TEXT,
+        linked_patch_id TEXT,
+        source TEXT,
+        category TEXT,
+        payload TEXT,
+        pub_date TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_discoveries_evidence_tier ON discoveries(evidence_tier);
+      CREATE INDEX IF NOT EXISTS idx_discoveries_pub_date ON discoveries(pub_date DESC);
+
+      CREATE TABLE IF NOT EXISTS metaphors (
+        id TEXT PRIMARY KEY,
+        url_hash TEXT REFERENCES articles(url_hash) ON DELETE CASCADE,
+        topic TEXT,
+        protocol_id TEXT,
+        core_tension TEXT,
+        mappings TEXT,
+        beat_structure TEXT,
+        narrative TEXT,
+        lesson TEXT,
+        codex_scores TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_metaphors_url_hash ON metaphors(url_hash);
+    `);
+  });
+
+  // Migration 6: Backfill legacy cache rows that predate the article_body column
+  // with a plain multi-paragraph body derived from the original dispatch.
+  runMigration('006_article_body_backfill', () => {
+    db.exec(`
+      UPDATE article_ai_cache
+      SET article_body = (
+        SELECT a.original_text_dump
+        FROM articles a WHERE a.url_hash = article_ai_cache.url_hash
+      )
+      WHERE article_body IS NULL OR article_body = ''
+    `);
   });
 }
 

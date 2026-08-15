@@ -1,7 +1,7 @@
 {
-  "name": "Black Global Lens",
-  "short_name": "Opulence",
-  "description": "Pan-African News Perspectives",
+  "name": "Overlay Global Lens",
+  "short_name": "Overlay Lens",
+  "description": "Overlay365 News & Research Intelligence",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",

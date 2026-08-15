@@ -177,7 +177,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
           <section className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold font-serif mb-2 text-white shadow-amber-500/10">4. Support Black Global Lens</h3>
+                  <h3 className="text-base font-bold font-serif mb-2 text-white shadow-amber-500/10">4. Support Overlay Global Lens</h3>
                   <p className="text-sm text-zinc-400">Premium AI features and API costs are sustained entirely by community contributions.</p>
                 </div>
                 <div className="text-right">

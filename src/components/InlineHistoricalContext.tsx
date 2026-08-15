@@ -70,7 +70,7 @@ export default function InlineHistoricalContext({ articleId }: { articleId: numb
     return (
       <div className="bg-[#0f0f0f] border border-zinc-900 rounded-sm p-6 h-full min-h-[300px] flex items-center justify-center">
         <div className="text-center opacity-70">
-           <p className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">CONTEXT TEMPORARILY UNAVAILABLE — RETRY IN A MOMENT</p>
+           <p className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase">Historical Context<br/>Being Prepared</p>
         </div>
       </div>
     );

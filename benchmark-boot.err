@@ -1,0 +1,315 @@
+⚠️ WARNING: SESSION_SECRET is not set in the environment. Using a default development key. Do NOT use this in production!
+[domain] Editorial article generation failed: No AI API keys are configured.
+[domain] Editorial article generation failed: No AI API keys are configured.
+[domain] Editorial article generation failed: No AI API keys are configured.
+[metaphor] Comic engine unreachable at http://localhost:8070/health: fetch failed
+Feed fetch warning for https://afro.com/feed/ (retries left: 1) - Status code 404
+Feed fetch warning for https://afro.com/feed/ (retries left: 0) - Status code 404
+Feed fetch warning for https://www.minorityhealth.hhs.gov/rss/ (retries left: 1) - timeout
+Feed fetch warning for https://www.minorityhealth.hhs.gov/rss/ (retries left: 0) - Status code 404
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+Backstory generation error: Error: No AI API keys are configured
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2384:13
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\dist\server.cjs:2442:5
+    at Layer.handle [as handle_request] (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express\lib\router\route.js:149:13)
+    at C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:999:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\User\Downloads\Uplift\Overlay-Global-Lens\node_modules\express-rate-limit\dist\index.cjs:854:5
+[metaphor] Engine unavailable for topic "Overlay Research Digest — Sports Science & Hemp Research Findings": fetch failed
+[metaphor] Engine unavailable for topic "Overlay Research Digest — Sports Science & Hemp Research Findings": fetch failed

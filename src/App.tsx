@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   RefreshCw,
-  LayoutTemplate,
   Settings as SettingsIcon,
   AlertCircle,
   WifiOff,
@@ -18,6 +17,16 @@ import AboutMission from './components/AboutMission';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import CategoryNav from './components/CategoryNav';
+import ContentViewNav, { ContentView } from './components/ContentViewNav';
+import PaperCard from './components/PaperCard';
+import TrendCard from './components/TrendCard';
+import DiscoveryCard from './components/DiscoveryCard';
+import Masthead from './components/Masthead';
+import FrontPage from './components/FrontPage';
+import PublicationFooter from './components/PublicationFooter';
+import PublicationModal, { PublicationItem } from './components/PublicationModal';
+import EvidenceLegend from './components/EvidenceLegend';
+import { PaperProps, TrendProps, DiscoveryProps } from './types';
 
 type FetchStatus = 'idle' | 'loading' | 'refreshing' | 'success' | 'error';
 
@@ -37,6 +46,14 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState<{id: string, email: string} | null>(null);
 
+  const [view, setView] = useState<ContentView>('news');
+  const [papers, setPapers] = useState<PaperProps[]>([]);
+  const [trends, setTrends] = useState<TrendProps[]>([]);
+  const [discoveries, setDiscoveries] = useState<DiscoveryProps[]>([]);
+  const [insightStatus, setInsightStatus] = useState<FetchStatus>('idle');
+  const [insightError, setInsightError] = useState<string>('');
+  const [pubModal, setPubModal] = useState<PublicationItem | null>(null);
+
   useEffect(() => {
     isOnlineRef.current = isOnline;
   }, [isOnline]);
@@ -53,10 +70,56 @@ export default function App() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasLoadedOnceRef = useRef(false);
+  const insightLoadedRef = useRef(false);
 
   const pageTitle = useMemo(() => {
+    if (view !== 'news') {
+      return view === 'papers' ? 'Research Papers' : view === 'trends' ? 'Trends & Insights' : 'Discoveries';
+    }
     return category === 'all' ? 'Top Stories' : `${category.replace(/_/g, ' ')} News`;
-  }, [category]);
+  }, [view, category]);
+
+  const fetchInsights = useCallback(
+    async (v: ContentView, mode: 'initial' | 'refresh' = 'initial') => {
+      setInsightError('');
+      setInsightStatus(insightLoadedRef.current ? 'refreshing' : 'loading');
+
+      const endpoint =
+        v === 'papers' ? '/api/papers?limit=24' : v === 'trends' ? '/api/trends?limit=24' : '/api/discoveries?limit=24';
+
+      try {
+        const res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+        if (!res.headers.get("content-type")?.includes("application/json")) {
+          throw new Error("Invalid response");
+        }
+        const data = await res.json();
+        if (v === 'papers') setPapers(Array.isArray(data?.papers) ? data.papers : []);
+        if (v === 'trends') setTrends(Array.isArray(data?.trends) ? data.trends : []);
+        if (v === 'discoveries') setDiscoveries(Array.isArray(data?.discoveries) ? data.discoveries : []);
+        insightLoadedRef.current = true;
+        setInsightStatus('success');
+      } catch (err: any) {
+        console.error(err);
+        setInsightStatus('error');
+        setInsightError('The research desk could not be reached right now.');
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (view !== 'news') {
+      fetchInsights(view, 'initial');
+    }
+  }, [view, fetchInsights]);
+
+  // Prefetch research content on mount so the front-page Research Desk rail has data.
+  useEffect(() => {
+    fetchInsights('papers');
+    fetchInsights('trends');
+    fetchInsights('discoveries');
+  }, [fetchInsights]);
 
   const fetchNews = useCallback(
     async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -158,52 +221,104 @@ export default function App() {
   const isRefreshing = status === 'refreshing';
   const hasArticles = articles.length > 0;
 
+  const renderInsightView = () => {
+    const items = view === 'papers' ? papers : view === 'trends' ? trends : discoveries;
+
+    if (insightStatus === 'loading' || insightStatus === 'idle') {
+      return (
+        <section aria-label="Loading intelligence" className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-72 animate-pulse rounded-sm border border-zinc-900 bg-[#0c0c0c]" />
+          ))}
+        </section>
+      );
+    }
+
+    if (insightStatus === 'error') {
+      return (
+        <section className="rounded-sm border border-red-500/20 bg-[#0a0a0a] px-6 py-20 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-red-500/20 bg-zinc-950 text-red-400">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-serif tracking-wide text-white mb-2">Intelligence feed unavailable</h3>
+          <p className="mx-auto mt-3 max-w-md text-sm text-zinc-400">{insightError}</p>
+          <button
+            onClick={() => fetchInsights(view, 'refresh')}
+            className="mt-8 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-6 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-red-500 transition-all hover:bg-red-500/20"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry request
+          </button>
+        </section>
+      );
+    }
+
+    if (items.length === 0) {
+      return (
+        <section className="rounded-sm border border-zinc-900 bg-[#0c0c0c] px-6 py-20 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400">
+            <Newspaper className="h-6 w-6" />
+          </div>
+          <h3 className="text-xl font-serif text-white mb-2">No {pageTitle.toLowerCase()} found</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-zinc-500">
+            New research items appear here as the publication desk processes them. Check back with the next edition.
+          </p>
+        </section>
+      );
+    }
+
+    const open = (item: any) => {
+      if (view === 'papers') setPubModal({ type: 'paper', item });
+      else if (view === 'trends') setPubModal({ type: 'trend', item });
+      else setPubModal({ type: 'discovery', item });
+    };
+
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3 rounded-sm border border-zinc-900 bg-[#0c0c0c] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-lg font-serif text-white">The Research Desk</h3>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">
+              Overlay Science · Overlay Writing · Overlay Sport
+            </p>
+          </div>
+          <EvidenceLegend />
+        </div>
+        <section aria-live={insightStatus === 'refreshing' ? 'polite' : undefined} className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {items.map((item: any) => (
+            <ErrorBoundary key={item.id}>
+              {view === 'papers' ? (
+                <PaperCard paper={item} onOpen={() => open(item)} />
+              ) : view === 'trends' ? (
+                <TrendCard trend={item} onOpen={() => open(item)} />
+              ) : (
+                <DiscoveryCard discovery={item} onOpen={() => open(item)} />
+              )}
+            </ErrorBoundary>
+          ))}
+        </section>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 font-sans flex flex-col selection:bg-amber-500 selection:text-black">
+      <Masthead
+        isOnline={isOnline}
+        isRefreshing={isRefreshing}
+        isLoading={isLoading}
+        insightRefreshing={insightStatus === 'refreshing'}
+        onRefresh={() => (view === 'news' ? fetchNews('refresh') : fetchInsights(view, 'refresh'))}
+        onOpenSettings={() => setShowSettings(true)}
+      />
       <header className="sticky top-0 z-30 border-b border-zinc-900/80 bg-[#0a0a0a] backdrop-blur-2xl">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-5 sm:px-8 lg:px-12">
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-zinc-100 text-black shadow-[0_0_24px_rgba(255,255,255,0.08)]">
-              <LayoutTemplate className="h-6 w-6" />
-            </div>
-
-            <div className="min-w-0">
-              <h1 className="truncate text-xl lg:text-2xl font-serif tracking-tight text-white mb-0.5">
-                Black Global Lens
-              </h1>
-              <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-amber-500">
-                Contextual News Intelligence
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => fetchNews('refresh')}
-              disabled={isLoading || isRefreshing}
-              aria-label="Refresh stories"
-              className="inline-flex h-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 px-5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline sm:ml-2">Refresh</span>
-            </button>
-
-            <button
-              onClick={() => setShowSettings(true)}
-              aria-label="Open settings"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all hover:bg-white hover:text-black hover:border-white"
-            >
-              <SettingsIcon className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <CategoryNav category={category} setCategory={setCategory} articles={articles} />
+        <ContentViewNav view={view} setView={setView} />
+        {view === 'news' && <CategoryNav category={category} setCategory={setCategory} articles={articles} />}
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 sm:px-8 lg:px-12 py-8 sm:py-12">
         
-        {category === 'all' && <AboutMission />}
+        {view === 'news' && category === 'all' && <AboutMission />}
         <section className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-serif font-medium uppercase tracking-[0.16em] text-white sm:text-3xl">
@@ -227,7 +342,9 @@ export default function App() {
           </div>
         </section>
 
-        {isLoading ? (
+        {view !== 'news' ? (
+          renderInsightView()
+        ) : isLoading ? (
           <section
             aria-label="Loading stories"
             className="flex flex-col gap-12"
@@ -310,6 +427,24 @@ export default function App() {
               </button>
             </div>
           </section>
+        ) : category === 'all' ? (
+          <div className="relative">
+            {isRefreshing && (
+              <div className="sticky top-[104px] z-20 mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300 backdrop-blur">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Updating feed
+              </div>
+            )}
+            <FrontPage
+              articles={articles}
+              papers={papers}
+              trends={trends}
+              discoveries={discoveries}
+              onOpenPaper={(p) => setPubModal({ type: 'paper', item: p })}
+              onOpenTrend={(t) => setPubModal({ type: 'trend', item: t })}
+              onOpenDiscovery={(d) => setPubModal({ type: 'discovery', item: d })}
+            />
+          </div>
         ) : (
           <section
             aria-live={isRefreshing ? 'polite' : undefined}
@@ -338,32 +473,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="w-full border-t border-zinc-900 bg-zinc-950 py-8 text-center text-xs text-zinc-500">
-        <div className="flex flex-col items-center justify-center gap-4">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <span>&copy; {new Date().getFullYear()} Black Global Lens. All rights reserved.</span>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setShowPrivacy(true)} 
-                className="hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-zinc-950 rounded"
-              >
-                Privacy Policy
-              </button>
-              <button 
-                onClick={() => setShowTerms(true)} 
-                className="hover:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-zinc-950 rounded"
-              >
-                Terms of Service
-              </button>
-            </div>
-          </div>
-          <div className="text-[10px] text-zinc-600 max-w-2xl px-4 mt-2">
-            AI-generated summaries and analyses are provided for educational and context-building purposes. 
-            Original news content is linked and sourced from their respective publishers under fair use principles. 
-            Logos, trademarks, and original headlines belong to their respective owners.
-          </div>
-        </div>
-      </footer>
+      <PublicationFooter onOpenPrivacy={() => setShowPrivacy(true)} onOpenTerms={() => setShowTerms(true)} />
 
       {showSettings && <SettingsDashboard onClose={() => setShowSettings(false)} />}
       {showAuth && (
@@ -374,6 +484,7 @@ export default function App() {
       )}
       {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
       {showTerms && <TermsOfServiceModal onClose={() => setShowTerms(false)} />}
+      {pubModal && <PublicationModal data={pubModal} onClose={() => setPubModal(null)} />}
       <CookieConsent />
     </div>
   );

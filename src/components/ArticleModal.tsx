@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw, ImageIcon, AlertTriangle, X } from 'lucide-react';
+import MetaphorBox from './MetaphorBox';
+import { MetaphorPackage } from '../types';
 
 interface BackstoryData {
   the_past_roots: string;
@@ -20,6 +22,7 @@ export default function ArticleModal({
   onClose, 
   simplifiedText, 
   headline,
+  articleBody,
   initialScroll = 0,
   onScrollChange
 }: { 
@@ -27,6 +30,7 @@ export default function ArticleModal({
   onClose: () => void, 
   simplifiedText: string, 
   headline: string,
+  articleBody?: string,
   initialScroll?: number,
   onScrollChange?: (val: number) => void
 }) {
@@ -36,6 +40,8 @@ export default function ArticleModal({
   const [generatingImage, setGeneratingImage] = useState(false);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [metaphor, setMetaphor] = useState<MetaphorPackage | null>(null);
+  const [loadingMetaphor, setLoadingMetaphor] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Focus and handle Escape key
@@ -74,6 +80,27 @@ export default function ArticleModal({
     }
   }, [initialScroll]);
 
+  // Fetch the comic metaphor for this story on demand
+  useEffect(() => {
+    setLoadingMetaphor(true);
+    fetch(`/api/metaphors/${encodeURIComponent(articleId)}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        if (!res.headers.get("content-type")?.includes("application/json")) {
+          throw new Error("Invalid response");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setMetaphor(data?.metaphor || null);
+        setLoadingMetaphor(false);
+      })
+      .catch((e) => {
+        console.error(e);
+        setLoadingMetaphor(false);
+      });
+  }, [articleId]);
+
   const handleScroll = () => {
     if (scrollContainerRef.current && onScrollChange) {
       onScrollChange(scrollContainerRef.current.scrollTop);
@@ -89,14 +116,10 @@ export default function ArticleModal({
       >
         
         <div>
-          {/* Main Simplified Core View */}
           <button onClick={onClose} className="text-xs uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors">
-            <span className="text-lg">←</span> Close Insight Panel
+            <span className="text-lg">←</span> Back to the story
           </button>
           
-          <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest mb-4 block">
-            LEVEL 1 // ACCESSIBLE SYNTHESIS
-          </span>
           <h1 className="text-3xl font-serif text-white mb-6 leading-tight">{headline}</h1>
           
           <div className="mb-6 space-y-4">
@@ -183,16 +206,26 @@ export default function ArticleModal({
               </div>
             )}
           </div>
+
+          {articleBody && (
+            <div className="mb-8 space-y-4">
+              {articleBody.split(/\n{2,}/).map((p, i) => (
+                <p key={i} className="text-[15px] leading-[1.75] text-zinc-200">{p}</p>
+              ))}
+            </div>
+          )}
           
-          <p className="text-base text-zinc-300 leading-relaxed mb-8 bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
-            {simplifiedText}
-          </p>
+          {simplifiedText && (
+            <p className="text-base text-zinc-300 leading-relaxed mb-8 bg-zinc-900/50 p-6 rounded-xl border border-zinc-800/80">
+              {simplifiedText}
+            </p>
+          )}
 
           {/* Deep Insight Context Engine Component */}
           <div className="border-t border-zinc-800/80 pt-8 mt-4">
             <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-500 mb-6 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Level 2 // Structural Backstory
+              Background & Context
             </h3>
 
             {loadingBackstory ? (
@@ -203,7 +236,7 @@ export default function ArticleModal({
               </div>
             ) : backstory && ((backstory as any)._unavailable || (!backstory.the_past_roots && (!backstory.timeline || backstory.timeline.length === 0))) ? (
               <div className="text-xs text-zinc-500 font-mono tracking-widest py-4">
-                CONTEXT TEMPORARILY UNAVAILABLE — RETRY IN A MOMENT
+                Background context is being prepared for this story.
               </div>
             ) : backstory ? (
               <div className="space-y-8 text-sm">
@@ -233,13 +266,22 @@ export default function ArticleModal({
                 </div>
 
                 <div className="bg-emerald-950/20 border border-emerald-900/30 p-5 rounded-xl">
-                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Systemic Analysis Insight</span>
+                  <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">The Bigger Picture</span>
                   <p className="text-[13px] mt-2 leading-relaxed text-emerald-100/70">{safe(backstory.insider_insight)}</p>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-zinc-500 font-mono">Failed to retrieve historical matrix.</p>
+              <p className="text-xs text-zinc-500 font-mono">Background context is being prepared for this story.</p>
             )}
+          </div>
+
+          {/* Level 3 // The Comic Metaphor */}
+          <div className="border-t border-zinc-800/80 pt-8 mt-8">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-fuchsia-400 mb-6 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-fuchsia-500 animate-pulse"></span>
+              The Story as a Comic
+            </h3>
+            <MetaphorBox metaphor={metaphor} loading={loadingMetaphor} />
           </div>
         </div>
       </div>

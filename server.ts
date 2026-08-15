@@ -1,10 +1,16 @@
+import "dotenv/config";
+import { loadEcosystemEnv } from "./server/ecosystemEnv";
+loadEcosystemEnv();
 import express from "express";
 import path from "path";
 import fs from "fs";
 import helmet from "helmet";
 import { createServer as createViteServer } from "vite";
-import { syncRSSNews } from "./server/rss";
+import { syncRSSNews, backfillArticleImages } from "./server/rss";
 import { syncSportsAPI } from "./server/sports";
+import { syncResearchPapers } from "./server/research";
+import { syncTrendsAndDiscoveries } from "./server/trends";
+import { syncDomainResearchWithEditorial } from "./server/domainResearch";
 import { apiRouter } from "./server/api";
 import db from "./server/db";
 import cookieParser from "cookie-parser";
@@ -13,9 +19,34 @@ import cors from "cors";
 import cron from "node-cron";
 import rateLimit from "express-rate-limit";
 
-// kick off initial sync in bg
-syncRSSNews();
-syncSportsAPI();
+// kick off initial sync in bg — staggered so the five syncs don't pile onto
+// the same event loop tick at boot (that cold-start contention spiked CPU/mem
+// and made the first /api/health probes slow). Each sync is already guarded by
+// its own in-module reentrancy lock; spacing them keeps the server responsive.
+const STAGGER_MS = 3_000;
+setTimeout(() => syncRSSNews(), 0);
+setTimeout(() => syncSportsAPI(), STAGGER_MS);
+setTimeout(() => syncResearchPapers(), STAGGER_MS * 2);
+setTimeout(() => syncTrendsAndDiscoveries(), STAGGER_MS * 3);
+setTimeout(() => {
+  backfillArticleImages(25).catch((e) => console.warn(`[image] initial backfill failed: ${e.message}`));
+}, STAGGER_MS * 4);
+setTimeout(() => {
+  syncDomainResearchWithEditorial().catch((e) =>
+    console.warn(`[domain] initial domain research sync failed: ${e.message}`)
+  );
+}, STAGGER_MS * 5);
+
+// Comic Metaphor Engine connectivity probe (observability only)
+if (process.env.COMIC_ENGINE_URL) {
+  const probe = `${process.env.COMIC_ENGINE_URL.replace(/\/$/, "")}/health`;
+  fetch(probe, { signal: AbortSignal.timeout(5000) })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    .then((j: any) =>
+      console.log(`[metaphor] Comic engine reachable: ${j?.service} v${j?.version} (${j?.protocols_loaded ?? "?"} protocols)`)
+    )
+    .catch((e: any) => console.warn(`[metaphor] Comic engine unreachable at ${probe}: ${e.message}`));
+}
 
 // Run cron job every 3 hours
 cron.schedule("0 */3 * * *", () => {
@@ -23,6 +54,52 @@ cron.schedule("0 */3 * * *", () => {
   syncRSSNews();
   syncSportsAPI();
 }, { timezone: "UTC" });
+
+// Daily ecosystem content sync (research papers + trends/discoveries) at 02:15 UTC
+cron.schedule("15 2 * * *", () => {
+  console.log("Running daily ecosystem content sync...");
+  const papers = syncResearchPapers();
+  const insights = syncTrendsAndDiscoveries();
+  console.log(`Ecosystem content sync complete. Papers: ${JSON.stringify(papers)}. Insights: ${JSON.stringify(insights)}`);
+}, { timezone: "UTC" });
+
+// Daily domain research repopulation at 02:30 UTC — pulls updated APIs + our new
+// research, cross-analyzes against established literature, and regenerates the
+// outlet's research database + editorial articles. Keeps the research archive
+// growing every day (compounding credibility).
+cron.schedule("30 2 * * *", () => {
+  console.log("Running daily domain research repopulation...");
+  syncDomainResearchWithEditorial()
+    .then((r) => console.log(`Domain research repopulation complete. ${JSON.stringify(r)}`))
+    .catch((e) => console.warn(`Domain research repopulation failed: ${e.message}`));
+}, { timezone: "UTC" });
+
+/**
+ * Resolve the production build directory independently of the current working
+ * directory. The bundled server.cjs lives inside dist/, so `__dirname` differs
+ * between dev (tsx → project root) and prod (bundle → dist/). Tries every
+ * plausible location and picks the one that actually contains index.html so the
+ * catch-all route never serves HTML for /assets/* (MIME errors).
+ */
+function resolveDistDir(): string {
+  const candidates = [
+    process.env.DIST_DIR,
+    path.resolve(process.cwd(), "dist"),
+    path.resolve(__dirname, "dist"),
+    path.resolve(__dirname, "..", "dist"),
+    __dirname,
+  ].filter((p): p is string => !!p);
+  for (const c of candidates) {
+    try {
+      if (fs.existsSync(path.join(c, "index.html"))) return c;
+    } catch {
+      /* ignore unreadable candidate */
+    }
+  }
+  const fallback = path.resolve(process.cwd(), "dist");
+  console.warn(`[dist] Could not locate dist/index.html; falling back to ${fallback}`);
+  return fallback;
+}
 
 function escapeHtml(unsafe: string): string {
   return (unsafe || "")
@@ -179,7 +256,7 @@ async function startServer() {
 
   let cachedProdTemplate: string | null = null;
   if (isProd) {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = resolveDistDir();
     cachedProdTemplate = fs.readFileSync(path.join(distPath, "index.html"), "utf-8");
   }
 
@@ -221,7 +298,7 @@ async function startServer() {
             <meta name="twitter:card" content="summary_large_image" />
           `;
           
-          const titleTag = `<title>${headline} — Black Global Lens</title>`;
+          const titleTag = `<title>${headline} — Overlay Global Lens</title>`;
           finalHtml = finalHtml
             .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
             .replace('</head>', `    <link rel="canonical" href="${canonicalUrl}" />\n    ${ogTags}\n  </head>`);
@@ -246,7 +323,7 @@ async function startServer() {
     app.use("*", async (req, res, next) => {
       try {
         const url = req.originalUrl;
-        let template = fs.readFileSync(path.resolve(process.cwd(), "index.html"), "utf-8");
+        let template = fs.readFileSync(path.resolve(__dirname, "index.html"), "utf-8");
         template = await vite.transformIndexHtml(url, template);
         await renderHtml(req, res, template);
       } catch (e: any) {
@@ -256,9 +333,14 @@ async function startServer() {
     });
   } else {
     // Production static serving
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = resolveDistDir();
     app.use(express.static(distPath, { index: false }));
     app.get("*", (req, res) => {
+      // Never serve index.html for missing static assets — 404 instead, so the
+      // browser gets a real MIME type (or a proper miss) rather than text/html.
+      if (/\.(js|mjs|css|json|png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|ttf|eot|map|txt|xml)$/i.test(req.path)) {
+        return res.status(404).end();
+      }
       renderHtml(req, res, cachedProdTemplate as string);
     });
   }

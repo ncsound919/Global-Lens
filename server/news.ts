@@ -53,11 +53,11 @@ newsRouter.get("/:id/share", (req, res) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${headline} — Black Global Lens</title>
+  <title>${headline} — Overlay Global Lens</title>
 
   <!-- Open Graph -->
   <meta property="og:type" content="article" />
-  <meta property="og:site_name" content="Black Global Lens" />
+  <meta property="og:site_name" content="Overlay Global Lens" />
   <meta property="og:title" content="${headline}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:url" content="${canonicalUrl}" />
@@ -79,7 +79,7 @@ newsRouter.get("/:id/share", (req, res) => {
   <meta http-equiv="refresh" content="0;url=${canonicalUrl}" />
 </head>
 <body>
-  <p>Redirecting to Black Global Lens... <a href="${canonicalUrl}">Click here</a></p>
+  <p>Redirecting to Overlay Global Lens... <a href="${canonicalUrl}">Click here</a></p>
 </body>
 </html>`);
 });
@@ -115,8 +115,8 @@ newsRouter.get("/", (req, res) => {
   let articlesRaw;
   if (category === 'all') {
     articlesRaw = db.prepare(`
-      SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis, 
-             c.key_takeaways, c.what_this_means_for_us, c.statistical_data
+      SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis,
+             c.key_takeaways, c.what_this_means_for_us, c.statistical_data, c.article_body
       FROM articles a
       LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
       WHERE a.is_moderated = 0
@@ -124,8 +124,8 @@ newsRouter.get("/", (req, res) => {
     `).all(settings.reading_mode, settings.lens_intensity, limit, offset);
   } else {
     articlesRaw = db.prepare(`
-      SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis, 
-             c.key_takeaways, c.what_this_means_for_us, c.statistical_data
+      SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis,
+             c.key_takeaways, c.what_this_means_for_us, c.statistical_data, c.article_body
       FROM articles a
       LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
       WHERE a.category = ? AND a.is_moderated = 0
@@ -162,7 +162,7 @@ newsRouter.get("/", (req, res) => {
         value: typeof d?.value === 'number' ? d.value : parseFloat(coerceToString(d?.value)) || 0,
       }));
     }
-    const stringFields = ['reframed_headline', 'reframed_summary', 'cultural_lens_analysis'];
+    const stringFields = ['reframed_headline', 'reframed_summary', 'cultural_lens_analysis', 'article_body'];
     for (const field of stringFields) {
       if (article[field] !== null && typeof article[field] === 'object') {
         article[field] = coerceToString(article[field]);
@@ -194,6 +194,7 @@ newsRouter.get("/", (req, res) => {
         reframed_headline: raw.reframed_headline,
         reframed_summary: raw.reframed_summary,
         cultural_lens_analysis: raw.cultural_lens_analysis,
+        article_body: raw.article_body,
         key_takeaways: safeJSONParse(raw.key_takeaways, []),
         what_this_means_for_us: safeJSONParse(raw.what_this_means_for_us, []),
         statistical_data: raw.statistical_data ? safeJSONParse(raw.statistical_data, null) : null,
@@ -214,6 +215,7 @@ newsRouter.get("/", (req, res) => {
         reframed_headline: raw.original_title,
         reframed_summary: "AI analysis is pending processing... Please refresh shortly.",
         cultural_lens_analysis: "Systemic analysis in queue...",
+        article_body: "",
         key_takeaways: [],
         what_this_means_for_us: []
       });

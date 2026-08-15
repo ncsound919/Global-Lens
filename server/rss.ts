@@ -18,6 +18,60 @@ const parser = new Parser({
   }
 });
 
+// Fetch the OpenGraph image from an article page (best-effort; many RSS feeds
+// omit media images, so we pull the og:image from the page itself so the
+// outlet's front page and story views always have a picture).
+async function fetchOgImage(articleUrl: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(articleUrl, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36',
+        'Accept': 'text/html',
+      },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const html = await res.text();
+    const og = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
+      || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
+    if (!og) return null;
+    let url = og[1];
+    try {
+      url = new URL(url, articleUrl).toString();
+    } catch { /* keep as-is */ }
+    return url.startsWith("http") ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+// Backfill missing article images. Pulls the og:image from each article's own
+// page (bounded per sync) so picture coverage fills in over time without
+// hammering publisher sites.
+export async function backfillArticleImages(limit = 30): Promise<number> {
+  const rows = db.prepare(`
+    SELECT url_hash, original_url FROM articles
+    WHERE (image_url IS NULL OR image_url = '')
+    ORDER BY created_at DESC LIMIT ?
+  `).all(limit) as any[];
+  let filled = 0;
+  for (const row of rows) {
+    const url = row.original_url;
+    if (!url || url === "#" || url.startsWith("global-lens://")) continue;
+    const img = await fetchOgImage(url);
+    if (img) {
+      db.prepare("UPDATE articles SET image_url = ? WHERE url_hash = ?").run(img, row.url_hash);
+      filled++;
+    }
+  }
+  if (filled > 0) console.log(`[rss] Backfilled ${filled} article image(s) via og:image.`);
+  return filled;
+}
+
 let isSyncing = false;
 let needsSync = false;
 
@@ -153,6 +207,13 @@ export async function syncRSSNews() {
     }
     
     console.log(`RSS Ingestion Complete: ${feedResults.successes} successful feeds, ${feedResults.skipped} skipped, ${feedResults.errors} unreachable, ${feedResults.itemsIngested} new items saved.`);
+
+    // Fill missing pictures from og:image so the outlet always has imagery.
+    try {
+      await backfillArticleImages(25);
+    } catch (e: any) {
+      console.warn(`[rss] Image backfill failed: ${e.message}`);
+    }
 
     // Prune articles older than 30 days
     const thirtyDaysAgo = new Date();

@@ -16,13 +16,13 @@ export default function ShareToolbar({ articleId, headline, analysis }: ShareToo
 
   const shareUrl = `${window.location.origin}/api/news/${encodeURIComponent(articleId)}/share`;
   const shareUrlEncoded = encodeURIComponent(shareUrl);
-  const shareText = encodeURIComponent(`"${headline}" - via Black Global Lens`);
+  const shareText = encodeURIComponent(`"${headline}" - via Overlay Global Lens`);
 
   const handleCopy = () => {
     if (navigator.share) {
       navigator.share({
         title: headline,
-        text: `${analysis?.slice(0, 100)}... via Black Global Lens`,
+        text: `${analysis?.slice(0, 100)}... via Overlay Global Lens`,
         url: shareUrl
       }).catch((e) => {
         navigator.clipboard.writeText(shareUrl);

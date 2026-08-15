@@ -1,5 +1,5 @@
 {
-  "name": "Black Global Lens",
+  "name": "Overlay Global Lens",
   "description": "Enterprise-grade media architecture utilizing cultural lens AI reframing to summarize and context-switch news stories across finance and tech.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

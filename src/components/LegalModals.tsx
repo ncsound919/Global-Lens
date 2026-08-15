@@ -35,7 +35,7 @@ export const PrivacyPolicyModal: React.FC<LegalModalProps> = ({ onClose }) => (
 
         <h3 className="text-lg font-medium text-white mb-2">3. AI Data Processing & Editorial Reframing</h3>
         <p>
-          Black Global Lens utilizes generative artificial intelligence (AI) models to analyze, summarize, and contextually reframe news content. When processing articles, no personally identifiable user data is transmitted to these AI models. The AI systems are solely used to analyze public text and provide cultural and historical lenses. We do not use user data to train our AI models.
+          Overlay Global Lens utilizes generative artificial intelligence (AI) models to analyze, summarize, and contextually reframe news content. When processing articles, no personally identifiable user data is transmitted to these AI models. The AI systems are solely used to analyze public text and provide cultural and historical lenses. We do not use user data to train our AI models.
         </p>
 
         <h3 className="text-lg font-medium text-white mb-2">4. Intellectual Property Rights</h3>
@@ -75,7 +75,7 @@ export const TermsOfServiceModal: React.FC<LegalModalProps> = ({ onClose }) => (
       <div className="p-6 overflow-y-auto font-sans text-zinc-300 leading-relaxed space-y-6 text-sm">
         <h3 className="text-lg font-medium text-white mb-2">1. Agreement to Terms</h3>
         <p>
-          These Terms of Use constitute a legally binding agreement made between you, whether personally or on behalf of an entity ("you") and Black Global Lens ("Company," "we," "us," or "our"), concerning your access to and use of the application as well as any other media form, media channel, mobile website or mobile application related, linked, or otherwise connected thereto.
+          These Terms of Use constitute a legally binding agreement made between you, whether personally or on behalf of an entity ("you") and Overlay Global Lens ("Company," "we," "us," or "our"), concerning your access to and use of the application as well as any other media form, media channel, mobile website or mobile application related, linked, or otherwise connected thereto.
         </p>
 
         <h3 className="text-lg font-medium text-white mb-2">2. Information Accuracy</h3>
