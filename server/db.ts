@@ -325,6 +325,15 @@ export function runMigrations() {
     `);
   });
 
+  // Migration 5: Add article_body to article_ai_cache (referenced by later
+  // backfill and aiService/news reads; 001 predates the column).
+  runMigration('005_article_body_column', () => {
+    const cols = db.pragma("table_info(article_ai_cache)") as any[];
+    if (!cols.some((c) => c.name === "article_body")) {
+      db.exec(`ALTER TABLE article_ai_cache ADD COLUMN article_body TEXT DEFAULT "";`);
+    }
+  });
+
   // Migration 6: Backfill legacy cache rows that predate the article_body column
   // with a plain multi-paragraph body derived from the original dispatch.
   runMigration('006_article_body_backfill', () => {

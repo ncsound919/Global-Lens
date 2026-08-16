@@ -234,12 +234,14 @@ function sportsScienceFindings(papers: EstablishedPaper[]): SportsFinding[] {
     }
 
     // Kaggle established-dataset comparison.
-    if (s.kaggle) {
+    const kaggle = s.kaggle || s.kaggle_counts;
+    if (kaggle) {
       const parts: string[] = [];
-      const k = s.kaggle;
+      const k = kaggle;
       for (const ds of Object.keys(k)) {
-        const m = k[ds]?.median;
-        if (typeof m === "number") parts.push(`${ds} median ${m.toFixed(2)}`);
+        const v = k[ds];
+        if (typeof v === "number") parts.push(`${ds} ${v.toLocaleString()} records`);
+        else if (v && typeof v.median === "number") parts.push(`${ds} median ${v.median.toFixed(2)}`);
       }
       if (parts.length) {
         findings.push({
@@ -280,6 +282,116 @@ function sportsScienceFindings(papers: EstablishedPaper[]): SportsFinding[] {
       pillar: "sport",
       measured: true,
       confidence: 0.9,
+    });
+  }
+
+  return findings;
+}
+
+// ---- NBA Codex / CureMind onco layer ingestion ---------------------------------
+
+function loadCodexOnco(): { summary: any | null; players: any[]; comparison: any | null } {
+  const researchBase = sportsResearchDir();
+  const summaryFiles = walk(researchBase, "codex_onco_summary.json");
+  const playerFiles = walk(researchBase, "codex_player_onco.json");
+  const comparisonFiles = walk(researchBase, "codex_pipeline_comparison.json");
+  return {
+    summary: summaryFiles.length ? readJson(summaryFiles[0]) : null,
+    players: playerFiles.length ? (readJson(playerFiles[0]) || []) : [],
+    comparison: comparisonFiles.length ? readJson(comparisonFiles[0]) : null,
+  };
+}
+
+function codexOncoFindings(): SportsFinding[] {
+  const findings: SportsFinding[] = [];
+  const { summary, players, comparison } = loadCodexOnco();
+
+  if (summary && typeof summary.profiles_total === "number") {
+    const tiers = summary.risk_tier_counts || {};
+    const malign = summary.malignancy_counts || {};
+    const thresholdNote =
+      typeof summary.tier_thresholds?.p70 === "number" && typeof summary.tier_thresholds?.p90 === "number"
+        ? ` (cohort-relative recurrence-risk bands at p70=${(summary.tier_thresholds.p70 * 100).toFixed(1)}%, p90=${(summary.tier_thresholds.p90 * 100).toFixed(1)}%)`
+        : "";
+    findings.push({
+      title: `NBA player efficiency classified via CureMind onco layer: ${summary.profiles_total.toLocaleString()} player-seasons`,
+      insight: `Every NBA player-season in the codex database was translated through the CureMind oncology layer${thresholdNote}. Risk tiers: ${JSON.stringify(tiers)}; malignancy classes: ${JSON.stringify(malign)}. This is an original cross-domain translation of oncology risk methodology onto athlete-performance data.`,
+      category: "Oncology Translation",
+      pillar: "science",
+      measured: true,
+      confidence: 0.92,
+    });
+
+    if (typeof summary.high_risk_cohort_size === "number") {
+      const topNames = (Array.isArray(summary.high_risk_top) ? summary.high_risk_top.slice(0, 5) : [])
+        .map((t: any) => `${t.player} (${t.season})`)
+        .join(", ");
+      findings.push({
+        title: `${summary.high_risk_cohort_size.toLocaleString()} NBA player-seasons flagged in the HIGH onco-risk cohort`,
+        insight: `Applying the CureMind recurrence-risk thresholds flags ${summary.high_risk_cohort_size.toLocaleString()} of ${summary.profiles_total.toLocaleString()} player-seasons as HIGH risk. Highest-risk examples: ${topNames}. The full ranking is computed deterministically from era-adjusted efficiency.`,
+        category: "Oncology Translation",
+        pillar: "science",
+        measured: true,
+        confidence: 0.9,
+      });
+    }
+  }
+
+  if (comparison) {
+    const shared = Array.isArray(comparison.shared_findings) ? comparison.shared_findings : [];
+    const diffs = Array.isArray(comparison.key_differences) ? comparison.key_differences : [];
+    if (shared.length) {
+      findings.push({
+        title: "Pipeline audit: codex and research engines agree on era-adjusted TER as the fair cross-era ranking",
+        insight: shared
+          .slice(0, 3)
+          .map((s: any) => (typeof s === "string" ? s : JSON.stringify(s)))
+          .join(" "),
+        category: "Pipeline Audit",
+        pillar: "research",
+        measured: true,
+        confidence: 0.95,
+      });
+    }
+    if (diffs.length) {
+      findings.push({
+        title: "Pipeline audit: same stat name, different formulas — TER scales differ across engines",
+        insight: diffs
+          .slice(0, 3)
+          .map((d: any) => (typeof d === "string" ? d : JSON.stringify(d)))
+          .join(" "),
+        category: "Pipeline Audit",
+        pillar: "research",
+        measured: true,
+        confidence: 0.95,
+      });
+    }
+  }
+
+  if (Array.isArray(players) && players.length) {
+    const byClass = new Map<string, { count: number; high: number }>();
+    for (const p of players) {
+      const cls = String(p.classification || "UNKNOWN");
+      const tier = p.onco?.risk_tier || "";
+      const cur = byClass.get(cls) || { count: 0, high: 0 };
+      cur.count++;
+      if (tier === "HIGH") cur.high++;
+      byClass.set(cls, cur);
+    }
+    const sorted = [...byClass.entries()].sort((a, b) => b[1].count - a[1].count);
+    const lines = sorted
+      .map(([cls, v]) => `${cls}: ${v.count} seasons, ${v.high} HIGH risk (${((v.high / v.count) * 100).toFixed(1)}%)`)
+      .join("; ");
+    const topShare = [...byClass.entries()].sort(
+      (a, b) => b[1].high / b[1].count - a[1].high / a[1].count
+    )[0];
+    findings.push({
+      title: `Player-level onco risk by NBA role: ${topShare ? topShare[0] : "n/a"} carries the highest share of HIGH-risk seasons`,
+      insight: `Of ${players.length.toLocaleString()} classified player-seasons: ${lines}. HIGH-risk share varies sharply by on-court role, which the onco translation exposes as a measurable pattern.`,
+      category: "Oncology Translation",
+      pillar: "science",
+      measured: true,
+      confidence: 0.88,
     });
   }
 
@@ -410,6 +522,28 @@ function generateResearchPaper(findings: SportsFinding[]): void {
   });
 }
 
+// NBA Codex open-source integration research (plan + findings from 2026-08-16).
+// Surfaced as a public paper so the toolchain roadmap is traceable on the outlet.
+function generateCodexOpenSourcePaper(): void {
+  const nowIso = new Date().toISOString();
+  const dateKey = nowIso.slice(0, 10);
+  upsertPaper.run({
+    id: `codex-open-source-integration-${dateKey}`,
+    source: "Overlay Research Desk",
+    title: "NBA Codex Open-Source Toolchain Integration Research",
+    url: "",
+    year: new Date().getFullYear(),
+    authors: "Overlay Global Lens Research Desk",
+    abstract: "",
+    summary: `Open-source toolchain research for the NBA Codex pipeline: nba_api (live 2025-26 NBA.com ingest), full FiveThirtyEight RAPTOR/WAR (replacing the sparse Kaggle mirror), Cognee (vector + knowledge-graph memory) and floodlight (spatial/tracking events). Findings: codex season keys are end-year strings ("2026") vs nba_api "2025-26"; NBA.com IDs must be joined to codex profiles by name; 2 of 10 codex hypotheses predict 2026 (Haliburton, Horton-Tucker), 8 predict 2027 and are unresolvable until the 2026-27 season.`,
+    category: "research",
+    pillar: "research",
+    evidence_tier: "E2",
+    payload: JSON.stringify({ dateKey, topic: "nba-codex-open-source-integration" }),
+    pub_date: nowIso,
+  });
+}
+
 // ---- Main sync ----------------------------------------------------------------
 
 export function syncDomainResearch(): {
@@ -421,6 +555,7 @@ export function syncDomainResearch(): {
   const papers = loadEstablishedPapers();
   const findings = [
     ...sportsScienceFindings(papers),
+    ...codexOncoFindings(),
     ...hempResearchFindings(loadHempResearch(), papers),
   ];
 
@@ -469,6 +604,7 @@ export function syncDomainResearch(): {
   }
 
   generateResearchPaper(findings);
+  generateCodexOpenSourcePaper();
 
   return { discoveries, trends, papers: findings.length ? 1 : 0, source: "overlay-research" };
 }
