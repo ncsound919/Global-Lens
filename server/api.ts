@@ -179,7 +179,6 @@ apiRouter.post("/publish", (req, res) => {
     finalBody = sections.join("\n\n") || "No content.";
   }
 
-  const crypto = require("crypto");
   const urlHash = crypto.createHash("sha256").update(`${source_name}:${title}:${finalBody.slice(0, 50)}`).digest("hex");
   const pubDate = new Date().toISOString();
 
