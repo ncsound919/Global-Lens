@@ -189,6 +189,7 @@ apiRouter.post("/publish", (req, res) => {
   // Optional paper attachment: upsert into research_papers so the published
   // article can be linked to its source paper (idempotent on paper.id).
   const { paper } = (req.body || {}) as any;
+  let paperId: string | undefined;
   if (paper && paper.title) {
     // Defense-in-depth against duplicate papers: if the publisher sends a
     // time-scoped id (e.g. "brain-{build_id}" regenerated every run), fall back
@@ -198,6 +199,7 @@ apiRouter.post("/publish", (req, res) => {
     const stableId = paper.id && !/brain-[a-f0-9]{12}/i.test(String(paper.id))
       ? String(paper.id)
       : `paper-${crypto.createHash("sha256").update(`${paper.source || 'CureMind'}:${paper.title}`).digest("hex").slice(0, 24)}`;
+    paperId = stableId;
     const paperInfo = db.prepare(`
       INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
       VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
@@ -233,7 +235,7 @@ apiRouter.post("/publish", (req, res) => {
         : `finding-${crypto.createHash("sha256").update(`${f.headline}:${f.metric || ""}:${f.value || ""}`).digest("hex").slice(0, 24)}`;
       upsertFinding({
         id: stableId,
-        paper_id: f.paper_id || (paper && paper.title ? String(paper.title) : undefined),
+        paper_id: f.paper_id || paperId,
         headline: String(f.headline),
         kind: String(f.kind || "discovery"),
         metric: f.metric,

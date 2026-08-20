@@ -98,39 +98,48 @@ donateRouter.post("/webhook", async (req, res) => {
 
   try {
     const event = new Stripe(secret).webhooks.constructEvent(req.body as Buffer, sig, webhookSecret);
-    if (eventSeen(event.id)) return res.status(200).json({ received: true });
-
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      // One-time payment mode records here. For subscriptions, Stripe also fires
-      // checkout.session.completed AND invoice.paid for the first charge (with
-      // different event ids), so only record subscription charges from
-      // invoice.paid below to avoid double-counting the initial payment.
-      if (session.mode !== "subscription") {
-        recordSettledDonation({
-          eventId: event.id,
-          amount: session.amount_total || 0,
-          currency: session.currency || "usd",
-          campaign: session.metadata?.campaign || "oncology",
-          recurring: 0,
-        });
-      }
-    } else if (event.type === "invoice.paid") {
-      const invoice = event.data.object as Stripe.Invoice;
-      recordSettledDonation({
-        eventId: event.id,
-        amount: invoice.amount_paid || 0,
-        currency: invoice.currency || "usd",
-        campaign: "oncology",
-        recurring: 1,
-      });
-    }
+    handleDonationEvent(event);
     return res.status(200).json({ received: true });
   } catch (e) {
     console.error("Donation webhook error:", e);
     return res.status(500).json({ error: "Webhook processing failed" });
   }
 });
+
+/**
+ * Decide whether a verified Stripe event settles a donation and record it.
+ * Extracted from the route handler so the subscription double-count guard can be
+ * unit-tested without HTTP or Stripe. Stripe is the only writer of settled rows.
+ */
+export function handleDonationEvent(event: Stripe.Event): void {
+  if (eventSeen(event.id)) return;
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    // One-time payment mode records here. For subscriptions, Stripe also fires
+    // checkout.session.completed AND invoice.paid for the first charge (with
+    // different event ids), so only record subscription charges from
+    // invoice.paid below to avoid double-counting the initial payment.
+    if (session.mode !== "subscription") {
+      recordSettledDonation({
+        eventId: event.id,
+        amount: session.amount_total || 0,
+        currency: session.currency || "usd",
+        campaign: session.metadata?.campaign || "oncology",
+        recurring: 0,
+      });
+    }
+  } else if (event.type === "invoice.paid") {
+    const invoice = event.data.object as Stripe.Invoice;
+    recordSettledDonation({
+      eventId: event.id,
+      amount: invoice.amount_paid || 0,
+      currency: invoice.currency || "usd",
+      campaign: "oncology",
+      recurring: 1,
+    });
+  }
+}
 
 donateRouter.get("/stats", (req, res) => {
   res.json(getSettledDonationStats());
