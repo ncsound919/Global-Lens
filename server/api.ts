@@ -7,6 +7,7 @@ import { authRouter } from "./auth";
 import { settingsRouter } from "./settings";
 import { newsRouter } from "./news";
 import { insightsRouter } from "./insights";
+import { upsertFinding, setFindingOfDay } from "./oncology";
 
 const standardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -191,6 +192,44 @@ apiRouter.post("/publish", (req, res) => {
       pub_date: new Date().toISOString(),
     });
     if (paperInfo.changes > 0) console.log(`[publish] attached paper ${stableId}`);
+  }
+
+  // Oncology findings + finding-of-day (verified, signed results).
+  const { findings = [], finding_of_day = [] } = (req.body || {}) as {
+    findings?: any[]; finding_of_day?: { day: string; finding_id: string }[];
+  };
+
+  if (Array.isArray(findings)) {
+    for (const f of findings) {
+      if (!f || typeof f.headline !== "string" || !f.headline.trim()) continue; // per-row fail-soft
+      const stableId = f.id && /^[a-zA-Z0-9][a-zA-Z0-9\-_]{3,127}$/.test(String(f.id))
+        ? String(f.id)
+        : `finding-${crypto.createHash("sha256").update(`${f.headline}:${f.metric || ""}:${f.value || ""}`).digest("hex").slice(0, 24)}`;
+      upsertFinding({
+        id: stableId,
+        paper_id: f.paper_id || (paper && paper.title ? String(paper.title) : undefined),
+        headline: String(f.headline),
+        kind: String(f.kind || "discovery"),
+        metric: f.metric,
+        value: f.value,
+        unit: f.unit,
+        reference_claim: f.reference_claim,
+        evidence_tier: f.evidence_tier,
+        manifest_hash: f.manifest_hash,
+        audit_signature: f.audit_signature,
+        dataset: f.dataset,
+        sample_size: f.sample_size,
+        pub_date: f.pub_date,
+        payload: f.payload,
+      });
+    }
+  }
+
+  if (Array.isArray(finding_of_day)) {
+    for (const fod of finding_of_day) {
+      if (!fod || typeof fod.day !== "string" || typeof fod.finding_id !== "string") continue;
+      setFindingOfDay(fod.day, fod.finding_id);
+    }
   }
 
   res.status(info.changes > 0 ? 201 : 200).json({
