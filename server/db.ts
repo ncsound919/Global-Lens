@@ -370,6 +370,60 @@ export function runMigrations() {
       WHERE article_body IS NULL OR article_body = ''
     `);
   });
+
+  // Migration 7: Overlay Oncology — verified research findings, findings of
+  // the day, and transparent donations.
+  runMigration('007_oncology_findings', () => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS research_findings (
+        id TEXT PRIMARY KEY,
+        paper_id TEXT,
+        headline TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        metric TEXT,
+        value TEXT,
+        unit TEXT,
+        reference_claim TEXT,
+        evidence_tier TEXT,
+        manifest_hash TEXT,
+        audit_signature TEXT,
+        dataset TEXT,
+        sample_size INTEGER,
+        pub_date TEXT,
+        payload TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_research_findings_pub_date ON research_findings(pub_date DESC);
+      CREATE INDEX IF NOT EXISTS idx_research_findings_kind ON research_findings(kind);
+      CREATE INDEX IF NOT EXISTS idx_research_findings_paper_id ON research_findings(paper_id);
+
+      CREATE TABLE IF NOT EXISTS findings_of_day (
+        day TEXT PRIMARY KEY,
+        finding_id TEXT REFERENCES research_findings(id),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS donations (
+        id TEXT PRIMARY KEY,
+        amount INTEGER NOT NULL,
+        currency TEXT DEFAULT 'usd',
+        campaign TEXT,
+        recurring INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending',
+        source TEXT DEFAULT 'stripe_webhook',
+        settled_at TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_donations_settled_at ON donations(settled_at DESC);
+
+      CREATE TABLE IF NOT EXISTS donation_events (
+        event_id TEXT PRIMARY KEY,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  });
 }
 
 // Run migrations immediately on bootstrap
