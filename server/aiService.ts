@@ -101,9 +101,9 @@ const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 })
 // ============================================================================
 
 type AIProvider =
+  | 'deepseek'
   | 'opencode-free'
   | 'opencode'
-  | 'deepseek'
   | 'gemini'
   | 'ollama'
   | 'openai'
@@ -111,9 +111,12 @@ type AIProvider =
   | 'qwen';
 
 const PROVIDER_URLS: Record<AIProvider, string> = {
+  // Primary — the opencode Go tier's monthly quota is exhausted (resets in ~16d),
+  // so DeepSeek direct is the fast, funded path right now. Keep LiteLLM (config
+  // model "deepseek") as an option via LITELLM_URL when quota returns.
+  deepseek: process.env.DEEPSEEK_URL || 'https://api.deepseek.com/v1/chat/completions',
   'opencode-free': 'https://opencode.ai/zen/v1/chat/completions',
   opencode: 'https://opencode.ai/zen/go/v1/chat/completions',
-  deepseek: 'https://api.deepseek.com/v1/chat/completions',
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models',
   ollama: 'http://localhost:11434/v1/chat/completions',
   openai: 'https://api.openai.com/v1/chat/completions',
@@ -127,9 +130,9 @@ function sdkBaseUrl(provider: AIProvider): string {
 }
 
 const PROVIDER_ENV: Record<AIProvider, string> = {
+  deepseek: 'DEEPSEEK_API_KEY',
   'opencode-free': 'OPENCODE_API_KEY',
   opencode: 'OPENCODE_API_KEY',
-  deepseek: 'DEEPSEEK_API_KEY',
   gemini: 'GEMINI_API_KEY',
   ollama: 'OLLAMA_ENABLED',
   openai: 'OPENAI_API_KEY',
@@ -138,9 +141,9 @@ const PROVIDER_ENV: Record<AIProvider, string> = {
 };
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
+  deepseek: 'deepseek-v4-flash',
   'opencode-free': 'deepseek-v4-flash-free',
   opencode: 'deepseek-v4-flash',
-  deepseek: 'deepseek-v4-flash',
   gemini: 'gemini-3.5-flash',
   ollama: 'llama3.2:1b',
   openai: 'gpt-4o-mini',
@@ -150,9 +153,9 @@ const DEFAULT_MODELS: Record<AIProvider, string> = {
 
 /** Canonical fallback order used across the ecosystem. */
 const FALLBACK_ORDER: AIProvider[] = [
+  'deepseek',
   'opencode-free',
   'opencode',
-  'deepseek',
   'gemini',
   'ollama',
   'openai',
@@ -175,6 +178,10 @@ export const callAIQueued = (prompt: string) => aiQueue.add(() => callAIConfigur
 // After opencode-free returns a rate-limit error once, skip it for subsequent
 // calls in this process — each retry otherwise wastes ~7s before the Go tier.
 let opencodeFreeRated = false;
+// Same treatment for the paid Go `opencode` tier: once it rate-limits, skip it
+// for the rest of the process and fall straight to deepseek/gemini. This keeps
+// the daily editorial/synthesis syncs fast when the opencode gateway throttles.
+let opencodeRated = false;
 
 /** Single-provider JSON-capable text call. Throws on failure so the chain retries. */
 async function callProvider(provider: AIProvider, prompt: string): Promise<string> {
@@ -262,6 +269,7 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
 
   for (const provider of providers) {
     if (provider === 'opencode-free' && opencodeFreeRated) continue;
+    if (provider === 'opencode' && opencodeRated) continue;
     try {
       return await callProvider(provider, prompt);
     } catch (e: any) {
@@ -272,6 +280,7 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
         e?.message?.includes('rate limit') || e?.message?.includes('Rate limit') ||
         e?.message?.includes('insufficient balance');
       if (provider === 'opencode-free' && isRateLimit) opencodeFreeRated = true;
+      if (provider === 'opencode' && isRateLimit) opencodeRated = true;
       console.warn(JSON.stringify({
         severity: 'WARNING',
         message: `AI provider ${provider} failed.`,
@@ -333,8 +342,6 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     const sentences = content.split(/[.?!]\s+/).filter((s: string) => s.length > 20);
     const summary = sentences.slice(0, 2).join(". ") + (sentences.length > 0 ? "." : "");
 
-    const takeaways = sentences.slice(0, 3).map((s: string) => s + ".");
-
     let structuralAnalysis = "This article covers global events from a traditional news perspective.";
     let whatItMeans = ["This issue warrants further community observation."];
 
@@ -362,6 +369,9 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     const bodyParagraphs = content.length
       ? content.slice(0, 1200).split(/\n{2,}/).filter(Boolean).slice(0, 3)
       : ["Details are developing."];
+
+    // Deterministic takeaways: up to 4 scannable sentences from the report.
+    const takeaways = sentences.slice(0, 4).map((s: string) => s + ".");
 
     return {
       reframed_headline: title,
@@ -420,6 +430,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       - The "analysis" is ONE short paragraph that steps back and interprets the story under the assigned lens.
       - Every paragraph must be grounded in the supplied source text. Do NOT invent facts, names, or quotes.
       - Do not open with phrases like "In a world where". Write straight, factual journalism.
+      - "key_takeaways" must be 4 to 5 SHORT, scannable, distinct points (10-18 words each) that capture the
+        most important facts a reader should remember. Each must be a complete sentence. Do not number them.
 
       BACKGROUND CONTEXT:
       ${contextContent}
@@ -443,7 +455,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
          "reframed_summary": "The lede: one tight, hooking sentence.",
          "article_body": "Paragraph one.\n\nParagraph two.\n\nParagraph three.\n\nParagraph four.",
          "cultural_lens_analysis": "One short interpretation paragraph under the assigned lens.",
-         "key_takeaways": ["point 1", "point 2", "point 3"],
+         "key_takeaways": ["point 1", "point 2", "point 3", "point 4", "point 5"],
          "what_this_means_for_us": ["community point 1", "community point 2"],
          "is_safe": true,
          "verification_warning": null,

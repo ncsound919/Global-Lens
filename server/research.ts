@@ -6,8 +6,13 @@ import db from "./db";
 // Overlay Global Lens — research papers ingestion.
 // Reads research papers produced by the ecosystem (Draymond research-papers.json)
 // from a local ingest dir, a Draymond checkout, or an HTTP endpoint. Never the
-// source of truth for research state: the outlet is a reader that mirrors
-// evidence-backed items into its own SQLite for fast public serving.
+// source of truth for research state: the outlet is a reader.
+//
+// IMPORTANT (public-outlet rule): the ecosystem's research-papers.json mirrors
+// ESTABLISHED literature (OpenAlex/PubMed). We do NOT republish others' work.
+// Those rows land in the `reference_papers` table — a reference pool used ONLY
+// to cross-reference OUR conclusions. `research_papers` holds Overlay's own
+// research exclusively and is what the publication surfaces.
 
 const GOAL_TO_PILLAR: Record<string, string> = {
   biotech: "science",
@@ -86,7 +91,7 @@ function extractDoi(url: string): string {
 }
 
 const upsertPaper = db.prepare(`
-  INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
+  INSERT INTO reference_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
   VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
     source = excluded.source,
@@ -98,7 +103,7 @@ const upsertPaper = db.prepare(`
     summary = excluded.summary,
     category = excluded.category,
     pillar = excluded.pillar,
-    evidence_tier = excluded.evidence_tier,
+    evidence_tier = 'REF',
     payload = excluded.payload,
     pub_date = excluded.pub_date
 `);
@@ -132,7 +137,7 @@ export function syncResearchPapers(): { inserted: number; updated: number; total
         summary: p.summary || "",
         category: goalKey,
         pillar,
-        evidence_tier: p.evidence_tier || null,
+        evidence_tier: 'REF',
         payload: JSON.stringify({ doi, ...p }),
         pub_date: pubDate,
       });
@@ -149,5 +154,6 @@ export function syncResearchPapers(): { inserted: number; updated: number; total
 export function getPaperStats() {
   const count = db.prepare("SELECT COUNT(*) as c FROM research_papers").get() as any;
   const byPillar = db.prepare("SELECT pillar, COUNT(*) as c FROM research_papers GROUP BY pillar").all() as any[];
-  return { count: count?.c || 0, byPillar };
+  const refCount = db.prepare("SELECT COUNT(*) as c FROM reference_papers").get() as any;
+  return { count: count?.c || 0, referenceCount: refCount?.c || 0, byPillar };
 }

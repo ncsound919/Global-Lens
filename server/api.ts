@@ -1,5 +1,6 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
+import crypto from "crypto";
 import db from "./db";
 import { syncRSSNews, getFeedHealth } from "./rss";
 import { authRouter } from "./auth";
@@ -85,6 +86,7 @@ apiRouter.get("/health", (req, res) => {
        db: "connected",
        feeds: countRows("SELECT COUNT(*) as c FROM rss_feeds", "feeds"),
        research_papers: countRows("SELECT COUNT(*) as c FROM research_papers", "papers"),
+       reference_papers: countRows("SELECT COUNT(*) as c FROM reference_papers", "refs"),
        trends: countRows("SELECT COUNT(*) as c FROM trends", "trends"),
        discoveries: countRows("SELECT COUNT(*) as c FROM discoveries", "discoveries"),
        metaphors: countRows("SELECT COUNT(*) as c FROM metaphors", "metaphors")
@@ -160,13 +162,21 @@ apiRouter.post("/publish", (req, res) => {
   // Optional paper attachment: upsert into research_papers so the published
   // article can be linked to its source paper (idempotent on paper.id).
   const { paper } = (req.body || {}) as any;
-  if (paper && paper.id && paper.title) {
+  if (paper && paper.title) {
+    // Defense-in-depth against duplicate papers: if the publisher sends a
+    // time-scoped id (e.g. "brain-{build_id}" regenerated every run), fall back
+    // to a stable hash of source+title so re-publishes upsert ONE row instead
+    // of inserting a duplicate. Publisher-supplied ids are used only when they
+    // look stable (already a hash of content, or explicitly flagged).
+    const stableId = paper.id && !/brain-[a-f0-9]{12}/i.test(String(paper.id))
+      ? String(paper.id)
+      : `paper-${crypto.createHash("sha256").update(`${paper.source || 'CureMind'}:${paper.title}`).digest("hex").slice(0, 24)}`;
     const paperInfo = db.prepare(`
       INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
       VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
       ON CONFLICT(id) DO UPDATE SET title=excluded.title, url=excluded.url, summary=excluded.summary, evidence_tier=excluded.evidence_tier, payload=excluded.payload
     `).run({
-      id: paper.id,
+      id: stableId,
       source: 'CureMind',
       title: paper.title,
       url: paper.url || '',
@@ -180,7 +190,7 @@ apiRouter.post("/publish", (req, res) => {
       payload: JSON.stringify(paper.payload || {}),
       pub_date: new Date().toISOString(),
     });
-    if (paperInfo.changes > 0) console.log(`[publish] attached paper ${paper.id}`);
+    if (paperInfo.changes > 0) console.log(`[publish] attached paper ${stableId}`);
   }
 
   res.status(info.changes > 0 ? 201 : 200).json({

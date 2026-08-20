@@ -11,6 +11,8 @@ import { syncSportsAPI } from "./server/sports";
 import { syncResearchPapers } from "./server/research";
 import { syncTrendsAndDiscoveries } from "./server/trends";
 import { syncDomainResearchWithEditorial } from "./server/domainResearch";
+import { synthesizeResearchPapers } from "./server/researchSynthesis";
+import { syncCrossDomainSignals } from "./server/crossDomain";
 import { apiRouter } from "./server/api";
 import db from "./server/db";
 import cookieParser from "cookie-parser";
@@ -36,6 +38,16 @@ setTimeout(() => {
     console.warn(`[domain] initial domain research sync failed: ${e.message}`)
   );
 }, STAGGER_MS * 5);
+setTimeout(() => {
+  synthesizeResearchPapers()
+    .then((r) => console.log(`[synthesis] initial research synthesis: ${JSON.stringify(r)}`))
+    .catch((e) => console.warn(`[synthesis] initial synthesis failed: ${e.message}`));
+}, STAGGER_MS * 6);
+setTimeout(() => {
+  syncCrossDomainSignals()
+    .then((r) => console.log(`[cross-domain] initial cross-domain sync: ${JSON.stringify(r)}`))
+    .catch((e) => console.warn(`[cross-domain] initial cross-domain sync failed: ${e.message}`));
+}, STAGGER_MS * 7);
 
 // Comic Metaphor Engine connectivity probe (observability only)
 if (process.env.COMIC_ENGINE_URL) {
@@ -61,6 +73,23 @@ cron.schedule("15 2 * * *", () => {
   const papers = syncResearchPapers();
   const insights = syncTrendsAndDiscoveries();
   console.log(`Ecosystem content sync complete. Papers: ${JSON.stringify(papers)}. Insights: ${JSON.stringify(insights)}`);
+}, { timezone: "UTC" });
+
+// Daily research synthesis at 02:20 UTC — bundle the science programs into
+// definitive papers, re-run through the Overlay Science engines, synthesize.
+cron.schedule("20 2 * * *", () => {
+  console.log("Running daily research synthesis...");
+  synthesizeResearchPapers()
+    .then((r) => console.log(`Research synthesis complete. ${JSON.stringify(r)}`))
+    .catch((e) => console.warn(`Research synthesis failed: ${e.message}`));
+}, { timezone: "UTC" });
+
+// Daily cross-domain sync at 02:25 UTC — detect cross-pillar signals.
+cron.schedule("25 2 * * *", () => {
+  console.log("Running daily cross-domain sync...");
+  syncCrossDomainSignals()
+    .then((r) => console.log(`Cross-domain sync complete. ${JSON.stringify(r)}`))
+    .catch((e) => console.warn(`Cross-domain sync failed: ${e.message}`));
 }, { timezone: "UTC" });
 
 // Daily domain research repopulation at 02:30 UTC — pulls updated APIs + our new

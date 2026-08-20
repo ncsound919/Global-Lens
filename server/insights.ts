@@ -5,6 +5,9 @@ import db from "./db";
 import { syncResearchPapers } from "./research";
 import { syncTrendsAndDiscoveries } from "./trends";
 import { syncDomainResearchWithEditorial } from "./domainResearch";
+import { scienceValidationFindings } from "./scienceIngest";
+import { synthesizeResearchPapers } from "./researchSynthesis";
+import { syncCrossDomainSignals } from "./crossDomain";
 import { generateMetaphorForArticle, generateMetaphorForTopic } from "./metaphors";
 
 export const insightsRouter = express.Router();
@@ -50,6 +53,9 @@ insightsRouter.get("/papers", (req, res) => {
   const params: any[] = [];
   if (q.category) { clauses.push("category = ?"); params.push(q.category); }
   if (q.pillar) { clauses.push("pillar = ?"); params.push(q.pillar); }
+  // research_papers holds ONLY Overlay's own research — the OpenAlex/PubMed
+  // reference pool lives in a separate `reference_papers` table and is never
+  // surfaced here. No source filter needed.
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
@@ -164,9 +170,11 @@ insightsRouter.get("/discoveries", (req, res) => {
 insightsRouter.get("/insights/feed", (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100);
 
+  // research_papers = Overlay's own research only; reference pool is separate.
   const papers = db.prepare(`
     SELECT 'paper' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, pillar as item_group, url as link, evidence_tier
-    FROM research_papers ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
+    FROM research_papers
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
   const trends = db.prepare(`
@@ -217,6 +225,42 @@ insightsRouter.post("/sync/domain", syncLimiter, async (req, res) => {
   try {
     const { sync, editorial } = await syncDomainResearchWithEditorial();
     res.json({ success: true, ...sync, editorial_articles: editorial });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Ingest just the science validation findings (validation ledger, gap-domain
+// scan, golf onco correlations) into the outlet's discoveries/trends/papers.
+// Runs as part of the full domain sync; exposed separately so operators can
+// verify the ingest surface independently.
+insightsRouter.post("/sync/science", syncLimiter, (req, res) => {
+  try {
+    const findings = scienceValidationFindings();
+    res.json({ success: true, findings: findings.length, sample: findings.slice(0, 3).map((f) => ({ title: f.title, category: f.category, pillar: f.pillar })) });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Bundle the science research programs into definitive papers: cluster the
+// data, re-run it through the Overlay Science engines, and synthesize one full
+// paper per cluster from our own measured outputs.
+insightsRouter.post("/sync/synthesis", syncLimiter, async (req, res) => {
+  try {
+    const result = await synthesizeResearchPapers();
+    res.json({ success: true, ...result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Detect cross-domain signals across the whole ecosystem (all pillars): domain
+// state, translation bridges, coupled domains and operational cross-impact.
+insightsRouter.post("/sync/cross-domain", syncLimiter, async (req, res) => {
+  try {
+    const result = await syncCrossDomainSignals();
+    res.json({ success: true, ...result });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message });
   }

@@ -23,6 +23,7 @@ export default function ArticleModal({
   simplifiedText, 
   headline,
   articleBody,
+  takeaways,
   initialScroll = 0,
   onScrollChange
 }: { 
@@ -31,6 +32,7 @@ export default function ArticleModal({
   simplifiedText: string, 
   headline: string,
   articleBody?: string,
+  takeaways?: string[],
   initialScroll?: number,
   onScrollChange?: (val: number) => void
 }) {
@@ -120,7 +122,22 @@ export default function ArticleModal({
             <span className="text-lg">←</span> Back to the story
           </button>
           
-          <h1 className="text-3xl font-serif text-white mb-6 leading-tight">{headline}</h1>
+          <h1 className="text-3xl font-serif text-white mb-4 leading-tight sm:text-4xl">{headline}</h1>
+
+          {/* Key takeaways strip */}
+          {takeaways && takeaways.length > 0 && (
+            <div className="mb-6 rounded-sm border-l-2 border-amber-500/70 bg-zinc-900/60 p-4">
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-amber-500 block mb-3">Key Takeaways</span>
+              <ul className="space-y-2">
+                {takeaways.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-[13px] leading-relaxed text-zinc-300">
+                    <span className="mt-0.5 shrink-0 text-amber-500 font-mono text-[10px] font-bold">{idx + 1}.</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           
           <div className="mb-6 space-y-4">
             <div className="flex items-center gap-4">
@@ -208,9 +225,9 @@ export default function ArticleModal({
           </div>
 
           {articleBody && (
-            <div className="mb-8 space-y-4">
+            <div className="article-prose mb-8">
               {articleBody.split(/\n{2,}/).map((p, i) => (
-                <p key={i} className="text-[15px] leading-[1.75] text-zinc-200">{p}</p>
+                <p key={i}>{p}</p>
               ))}
             </div>
           )}

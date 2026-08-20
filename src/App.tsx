@@ -21,6 +21,7 @@ import ContentViewNav, { ContentView } from './components/ContentViewNav';
 import PaperCard from './components/PaperCard';
 import TrendCard from './components/TrendCard';
 import DiscoveryCard from './components/DiscoveryCard';
+import EnvironmentSection from './components/EnvironmentSection';
 import Masthead from './components/Masthead';
 import FrontPage from './components/FrontPage';
 import PublicationFooter from './components/PublicationFooter';
@@ -74,6 +75,7 @@ export default function App() {
 
   const pageTitle = useMemo(() => {
     if (view !== 'news') {
+      if (view === 'environment') return 'Environmental Research';
       return view === 'papers' ? 'Research Papers' : view === 'trends' ? 'Trends & Insights' : 'Discoveries';
     }
     return category === 'all' ? 'Top Stories' : `${category.replace(/_/g, ' ')} News`;
@@ -85,7 +87,7 @@ export default function App() {
       setInsightStatus(insightLoadedRef.current ? 'refreshing' : 'loading');
 
       const endpoint =
-        v === 'papers' ? '/api/papers?limit=24' : v === 'trends' ? '/api/trends?limit=24' : '/api/discoveries?limit=24';
+        v === 'papers' ? '/api/papers?limit=24' : v === 'trends' ? '/api/trends?limit=24' : v === 'discoveries' ? '/api/discoveries?limit=24' : '/api/papers?pillar=environment&limit=24';
 
       try {
         const res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
@@ -342,8 +344,16 @@ export default function App() {
           </div>
         </section>
 
-        {view !== 'news' ? (
+        {view !== 'news' && view !== 'environment' ? (
           renderInsightView()
+        ) : view === 'environment' ? (
+          <EnvironmentSection
+            papers={papers}
+            status={insightStatus}
+            error={insightError}
+            onOpenPaper={(p) => setPubModal({ type: 'paper', item: p })}
+            onRefresh={() => fetchInsights('environment', 'refresh')}
+          />
         ) : isLoading ? (
           <section
             aria-label="Loading stories"

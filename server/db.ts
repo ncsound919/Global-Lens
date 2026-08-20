@@ -271,6 +271,30 @@ export function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_research_papers_pillar ON research_papers(pillar);
       CREATE INDEX IF NOT EXISTS idx_research_papers_pub_date ON research_papers(pub_date DESC);
 
+      -- Reference pool: the OpenAlex/PubMed literature mirror. Kept SEPARATE from
+      -- research_papers so the publication surfaces ONLY Overlay's own research.
+      -- These rows exist solely for cross-referencing our conclusions against
+      -- established literature (domainResearch / researchSynthesis / scienceIngest);
+      -- they are never published or surfaced as Overlay's work.
+      CREATE TABLE IF NOT EXISTS reference_papers (
+        id TEXT PRIMARY KEY,
+        source TEXT,
+        title TEXT,
+        url TEXT,
+        year INTEGER,
+        authors TEXT,
+        abstract TEXT,
+        summary TEXT,
+        category TEXT,
+        pillar TEXT,
+        evidence_tier TEXT DEFAULT 'REF',
+        payload TEXT,
+        pub_date TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_reference_papers_title ON reference_papers(title);
+
       CREATE TABLE IF NOT EXISTS trends (
         id TEXT PRIMARY KEY,
         title TEXT,

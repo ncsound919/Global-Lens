@@ -68,6 +68,20 @@ export default function MetaphorBox({ metaphor, loading }: MetaphorBoxProps) {
           </p>
         </div>
 
+        {metaphor.lesson && (
+          <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-3 py-3">
+            <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-emerald-400">Business Lesson</span>
+            <p className="text-[12.5px] leading-relaxed text-emerald-100/90">{safe(metaphor.lesson)}</p>
+          </div>
+        )}
+
+        {metaphor.narrative && (
+          <div className="space-y-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">The Story</span>
+            <p className="text-[12.5px] leading-relaxed text-zinc-400 font-serif">{safe(metaphor.narrative)}</p>
+          </div>
+        )}
+
         {metaphor.mappings && metaphor.mappings.length > 0 && (
           <div className="space-y-2">
             <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Mappings</span>

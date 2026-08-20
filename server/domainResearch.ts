@@ -3,6 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import db from "./db";
 import { callAIQueued } from "./aiService";
+import { scienceValidationFindings } from "./scienceIngest";
 
 // ============================================================================
 // Overlay Global Lens — Domain Research Engine
@@ -65,7 +66,7 @@ interface EstablishedPaper {
 
 function loadEstablishedPapers(): EstablishedPaper[] {
   const rows = db.prepare(
-    "SELECT title, url, category FROM research_papers WHERE title IS NOT NULL"
+    "SELECT title, url, category FROM reference_papers WHERE title IS NOT NULL"
   ).all() as any[];
   return rows.map((r) => ({ title: r.title, url: r.url || "", category: r.category || "" }));
 }
@@ -147,6 +148,9 @@ interface SportsFinding {
   slope?: number;
   confidence?: number;
   measured: boolean;
+  /** Always persist as a discovery even when micro-discoveries are disabled
+   *  (reserved for a small set of high-value, calibration-backed findings). */
+  alwaysPersist?: boolean;
 }
 
 function loadSportsMetrics(dir: string): any[] {
@@ -494,6 +498,92 @@ function hempResearchFindings(hemp: { trends: HempTrend[]; insights: HempInsight
   return findings;
 }
 
+// ---- Oncology calibration ingestion (Overlay Oncology subdomain) -------------
+//
+// Overlay Oncology (`oncology.overlay365.com`) exposes real, cited calibration
+// state via GET {ONCOLOGY_URL}/api/calibration/state — calibrated potency (CCLE
+// IC50) and survival (TCGA Weibull) fits with provenance. The outlet surfaces
+// these as evidence-tiered findings. PUBLIC-OUTLET RULE applies: no internal
+// ids/agent names; sources map to public labels. Degrades gracefully when the
+// app is not yet configured/deployed.
+
+interface OncologyCalibration {
+  updatedAtIso?: string | null;
+  potency?: {
+    medianIc50?: number | null;
+    ciLow?: number | null;
+    ciHigh?: number | null;
+    n?: number | null;
+    provenance?: { source?: string; sourceUrl?: string; mode?: string; rowCount?: number } | null;
+  } | null;
+  survival?: {
+    lambdaPerMonth?: number | null;
+    shape?: number | null;
+    scaleMonths?: number | null;
+    medianSurvivalMonths?: number | null;
+    kmModelRmse?: number | null;
+    n?: number | null;
+    provenance?: { source?: string; sourceUrl?: string; mode?: string; rowCount?: number } | null;
+  } | null;
+}
+
+async function loadOncologyCalibrationHttp(): Promise<OncologyCalibration | null> {
+  const base = process.env.ONCOLOGY_URL;
+  if (!base) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${base.replace(/\/+$/, "")}/api/calibration/state`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as OncologyCalibration;
+  } catch (e: any) {
+    console.warn(`[domain] Oncology calibration source unavailable: ${e.message}`);
+    return null;
+  }
+}
+
+function oncologyFindings(cal: OncologyCalibration | null, papers: EstablishedPaper[]): SportsFinding[] {
+  if (!cal) return [];
+  const findings: SportsFinding[] = [];
+  const sourceLabel = "Overlay Oncology";
+
+  const potency = cal.potency;
+  if (potency?.medianIc50 && typeof potency.medianIc50 === "number") {
+    const ref = crossReference("cancer cell line drug sensitivity IC50 pharmacogenomics", papers);
+    const dataset = potency.provenance?.source || "CCLE drug-treatment IC50";
+    findings.push({
+      title: `Oncology potency calibration: median IC50 ${potency.medianIc50.toFixed(2)} µM across ${potency.n ?? "n/a"} cell lines`,
+      insight: `The Overlay Oncology simulator is calibrated to real pharmacogenomic data (${dataset}${potency.provenance?.rowCount ? `, ${potency.provenance.rowCount} measurements` : ""}) with median IC50 ${potency.medianIc50.toFixed(2)} µM and 95% CI [${(potency.ciLow ?? 0).toFixed(2)}, ${(potency.ciHigh ?? 0).toFixed(2)}]. Cross-referenced against ${ref.matched.length} established cancer-sensitivity studies.`,
+      category: "Oncology",
+      pillar: "science",
+      measured: true,
+      confidence: 0.93,
+      alwaysPersist: true,
+    });
+  }
+
+  const survival = cal.survival;
+  if (survival?.medianSurvivalMonths && typeof survival.medianSurvivalMonths === "number") {
+    const ref = crossReference("cancer patient survival model hazard weibull", papers);
+    const dataset = survival.provenance?.source || "TCGA survival";
+    findings.push({
+      title: `Oncology survival calibration: median OS ${survival.medianSurvivalMonths.toFixed(1)} months (${survival.n ?? "n/a"} patients)`,
+      insight: `The Overlay Oncology survival model is calibrated to real patient data (${dataset}${survival.provenance?.rowCount ? `, ${survival.provenance.rowCount} patients` : ""}) with median overall survival ${survival.medianSurvivalMonths.toFixed(1)} months and Weibull shape ${(survival.shape ?? 0).toFixed(2)}. Cross-referenced against ${ref.matched.length} established survival studies.`,
+      category: "Oncology",
+      pillar: "science",
+      measured: true,
+      confidence: 0.93,
+      alwaysPersist: true,
+    });
+  }
+
+  return findings;
+}
+
 // ---- Research paper generation -----------------------------------------------
 
 function generateResearchPaper(findings: SportsFinding[]): void {
@@ -506,14 +596,17 @@ function generateResearchPaper(findings: SportsFinding[]): void {
   const evidence = top.every((f) => f.measured) ? "E1" : top.some((f) => f.measured) ? "E2" : "E3";
 
   upsertPaper.run({
-    id: `overlay-research-digest-${dateKey}`,
+    // Stable ID (no date) so the daily digest updates ONE canonical row each
+    // day instead of inserting a new paper — the digest accumulates findings
+    // in place and never floods the publication with near-identical rows.
+    id: `overlay-research-digest`,
     source: "Overlay Research Desk",
     title,
     url: "",
     year: new Date().getFullYear(),
     authors: "Overlay Global Lens Research Desk",
     abstract: "",
-    summary: `A daily digest of ${top.length} original research findings from the Overlay Global Lens domain engine:\n\n${abstractLines.join("\n")}`,
+    summary: `A daily digest of ${top.length} original research findings from the Overlay Global Lens domain engine (updated ${dateKey}):\n\n${abstractLines.join("\n")}`,
     category: "research",
     pillar: "research",
     evidence_tier: evidence,
@@ -528,14 +621,15 @@ function generateCodexOpenSourcePaper(): void {
   const nowIso = new Date().toISOString();
   const dateKey = nowIso.slice(0, 10);
   upsertPaper.run({
-    id: `codex-open-source-integration-${dateKey}`,
+    // Stable ID (no date) — one canonical toolchain paper, updated in place.
+    id: `codex-open-source-integration`,
     source: "Overlay Research Desk",
     title: "NBA Codex Open-Source Toolchain Integration Research",
     url: "",
     year: new Date().getFullYear(),
     authors: "Overlay Global Lens Research Desk",
     abstract: "",
-    summary: `Open-source toolchain research for the NBA Codex pipeline: nba_api (live 2025-26 NBA.com ingest), full FiveThirtyEight RAPTOR/WAR (replacing the sparse Kaggle mirror), Cognee (vector + knowledge-graph memory) and floodlight (spatial/tracking events). Findings: codex season keys are end-year strings ("2026") vs nba_api "2025-26"; NBA.com IDs must be joined to codex profiles by name; 2 of 10 codex hypotheses predict 2026 (Haliburton, Horton-Tucker), 8 predict 2027 and are unresolvable until the 2026-27 season.`,
+    summary: `Open-source toolchain research for the NBA Codex pipeline: nba_api (live 2025-26 NBA.com ingest), full FiveThirtyEight RAPTOR/WAR (replacing the sparse Kaggle mirror), Cognee (vector + knowledge-graph memory) and floodlight (spatial/tracking events). Findings: codex season keys are end-year strings ("2026") vs nba_api "2025-26"; NBA.com IDs must be joined to codex profiles by name; 2 of 10 codex hypotheses predict 2026 (Haliburton, Horton-Tucker), 8 predict 2027 and are unresolvable until the 2026-27 season. (Updated ${dateKey})`,
     category: "research",
     pillar: "research",
     evidence_tier: "E2",
@@ -546,43 +640,56 @@ function generateCodexOpenSourcePaper(): void {
 
 // ---- Main sync ----------------------------------------------------------------
 
-export function syncDomainResearch(): {
+export async function syncDomainResearch(): Promise<{
   discoveries: number;
   trends: number;
   papers: number;
   source: string | null;
-} {
+}> {
   const papers = loadEstablishedPapers();
+  const oncologyCal = await loadOncologyCalibrationHttp();
   const findings = [
     ...sportsScienceFindings(papers),
     ...codexOncoFindings(),
+    ...oncologyFindings(oncologyCal, papers),
     ...hempResearchFindings(loadHempResearch(), papers),
+    ...scienceValidationFindings(),
   ];
 
   let discoveries = 0;
   let trends = 0;
   const nowIso = new Date().toISOString();
 
+  // Per-finding micro-discoveries are now bundled into the definitive research
+  // papers produced by the synthesis engine (researchSynthesis.ts). They are
+  // disabled by default so the outlet stops flooding with near-identical rows;
+  // set GLOBAL_LENS_MICRO_DISCOVERIES=1 to restore the old behaviour. The
+  // findings still drive the trends & insights engine and the daily digest.
+  const microEnabled = process.env.GLOBAL_LENS_MICRO_DISCOVERIES === "1";
+
   for (const f of findings) {
     const id = `domain-${slug(f.title)}`;
     const tier = evidenceTierFor(f.measured, crossReference(f.title + " " + f.insight, papers).score);
     const ref = crossReference(f.title + " " + f.insight, papers);
-    upsertDiscovery.run({
-      id,
-      title: f.title,
-      insight: f.insight,
-      evidence_tier: tier,
-      hypothesis_id: null,
-      linked_patch_id: null,
-      source: "Overlay Research Desk",
-      category: f.category,
-      payload: JSON.stringify({
-        pillar: f.pillar,
-        related_papers: ref.matched.map((m) => ({ title: m.title, url: m.url })),
-      }),
-      pub_date: nowIso,
-    });
-    discoveries++;
+
+    if (microEnabled || (f as any).alwaysPersist) {
+      upsertDiscovery.run({
+        id,
+        title: f.title,
+        insight: f.insight,
+        evidence_tier: tier,
+        hypothesis_id: null,
+        linked_patch_id: null,
+        source: "Overlay Research Desk",
+        category: f.category,
+        payload: JSON.stringify({
+          pillar: f.pillar,
+          related_papers: ref.matched.map((m) => ({ title: m.title, url: m.url })),
+        }),
+        pub_date: nowIso,
+      });
+      discoveries++;
+    }
 
     if (f.direction || typeof f.slope === "number") {
       upsertTrend.run({
@@ -667,10 +774,10 @@ Output strictly valid JSON with no markdown fences:
 }
 
 export async function syncDomainResearchWithEditorial(): Promise<{
-  sync: ReturnType<typeof syncDomainResearch>;
+  sync: Awaited<ReturnType<typeof syncDomainResearch>>;
   editorial: number;
 }> {
-  const sync = syncDomainResearch();
+  const sync = await syncDomainResearch();
   const editorial = await generateEditorialArticles();
   return { sync, editorial: editorial.published };
 }

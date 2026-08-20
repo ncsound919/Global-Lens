@@ -1,9 +1,10 @@
 import React from 'react';
-import { Newspaper, BookOpen, TrendingUp, Sparkles } from 'lucide-react';
+import { Newspaper, BookOpen, TrendingUp, Sparkles, Leaf } from 'lucide-react';
 
 export const CONTENT_VIEWS = [
   { key: 'news', label: 'News', icon: Newspaper },
   { key: 'papers', label: 'Research', icon: BookOpen },
+  { key: 'environment', label: 'Environment', icon: Leaf },
   { key: 'trends', label: 'Trends', icon: TrendingUp },
   { key: 'discoveries', label: 'Discoveries', icon: Sparkles },
 ] as const;

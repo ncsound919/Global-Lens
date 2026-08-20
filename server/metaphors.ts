@@ -1,5 +1,7 @@
 import db from "./db";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 
 // Overlay Global Lens — comic metaphor enrichment.
 // Calls the Comic Metaphor Engine (FastAPI / MCP) to frame each story as a comic
@@ -37,7 +39,57 @@ export interface MetaphorPackage {
   mappings: any[];
   beat_structure: any[];
   codex_scores: any;
+  narrative?: string | null;
+  lesson?: string | null;
   _unavailable?: boolean;
+}
+
+// Business-Marvel protocol seed: 20 storylines curated for business-transferable
+// themes (leadership, strategy, operations, culture, innovation, governance,
+// risk, talent). Loaded from scripts/seeds/business-marvel-protocols.json so the
+// outlet can attach a deterministic lesson/narrative even when the engine is
+// unreachable (degrades gracefully; never crashes the outlet).
+interface SeededProtocol {
+  protocol_id: string;
+  name: string;
+  series: string;
+  era: string;
+  domains: string[];
+  core_tension: string;
+  lesson: string;
+  narrative: string;
+  beat_structure: string[];
+  mappings: any[];
+}
+
+let _seedProtocols: Map<string, SeededProtocol> | null = null;
+
+function seedProtocols(): Map<string, SeededProtocol> {
+  if (_seedProtocols) return _seedProtocols;
+  _seedProtocols = new Map();
+  const candidates = [
+    path.resolve(process.cwd(), "scripts", "seeds", "business-marvel-protocols.json"),
+    path.resolve(__dirname, "scripts", "seeds", "business-marvel-protocols.json"),
+    path.resolve(__dirname, "..", "scripts", "seeds", "business-marvel-protocols.json"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      const parsed = JSON.parse(fs.readFileSync(candidate, "utf8"));
+      const list: SeededProtocol[] = Array.isArray(parsed?.protocols) ? parsed.protocols : [];
+      for (const p of list) {
+        if (p?.protocol_id) _seedProtocols.set(p.protocol_id, p);
+      }
+      break;
+    } catch (e: any) {
+      console.warn(`[metaphor] Seed read failed (${candidate}): ${e?.message}`);
+    }
+  }
+  return _seedProtocols;
+}
+
+export function seedCount(): number {
+  return seedProtocols().size;
 }
 
 function fallbackPackage(topic: string): MetaphorPackage {
@@ -62,6 +114,8 @@ export function getMetaphorCached(articleId: string): MetaphorPackage | null {
     mappings: row.mappings ? safeParse(row.mappings, []) : [],
     beat_structure: row.beat_structure ? safeParse(row.beat_structure, []) : [],
     codex_scores: row.codex_scores ? safeParse(row.codex_scores, null) : null,
+    narrative: row.narrative ?? null,
+    lesson: row.lesson ?? null,
   };
 }
 
@@ -75,6 +129,8 @@ export function getMetaphorByTopic(topic: string): MetaphorPackage | null {
     mappings: row.mappings ? safeParse(row.mappings, []) : [],
     beat_structure: row.beat_structure ? safeParse(row.beat_structure, []) : [],
     codex_scores: row.codex_scores ? safeParse(row.codex_scores, null) : null,
+    narrative: row.narrative ?? null,
+    lesson: row.lesson ?? null,
   };
 }
 
@@ -103,7 +159,7 @@ function deriveTopicFromArticle(articleId: string): { topic: string; title: stri
 function saveMetaphor(pkg: MetaphorPackage, articleId: string | null) {
   db.prepare(`
     INSERT OR REPLACE INTO metaphors (id, url_hash, topic, protocol_id, core_tension, mappings, beat_structure, narrative, lesson, codex_scores)
-    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     crypto.createHash("sha256").update(`${articleId || "topic"}:${pkg.topic}`).digest("hex").slice(0, 24),
     articleId,
@@ -112,8 +168,28 @@ function saveMetaphor(pkg: MetaphorPackage, articleId: string | null) {
     pkg.core_tension,
     JSON.stringify(pkg.mappings),
     JSON.stringify(pkg.beat_structure),
+    pkg.narrative ?? null,
+    pkg.lesson ?? null,
     pkg.codex_scores ? JSON.stringify(pkg.codex_scores) : null,
   );
+}
+
+function attachSeed(pkg: MetaphorPackage): MetaphorPackage {
+  if (!pkg.protocol_id) return pkg;
+  // Match bare seed IDs (armor_wars) AND engine-prefixed IDs (protocol_armor_wars)
+  // so curated lessons/narratives attach regardless of which KB entry won.
+  const seeded =
+    seedProtocols().get(pkg.protocol_id) ??
+    seedProtocols().get(pkg.protocol_id.replace(/^protocol_/, ""));
+  if (!seeded) return pkg;
+  return {
+    ...pkg,
+    core_tension: pkg.core_tension || seeded.core_tension,
+    beat_structure: pkg.beat_structure?.length ? pkg.beat_structure : seeded.beat_structure,
+    mappings: pkg.mappings?.length ? pkg.mappings : seeded.mappings,
+    narrative: pkg.narrative || seeded.narrative,
+    lesson: pkg.lesson || seeded.lesson,
+  };
 }
 
 export async function generateMetaphorForArticle(articleId: string): Promise<{ metaphor: MetaphorPackage | null; cached: boolean }> {
@@ -133,7 +209,7 @@ export async function generateMetaphorForArticle(articleId: string): Promise<{ m
       tone: "inspirational",
       top_k: 5,
     });
-    const pkg = packageFromMapping(mapping, derived.topic);
+    const pkg = attachSeed(packageFromMapping(mapping, derived.topic));
     if (!pkg.protocol_id) return { metaphor: fallbackPackage(derived.topic), cached: false };
     saveMetaphor(pkg, articleId);
     return { metaphor: pkg, cached: false };
@@ -158,7 +234,7 @@ export async function generateMetaphorForTopic(topic: string): Promise<{ metapho
       tone: "inspirational",
       top_k: 5,
     });
-    const pkg = packageFromMapping(mapping, topic);
+    const pkg = attachSeed(packageFromMapping(mapping, topic));
     if (!pkg.protocol_id) return { metaphor: fallbackPackage(topic), cached: false };
     saveMetaphor(pkg, null);
     return { metaphor: pkg, cached: false };
@@ -193,5 +269,7 @@ function packageFromMapping(mapping: any, topic: string): MetaphorPackage {
     mappings: Array.isArray(mapping?.mappings) ? mapping.mappings : [],
     beat_structure: Array.isArray(mapping?.beat_structure) ? mapping.beat_structure : [],
     codex_scores: scores,
+    narrative: mapping?.narrative || null,
+    lesson: mapping?.lesson || null,
   };
 }

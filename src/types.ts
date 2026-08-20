@@ -87,6 +87,8 @@ export interface MetaphorPackage {
     tap?: number | null;
     tap_weights?: any;
   } | null;
+  narrative?: string | null;
+  lesson?: string | null;
   _unavailable?: boolean;
 }
 
