@@ -19,8 +19,8 @@ const getDbPath = (): string => {
 
   const candidates = [
     path.join(process.cwd(), 'app.sqlite'),
-    path.resolve(__dirname, 'app.sqlite'), // dev (tsx server.ts): project root
-    path.resolve(__dirname, '..', 'app.sqlite'), // prod bundle (dist/server.cjs): project root
+    path.resolve(import.meta.dirname, 'app.sqlite'), // dev (tsx server.ts): project root
+    path.resolve(import.meta.dirname, '..', 'app.sqlite'), // prod bundle (dist/server.mjs): project root
   ];
   const existing = candidates.find((p) => fs.existsSync(p));
   if (existing) return existing;

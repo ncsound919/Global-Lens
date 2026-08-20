@@ -69,8 +69,8 @@ function seedProtocols(): Map<string, SeededProtocol> {
   _seedProtocols = new Map();
   const candidates = [
     path.resolve(process.cwd(), "scripts", "seeds", "business-marvel-protocols.json"),
-    path.resolve(__dirname, "scripts", "seeds", "business-marvel-protocols.json"),
-    path.resolve(__dirname, "..", "scripts", "seeds", "business-marvel-protocols.json"),
+    path.resolve(import.meta.dirname, "scripts", "seeds", "business-marvel-protocols.json"),
+    path.resolve(import.meta.dirname, "..", "scripts", "seeds", "business-marvel-protocols.json"),
   ];
   for (const candidate of candidates) {
     try {

@@ -105,18 +105,18 @@ cron.schedule("30 2 * * *", () => {
 
 /**
  * Resolve the production build directory independently of the current working
- * directory. The bundled server.cjs lives inside dist/, so `__dirname` differs
- * between dev (tsx → project root) and prod (bundle → dist/). Tries every
- * plausible location and picks the one that actually contains index.html so the
- * catch-all route never serves HTML for /assets/* (MIME errors).
+ * directory. The bundled server.mjs lives inside dist/, so `import.meta.dirname`
+ * differs between dev (tsx server.ts → project root) and prod (bundle → dist/).
+ * Tries every plausible location and picks the one that actually contains
+ * index.html so the catch-all route never serves HTML for /assets/* (MIME errors).
  */
 function resolveDistDir(): string {
   const candidates = [
     process.env.DIST_DIR,
     path.resolve(process.cwd(), "dist"),
-    path.resolve(__dirname, "dist"),
-    path.resolve(__dirname, "..", "dist"),
-    __dirname,
+    path.resolve(import.meta.dirname, "dist"),
+    path.resolve(import.meta.dirname, "..", "dist"),
+    import.meta.dirname,
   ].filter((p): p is string => !!p);
   for (const c of candidates) {
     try {
@@ -352,7 +352,7 @@ async function startServer() {
     app.use("*", async (req, res, next) => {
       try {
         const url = req.originalUrl;
-        let template = fs.readFileSync(path.resolve(__dirname, "index.html"), "utf-8");
+        let template = fs.readFileSync(path.resolve(import.meta.dirname, "index.html"), "utf-8");
         template = await vite.transformIndexHtml(url, template);
         await renderHtml(req, res, template);
       } catch (e: any) {
