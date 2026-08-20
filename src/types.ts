@@ -102,3 +102,33 @@ export interface ContentFeedItem {
   evidence_tier?: string;
   pub_date?: string;
 }
+
+export interface FindingProps {
+  id: string;
+  paper_id?: string | null;
+  headline: string;
+  kind: string;
+  metric?: string;
+  value?: string;
+  unit?: string;
+  reference_claim?: string;
+  evidence_tier?: string;
+  manifest_hash?: string;
+  audit_signature?: string;
+  dataset?: string;
+  sample_size?: number | null;
+  pub_date?: string;
+  payload?: Record<string, unknown> | null;
+}
+
+export interface DonationStats {
+  totalDonations: number;
+  settledUsd: number;
+}
+
+export interface OncologyOverview {
+  finding_of_day: { day: string; finding: FindingProps | null };
+  findings: FindingProps[];
+  papers: PaperProps[];
+  donations: DonationStats;
+}
