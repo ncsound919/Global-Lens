@@ -17,13 +17,15 @@ const insertDonation = db.prepare(`
 `);
 
 const seenStmt = db.prepare("SELECT 1 FROM donation_events WHERE event_id = ?");
-const markEventStmt = db.prepare("INSERT INTO donation_events (event_id) VALUES (?)");
+const markEventStmt = db.prepare("INSERT OR IGNORE INTO donation_events (event_id) VALUES (?)");
 
 export function eventSeen(eventId: string): boolean {
   return !!seenStmt.get(eventId);
 }
 
 export function recordEvent(eventId: string): void {
+  // INSERT OR IGNORE: a concurrent duplicate webhook for the same event must not
+  // raise a UNIQUE error (which would surface as a spurious 500).
   markEventStmt.run(eventId);
 }
 
@@ -100,13 +102,19 @@ donateRouter.post("/webhook", async (req, res) => {
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      recordSettledDonation({
-        eventId: event.id,
-        amount: session.amount_total || 0,
-        currency: session.currency || "usd",
-        campaign: session.metadata?.campaign || "oncology",
-        recurring: session.mode === "subscription" ? 1 : 0,
-      });
+      // One-time payment mode records here. For subscriptions, Stripe also fires
+      // checkout.session.completed AND invoice.paid for the first charge (with
+      // different event ids), so only record subscription charges from
+      // invoice.paid below to avoid double-counting the initial payment.
+      if (session.mode !== "subscription") {
+        recordSettledDonation({
+          eventId: event.id,
+          amount: session.amount_total || 0,
+          currency: session.currency || "usd",
+          campaign: session.metadata?.campaign || "oncology",
+          recurring: 0,
+        });
+      }
     } else if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
       recordSettledDonation({
