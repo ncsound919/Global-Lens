@@ -176,6 +176,8 @@ async function startServer() {
     credentials: true,
   }));
 
+  // Stripe webhooks need the raw body for signature verification.
+  app.use("/api/donate/webhook", express.raw({ type: "*/*" }));
   app.use(express.json());
   app.use(cookieParser());
 

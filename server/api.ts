@@ -7,7 +7,8 @@ import { authRouter } from "./auth";
 import { settingsRouter } from "./settings";
 import { newsRouter } from "./news";
 import { insightsRouter } from "./insights";
-import { upsertFinding, setFindingOfDay } from "./oncology";
+import { getFindingOfDay, getFindings, upsertFinding, setFindingOfDay } from "./oncology";
+import { donateRouter, getSettledDonationStats } from "./donations";
 
 const standardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -56,6 +57,32 @@ apiRouter.use("/user", settingsRouter);
 apiRouter.use("/news", newsRouter);
 // Overlay Global Lens — ecosystem content (papers/trends/discoveries/metaphors)
 apiRouter.use("/", insightsRouter);
+
+// Overlay Oncology — verified research findings + transparent donations.
+apiRouter.use("/donate", donateRouter);
+
+apiRouter.get("/oncology/overview", (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const fod = getFindingOfDay(today);
+  const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
+  const findings = getFindings({ kind });
+  const papers = db.prepare(`
+    SELECT * FROM research_papers
+    WHERE category = 'cancer-research'
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT 50
+  `).all() as any[];
+  res.json({
+    finding_of_day: fod,
+    findings: findings.findings,
+    papers: papers.map((p) => ({
+      id: p.id, source: p.source, title: p.title, url: p.url, year: p.year,
+      authors: p.authors, abstract: p.abstract, summary: p.summary,
+      category: p.category, pillar: p.pillar, evidence_tier: p.evidence_tier,
+      pub_date: p.pub_date,
+    })),
+    donations: getSettledDonationStats(),
+  });
+});
 
 // Service utility endpoints
 // Health counts are memoized briefly (TTL) so liveness checks stay cheap even
