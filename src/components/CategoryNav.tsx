@@ -9,6 +9,7 @@ export const CATEGORIES = [
   'finance',
   'culture',
   'health',
+  'oncology',
   'music',
   'sports',
   'saved'

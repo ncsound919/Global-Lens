@@ -22,6 +22,7 @@ import PaperCard from './components/PaperCard';
 import TrendCard from './components/TrendCard';
 import DiscoveryCard from './components/DiscoveryCard';
 import EnvironmentSection from './components/EnvironmentSection';
+import OncologyLanding from './components/OncologyLanding';
 import Masthead from './components/Masthead';
 import FrontPage from './components/FrontPage';
 import PublicationFooter from './components/PublicationFooter';
@@ -78,6 +79,7 @@ export default function App() {
       if (view === 'environment') return 'Environmental Research';
       return view === 'papers' ? 'Research Papers' : view === 'trends' ? 'Trends & Insights' : 'Discoveries';
     }
+    if (category === 'oncology') return 'Oncology Research';
     return category === 'all' ? 'Top Stories' : `${category.replace(/_/g, ' ')} News`;
   }, [view, category]);
 
@@ -344,7 +346,9 @@ export default function App() {
           </div>
         </section>
 
-        {view !== 'news' && view !== 'environment' ? (
+        {view === 'news' && category === 'oncology' ? (
+          <OncologyLanding />
+        ) : view !== 'news' && view !== 'environment' ? (
           renderInsightView()
         ) : view === 'environment' ? (
           <EnvironmentSection
