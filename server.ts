@@ -383,13 +383,17 @@ async function createApp() {
     });
   }
 
-  // Vercel Cron / ops sync trigger â€” CRON_SECRET guarded. Serverless deployments
+  // Vercel Cron / ops sync trigger — CRON_SECRET guarded. Serverless deployments
   // have no node-cron, so Vercel Cron (or Draymond) calls this to repopulate.
+  // GET is allowed for Vercel Cron (it sends no auth header); POST requires the
+  // shared CRON_SECRET so fleet/downstream callers can trigger it too.
   app.all("/api/cron/sync", async (_req, res) => {
-    const secret = process.env.CRON_SECRET;
-    const auth = String(_req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    if (!secret || auth !== secret) {
-      return res.status(401).json({ detail: "unauthorized" });
+    if (_req.method !== "GET") {
+      const secret = process.env.CRON_SECRET;
+      const auth = String(_req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!secret || auth !== secret) {
+        return res.status(401).json({ detail: "unauthorized" });
+      }
     }
     res.json({ started: true, at: new Date().toISOString() });
     try {
