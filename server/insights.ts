@@ -1,14 +1,14 @@
 ﻿import express from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import db from "./db";
-import { syncResearchPapers } from "./research";
-import { syncTrendsAndDiscoveries } from "./trends";
-import { syncDomainResearchWithEditorial } from "./domainResearch";
-import { scienceValidationFindings } from "./scienceIngest";
-import { synthesizeResearchPapers } from "./researchSynthesis";
-import { syncCrossDomainSignals } from "./crossDomain";
-import { generateMetaphorForArticle, generateMetaphorForTopic } from "./metaphors";
+import db from "./db.js";
+import { syncResearchPapers } from "./research.js";
+import { syncTrendsAndDiscoveries } from "./trends.js";
+import { syncDomainResearchWithEditorial } from "./domainResearch.js";
+import { scienceValidationFindings } from "./scienceIngest.js";
+import { synthesizeResearchPapers } from "./researchSynthesis.js";
+import { syncCrossDomainSignals } from "./crossDomain.js";
+import { generateMetaphorForArticle, generateMetaphorForTopic } from "./metaphors.js";
 
 export const insightsRouter = express.Router();
 

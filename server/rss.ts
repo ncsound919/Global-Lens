@@ -1,7 +1,7 @@
 ﻿import Parser from "rss-parser";
-import db from "./db";
-import { processRawArticleForConfig } from "./aiService";
-import { feeds } from "./feeds";
+import db from "./db.js";
+import { processRawArticleForConfig } from "./aiService.js";
+import { feeds } from "./feeds.js";
 import crypto from "crypto";
 
 const parser = new Parser({

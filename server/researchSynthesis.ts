@@ -2,10 +2,10 @@
 import path from "path";
 import crypto from "crypto";
 import { execFile } from "child_process";
-import db from "./db";
-import { callAIQueued } from "./aiService";
-import { runScienceExperiments, findingsBlock } from "./scienceExperiments";
-import { crossDomainFindings, crossDomainStateBlob } from "./crossDomain";
+import db from "./db.js";
+import { callAIQueued } from "./aiService.js";
+import { runScienceExperiments, findingsBlock } from "./scienceExperiments.js";
+import { crossDomainFindings, crossDomainStateBlob } from "./crossDomain.js";
 
 // ============================================================================
 // Overlay Global Lens â€” Research Synthesis Engine

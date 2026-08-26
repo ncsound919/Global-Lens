@@ -1,4 +1,4 @@
-﻿import db from "./db";
+﻿import db from "./db.js";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";

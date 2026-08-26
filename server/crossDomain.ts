@@ -1,8 +1,8 @@
 ﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import db from "./db";
-import { callAIQueued } from "./aiService";
+import db from "./db.js";
+import { callAIQueued } from "./aiService.js";
 
 // ============================================================================
 // Overlay Global Lens â€” Cross-Domain Detection Engine

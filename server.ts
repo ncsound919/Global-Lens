@@ -1,19 +1,19 @@
 ﻿import "dotenv/config";
-import { loadEcosystemEnv } from "./server/ecosystemEnv";
+import { loadEcosystemEnv } from "./server/ecosystemEnv.js";
 loadEcosystemEnv();
 import express from "express";
 import path from "path";
 import fs from "fs";
 import helmet from "helmet";
-import { syncRSSNews, backfillArticleImages } from "./server/rss";
-import { syncSportsAPI } from "./server/sports";
-import { syncResearchPapers } from "./server/research";
-import { syncTrendsAndDiscoveries } from "./server/trends";
-import { syncDomainResearchWithEditorial } from "./server/domainResearch";
-import { synthesizeResearchPapers } from "./server/researchSynthesis";
-import { syncCrossDomainSignals } from "./server/crossDomain";
-import { apiRouter } from "./server/api";
-import db from "./server/db";
+import { syncRSSNews, backfillArticleImages } from "./server/rss.js";
+import { syncSportsAPI } from "./server/sports.js";
+import { syncResearchPapers } from "./server/research.js";
+import { syncTrendsAndDiscoveries } from "./server/trends.js";
+import { syncDomainResearchWithEditorial } from "./server/domainResearch.js";
+import { synthesizeResearchPapers } from "./server/researchSynthesis.js";
+import { syncCrossDomainSignals } from "./server/crossDomain.js";
+import { apiRouter } from "./server/api.js";
+import db from "./server/db.js";
 import cookieParser from "cookie-parser";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
@@ -294,7 +294,13 @@ async function createApp() {
   let cachedProdTemplate: string | null = null;
   if (isProd) {
     const distPath = resolveDistDir();
-    cachedProdTemplate = fs.readFileSync(path.join(distPath, "index.html"), "utf-8");
+    try {
+      cachedProdTemplate = fs.readFileSync(path.join(distPath, "index.html"), "utf-8");
+    } catch (e: any) {
+      // API routes don't need the SPA shell; only the catch-all does. Don't crash
+      // the whole app because static assets are missing or being deployed.
+      console.warn(`[dist] index.html not found at ${distPath}: ${e?.message}`);
+    }
   }
 
   const renderHtml = async (req: express.Request, res: express.Response, rawHtml: string) => {
@@ -374,12 +380,15 @@ async function createApp() {
     const distPath = resolveDistDir();
     app.use(express.static(distPath, { index: false }));
     app.get("*", (req, res) => {
-      // Never serve index.html for missing static assets â€” 404 instead, so the
+      // Never serve index.html for missing static assets — 404 instead, so the
       // browser gets a real MIME type (or a proper miss) rather than text/html.
       if (/\.(js|mjs|css|json|png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|ttf|eot|map|txt|xml)$/i.test(req.path)) {
         return res.status(404).end();
       }
-      renderHtml(req, res, cachedProdTemplate as string);
+      if (!cachedProdTemplate) {
+        return res.status(503).type("text/plain").send("SPA assets not ready — retry shortly.");
+      }
+      renderHtml(req, res, cachedProdTemplate);
     });
   }
 

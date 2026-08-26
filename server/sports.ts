@@ -1,4 +1,4 @@
-﻿import db from "./db";
+﻿import db from "./db.js";
 
 export async function syncSportsAPI() {
   const apiKey = process.env.SPORTS_API_KEY;

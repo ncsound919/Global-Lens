@@ -1,11 +1,11 @@
 ﻿import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
-import db from "./db";
+import db from "./db.js";
 import fs from "fs";
 import path from "path";
-import { ArticleProps } from "../src/types";
+import type { ArticleProps } from "../src/types";
 import PQueueMod from 'p-queue';
 import OpenAI from 'openai';
-import { loadEcosystemEnv } from './ecosystemEnv';
+import { loadEcosystemEnv } from './ecosystemEnv.js';
 loadEcosystemEnv();
 
 // Exponential backoff helper with random jitter

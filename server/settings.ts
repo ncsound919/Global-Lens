@@ -1,7 +1,7 @@
 ﻿import express from "express";
 import { z } from "zod";
-import db, { encrypt, decrypt } from "./db";
-import { getAuthSession } from "./api";
+import db, { encrypt, decrypt } from "./db.js";
+import { getAuthSession } from "./api.js";
 
 export const settingsRouter = express.Router();
 

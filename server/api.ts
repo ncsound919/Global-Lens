@@ -1,14 +1,14 @@
 ﻿import express from "express";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
-import db from "./db";
-import { syncRSSNews, getFeedHealth } from "./rss";
-import { authRouter } from "./auth";
-import { settingsRouter } from "./settings";
-import { newsRouter } from "./news";
-import { insightsRouter } from "./insights";
-import { getFindingOfDay, getFindings, upsertFinding, setFindingOfDay } from "./oncology";
-import { donateRouter, getSettledDonationStats } from "./donations";
+import db from "./db.js";
+import { syncRSSNews, getFeedHealth } from "./rss.js";
+import { authRouter } from "./auth.js";
+import { settingsRouter } from "./settings.js";
+import { newsRouter } from "./news.js";
+import { insightsRouter } from "./insights.js";
+import { getFindingOfDay, getFindings, upsertFinding, setFindingOfDay } from "./oncology.js";
+import { donateRouter, getSettledDonationStats } from "./donations.js";
 
 const standardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute

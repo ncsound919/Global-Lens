@@ -2,10 +2,10 @@
 import rateLimit from "express-rate-limit";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
-import db, { decrypt } from "./db";
-import { getAuthSession } from "./api";
-import { getAvailableProviders, callAIQueued, generateImage } from "./aiService";
-import { feeds } from "./feeds";
+import db, { decrypt } from "./db.js";
+import { getAuthSession } from "./api.js";
+import { getAvailableProviders, callAIQueued, generateImage } from "./aiService.js";
+import { feeds } from "./feeds.js";
 
 export const newsRouter = express.Router();
 

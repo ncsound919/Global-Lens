@@ -1,9 +1,9 @@
 ﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import db from "./db";
-import { callAIQueued } from "./aiService";
-import { scienceValidationFindings } from "./scienceIngest";
+import db from "./db.js";
+import { callAIQueued } from "./aiService.js";
+import { scienceValidationFindings } from "./scienceIngest.js";
 
 // ============================================================================
 // Overlay Global Lens â€” Domain Research Engine

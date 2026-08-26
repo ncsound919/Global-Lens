@@ -1,7 +1,7 @@
 ﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import db from "./db";
+import db from "./db.js";
 
 // Overlay Global Lens â€” trends & discoveries ingestion.
 // Sources (file-first, HTTP fallback):

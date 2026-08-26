@@ -3,8 +3,8 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import db, { encrypt } from "./db";
-import { SettingsSchema } from "./settings";
+import db, { encrypt } from "./db.js";
+import { SettingsSchema } from "./settings.js";
 
 export const authRouter = express.Router();
 

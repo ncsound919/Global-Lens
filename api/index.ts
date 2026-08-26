@@ -1,4 +1,4 @@
-import { createApp } from '../server';
+import { createApp } from '../server.js';
 import type { Express } from 'express';
 
 // Vercel serverless entrypoint. Vercel's Node runtime calls the default export
