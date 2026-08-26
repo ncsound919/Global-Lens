@@ -187,7 +187,7 @@ const SplitViewNewsCard: React.FC<{
         <div className="mt-10 flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between border-t border-zinc-900 pt-6">
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
           >
             Open insight panel
           </button>

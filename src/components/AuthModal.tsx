@@ -100,7 +100,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         aria-modal="true"
         aria-label={isLogin ? 'Reader Login' : 'Create Account'}
         tabIndex={-1}
-        className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 flex flex-col shadow-2xl p-6"
+        className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col shadow-2xl p-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">

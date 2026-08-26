@@ -65,7 +65,7 @@ export default function OncologyLanding() {
         <button
           onClick={donate}
           disabled={donating}
-          className="rounded-full border border-amber-500 bg-amber-500 px-6 py-3 text-xs font-bold uppercase tracking-widest text-zinc-950 hover:bg-white hover:border-white disabled:opacity-50"
+          className="rounded-full border border-amber-500 bg-amber-500 px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-zinc-950 hover:bg-white hover:border-white disabled:opacity-50"
         >
           {donating ? 'Redirectingâ€¦' : 'Donate'}
         </button>
@@ -74,7 +74,7 @@ export default function OncologyLanding() {
       <div className="mb-4 flex flex-wrap gap-2">
         {kinds.map((k) => (
           <button key={k} onClick={() => setKind(k)}
-            className={`rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors ${kind === k ? 'bg-amber-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}>
+            className={`rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors ${kind === k ? 'bg-amber-500 text-zinc-950' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}>
             {k}
           </button>
         ))}

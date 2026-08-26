@@ -63,7 +63,7 @@ export default function EnvironmentSection({ papers, status, error, onOpenPaper,
               <a
                 key={s.key}
                 href={`#${s.key}`}
-                className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-400 transition-all hover:border-emerald-500/40 hover:text-emerald-300"
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-emerald-500/40 hover:text-emerald-300"
               >
                 <Icon className="h-3 w-3" />
                 {s.project} · {s.name}

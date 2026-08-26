@@ -27,7 +27,7 @@ function LegalModalShell({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="relative w-full max-w-2xl max-h-[85vh] bg-zinc-950 border border-zinc-800 flex flex-col shadow-2xl"
+        className="relative w-full max-w-2xl max-h-[85vh] bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-zinc-900 bg-zinc-950/90 top-0 sticky z-10 hidden sm:flex">

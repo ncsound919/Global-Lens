@@ -29,7 +29,7 @@ export default function ContentViewNav({ view, setView }: ContentViewNavProps) {
               key={key}
               onClick={() => setView(key)}
               aria-pressed={active}
-              className={`flex min-w-max items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition-all duration-300 active:scale-95 ${
+              className={`flex min-w-max items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-all duration-300 active:scale-95 ${
                 active
                   ? 'bg-amber-500 text-zinc-950 shadow-[0_2px_8px_rgba(245,158,11,0.2)]'
                   : 'text-zinc-500 hover:text-zinc-200'

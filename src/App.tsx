@@ -445,7 +445,7 @@ export default function App() {
 
               <button
                 onClick={() => setShowSettings(true)}
-                className="inline-flex items-center gap-2 rounded-full border border-zinc-800 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-800 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"
               >
                 <SettingsIcon className="h-3.5 w-3.5" />
                 Open settings
@@ -455,7 +455,7 @@ export default function App() {
         ) : category === 'all' ? (
           <div className="relative">
             {isRefreshing && (
-              <div className="sticky top-[104px] z-20 mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300 backdrop-blur">
+              <div className="mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 backdrop-blur">
                 <RefreshCw className="h-3 w-3 animate-spin" />
                 Updating feed
               </div>
@@ -476,7 +476,7 @@ export default function App() {
             className="relative flex flex-col gap-6"
           >
             {isRefreshing && (
-              <div className="sticky top-[104px] z-20 mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300 backdrop-blur">
+              <div className="mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 backdrop-blur">
                 <RefreshCw className="h-3 w-3 animate-spin" />
                 Updating feed
               </div>

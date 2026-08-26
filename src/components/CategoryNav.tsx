@@ -35,7 +35,7 @@ export default function CategoryNav({ category, setCategory, articles }: Categor
               key={c}
               onClick={() => setCategory(c)}
               aria-pressed={active}
-              className={`relative flex min-w-max items-center justify-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] transition-all duration-300 active:scale-95 ${
+              className={`relative flex min-w-max items-center justify-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] transition-all duration-300 active:scale-95 ${
                 active
                   ? 'bg-amber-500 text-zinc-950 shadow-[0_2px_8px_rgba(245,158,11,0.2)]'
                   : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-200'

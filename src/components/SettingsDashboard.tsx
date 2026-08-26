@@ -62,7 +62,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
         aria-modal="true"
         aria-label="Dashboard settings"
         tabIndex={-1}
-        className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-2xl p-8 shadow-2xl relative mt-10"
+        className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl p-8 shadow-2xl relative mt-10"
       >
         <button 
           onClick={onClose}
@@ -202,7 +202,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
                     href="https://cash.app/$helptools" 
                     target="_blank" 
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold tracking-widest text-[11px] uppercase hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold tracking-[0.2em] text-[11px] uppercase hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all cursor-pointer"
                  >
                     CashApp: $helptools
                  </a>

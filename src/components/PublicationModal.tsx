@@ -77,7 +77,7 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
       >
         <button
           onClick={onClose}
-          className="text-xs uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
+          className="text-xs uppercase font-bold tracking-[0.2em] text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
         >
           <X className="h-4 w-4" /> Close
         </button>
@@ -140,7 +140,7 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
             href={sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-8 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
           >
             <ExternalLink className="h-4 w-4" />
             Read the source
@@ -164,7 +164,7 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
 
         <button
           onClick={onClose}
-          className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-300 transition-colors"
         >
           Back to the edition <ArrowUpRight className="h-3.5 w-3.5" />
         </button>

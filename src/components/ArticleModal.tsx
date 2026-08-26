@@ -132,7 +132,7 @@ export default function ArticleModal({
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            className="text-xs uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
+            className="text-xs uppercase font-bold tracking-[0.2em] text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
           >
             <span className="text-lg">â†</span> Back to the story
           </button>
@@ -187,7 +187,7 @@ export default function ArticleModal({
                     }
                  }}
                  disabled={generatingImage}
-                 className="text-xs uppercase font-bold tracking-widest text-emerald-500 hover:text-emerald-300 disabled:text-zinc-400 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer transition-colors"
+                 className="text-xs uppercase font-bold tracking-[0.2em] text-emerald-500 hover:text-emerald-300 disabled:text-zinc-400 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer transition-colors"
               >
                  {generatingImage ? (
                    <>
@@ -204,7 +204,7 @@ export default function ArticleModal({
                 value={imageStyle}
                 onChange={(e) => setImageStyle(e.target.value)}
                 disabled={generatingImage}
-                className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-widest p-2 rounded cursor-pointer border border-zinc-700 focus-visible:ring-2 focus-visible:ring-amber-500/60 focus-visible:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-[0.2em] p-2 rounded cursor-pointer border border-zinc-700 focus-visible:ring-2 focus-visible:ring-amber-500/60 focus-visible:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="photorealistic">Photorealistic</option>
                 <option value="cyberpunk">Cyberpunk</option>
