@@ -97,9 +97,10 @@ const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 })
 // LLM lineup — mirrors the ecosystem's canonical provider chain
 // (Draymond-Orchestrator/src/lib/draymond/llm.ts). Free tiers first (OpenCode
 // Zen free cycling the Keywire account pool + free-model catalog, then
-// OpenRouter free), then paid Go tier, direct providers, then local Ollama.
-// Global Lens uses the same keys, endpoints, and fallback order as every other
-// Overlay365 service.
+// OpenRouter free), then local Ollama, then the paid Go tier, direct providers.
+// DeepSeek direct is PAID now (no longer free) — last resort only. Global Lens
+// uses the same keys, endpoints, and fallback order as every other Overlay365
+// service.
 // ============================================================================
 
 type AIProvider =
@@ -165,14 +166,14 @@ const DEFAULT_MODELS: Record<AIProvider, string> = {
   qwen: 'qwen-plus',
 };
 
-/** Canonical fallback order used across the ecosystem. Free tiers first, paid last. */
+/** Canonical fallback order used across the ecosystem. Free + local tiers first, paid last. */
 const FALLBACK_ORDER: AIProvider[] = [
   'opencode-free',
   'openrouter',
-  'deepseek',
-  'opencode',
-  'gemini',
   'ollama',
+  'opencode',
+  'deepseek',
+  'gemini',
   'openai',
   'anthropic',
   'qwen',
