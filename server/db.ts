@@ -94,10 +94,10 @@ async function loadRemoteDriver(): Promise<DbLike> {
     url: process.env.TURSO_URL!,
     authToken: process.env.TURSO_AUTH_TOKEN || undefined,
   });
-  const toPlain = (rows: any[]): Record<string, unknown>[] =>
-    rows.map((r) =>
-      typeof r?.toJSON === 'function' ? r.toJSON() : Object.fromEntries((r?.entries?.() ?? []) as [string, unknown][])
-    );
+const toPlain = (rows: any[]): Record<string, unknown>[] =>
+  rows.map((r) =>
+    r && typeof r === 'object' && !Array.isArray(r) ? { ...r } : {}
+  );
   return {
     prepare(sql: string): Prepared {
       return {
