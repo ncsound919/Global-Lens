@@ -114,7 +114,17 @@ async function loadRemoteDriver(): Promise<DbLike> {
       };
     },
     exec: async (sql) => {
-      await client.execute(sql);
+      // libSQL's execute() rejects multi-statement strings (SQL_MANY_STATEMENTS),
+      // so split into statements and run them in one batch.
+      const stmts = sql
+        .split(';')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      if (stmts.length > 1) {
+        await client.batch(stmts);
+      } else {
+        await client.execute(sql);
+      }
     },
     pragma: async (sql) => {
       const r = await client.execute(sql);
@@ -242,7 +252,7 @@ export async function runMigrations() {
     try {
       await d.transaction(async () => {
         await upFn();
-        await d.prepare('INSERT INTO _migrations (name) VALUES (?)').run(name);
+        await d.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(name);
       }).run();
       console.log(`[Database Migration] Migration successfully completed: ${name}`);
     } catch (err) {

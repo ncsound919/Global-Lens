@@ -1,14 +1,15 @@
 import { createApp } from '../server';
-import serverless from 'serverless-http';
+import type { Express } from 'express';
 
-// Vercel serverless entrypoint: wrap the Express app once, reuse the handler
-// across invocations (warm instances keep the DB connection + prepared state).
-let cached: ReturnType<typeof serverless> | null = null;
+// Vercel serverless entrypoint. Vercel's Node runtime calls the default export
+// with Node (req, res); an Express app is itself a (req, res) handler, so we
+// hand the request straight to it. Warm instances reuse the built app (which
+// keeps the shared DB driver + migrations promise alive).
+let app: Express | null = null;
 
 export default async function handler(req: unknown, res: unknown) {
-  if (!cached) {
-    const app = await createApp();
-    cached = serverless(app);
+  if (!app) {
+    app = await createApp();
   }
-  return cached(req, res);
+  (app as unknown as (r: unknown, s: unknown) => void)(req, res);
 }
