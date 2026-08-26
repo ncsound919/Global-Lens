@@ -1,19 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 3,
-  "buildCommand": "npm run build",
-  "functions": {
-    "api/index.ts": {
-      "maxDuration": 300,
-      "includeFiles": "dist/**"
-    }
-  },
+  "version": 2,
+  "builds": [
+    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
+    { "src": "api/index.ts", "use": "@vercel/node", "config": { "includeFiles": ["dist/**"], "maxDuration": 60 } }
+  ],
   "routes": [
-    { "src": "/assets/(.*)", "dest": "/api/index.ts" },
     { "src": "/(.*)", "dest": "/api/index.ts" }
   ],
   "crons": [
-    { "path": "/api/cron/sync", "schedule": "0 */3 * * *" },
+    { "path": "/api/cron/sync", "schedule": "0 2 * * *" },
     { "path": "/api/cron/sync", "schedule": "30 2 * * *" }
   ]
 }

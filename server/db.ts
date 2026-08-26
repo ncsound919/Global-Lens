@@ -87,7 +87,9 @@ async function loadLocalDriver(): Promise<DbLike> {
 }
 
 async function loadRemoteDriver(): Promise<DbLike> {
-  const { createClient } = await import('@libsql/client');
+  // Pure-JS hrana-over-HTTP transport — no native `libsql` binary needed, so it
+  // runs on Vercel (which does not install optional platform natives).
+  const { createClient } = await import('@libsql/client/http');
   const client = createClient({
     url: process.env.TURSO_URL!,
     authToken: process.env.TURSO_AUTH_TOKEN || undefined,

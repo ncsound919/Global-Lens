@@ -249,6 +249,35 @@ async function createApp() {
   // API Routes
   app.use('/api', apiLimiter, apiRouter);
 
+  // Vercel Cron / ops sync trigger — CRON_SECRET guarded. Serverless deployments
+  // have no node-cron, so Vercel Cron (or Draymond) calls this to repopulate.
+  // GET is allowed for Vercel Cron (it sends no auth header); POST requires the
+  // shared CRON_SECRET so fleet/downstream callers can trigger it too.
+  // Registered BEFORE the SPA catch-all so /api/cron/sync is not swallowed.
+  app.all("/api/cron/sync", async (_req, res) => {
+    if (_req.method !== "GET") {
+      const secret = process.env.CRON_SECRET;
+      const auth = String(_req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+      if (!secret || auth !== secret) {
+        return res.status(401).json({ detail: "unauthorized" });
+      }
+    }
+    // Await the core syncs before responding — serverless functions are frozen
+    // after the response, so fire-and-forget work would never complete.
+    try {
+      await Promise.all([
+        syncRSSNews(),
+        syncSportsAPI(),
+        syncResearchPapers(),
+        syncTrendsAndDiscoveries(),
+      ]);
+      res.json({ started: true, completed: true, at: new Date().toISOString() });
+    } catch (e: any) {
+      console.warn(`[cron] sync error: ${e?.message || e}`);
+      res.json({ started: true, completed: false, at: new Date().toISOString() });
+    }
+  });
+
   app.get("/robots.txt", (req, res) => {
     res.type("text/plain");
     res.send(`User-agent: *\nAllow: /\nSitemap: ${req.protocol}://${req.get("host")}/sitemap.xml`);
@@ -391,35 +420,6 @@ async function createApp() {
       renderHtml(req, res, cachedProdTemplate);
     });
   }
-
-  // Vercel Cron / ops sync trigger — CRON_SECRET guarded. Serverless deployments
-  // have no node-cron, so Vercel Cron (or Draymond) calls this to repopulate.
-  // GET is allowed for Vercel Cron (it sends no auth header); POST requires the
-  // shared CRON_SECRET so fleet/downstream callers can trigger it too.
-  app.all("/api/cron/sync", async (_req, res) => {
-    if (_req.method !== "GET") {
-      const secret = process.env.CRON_SECRET;
-      const auth = String(_req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-      if (!secret || auth !== secret) {
-        return res.status(401).json({ detail: "unauthorized" });
-      }
-    }
-    res.json({ started: true, at: new Date().toISOString() });
-    try {
-      syncRSSNews();
-      syncSportsAPI();
-    } catch (e) {
-      console.warn(`[cron] RSS/sports sync failed: ${e}`);
-    }
-    Promise.allSettled([syncResearchPapers(), syncTrendsAndDiscoveries()])
-      .then((results) =>
-        console.log(`[cron] ecosystem sync complete: ${JSON.stringify(results.map((r) => r.status))}`)
-      )
-      .catch((e) => console.warn(`[cron] ecosystem sync error: ${e}`));
-    syncDomainResearchWithEditorial().catch((e) =>
-      console.warn(`[cron] domain research sync failed: ${e.message}`)
-    );
-  });
 
   return app;
 }
