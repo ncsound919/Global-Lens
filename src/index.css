@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -6,6 +6,20 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Space Grotesk", "Inter", sans-serif;
   --font-serif: "Source Serif 4", "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+
+  /* Editorial ink palette â€” the dark newsroom surface stack */
+  --color-ink-950: #0a0a0a;
+  --color-ink-900: #0c0c0c;
+  --color-ink-850: #0f0f0f;
+  --color-ink-800: #111111;
+  --color-ink-750: #080808;
+
+  --animate-fade-in: fade-in 0.35s ease-out both;
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
 html {
@@ -13,7 +27,32 @@ html {
 }
 
 body {
-  @apply font-sans text-gray-900 bg-[#0a0a0a] antialiased;
+  @apply font-sans text-gray-900 bg-ink-950 antialiased;
+}
+
+/* Hide scrollbars on horizontally-scrolling nav rows */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Thin dark custom scrollbar for the historical-context rail */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 9999px;
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
 }
 
 /* Magazine article reading typography */
@@ -36,7 +75,7 @@ body {
   float: left;
   line-height: 0.85;
   padding-right: 0.12em;
-  color: #fbbf24;
+  color: var(--color-amber-400);
 }
 
 @media (prefers-reduced-motion: reduce) {

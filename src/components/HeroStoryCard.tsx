@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { ArticleProps } from '../types';
 import { safe, relativeTime } from '../lib/format';
@@ -10,7 +10,7 @@ export default function HeroStoryCard({ article }: { article: ArticleProps }) {
 
   return (
     <>
-      <article className="group relative mb-12 overflow-hidden rounded-sm border border-zinc-900 bg-[#0c0c0c] transition-all duration-500 hover:border-zinc-700">
+      <article className="group relative mb-12 overflow-hidden rounded-sm border border-zinc-900 bg-ink-900 transition-all duration-500 hover:border-zinc-700">
         {article.image_url && (
           <div className="relative h-56 w-full overflow-hidden border-b border-zinc-900 sm:h-72 lg:h-96">
             <img

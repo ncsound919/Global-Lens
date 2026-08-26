@@ -1,18 +1,12 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { ArticleProps } from '../types';
 import ArticleModal from './ArticleModal';
 import CommunityTakeawaysWidget from './CommunityTakeawaysWidget';
 import AnalyticsChart from './AnalyticsChart';
-import InlineHistoricalContext from './InlineHistoricalContext';
 import BookmarkButton from './BookmarkButton';
 import ShareToolbar from './ShareToolbar';
 import Byline from './Byline';
-
-const safe = (val: any): string => {
-  if (typeof val === 'string') return val;
-  if (val === null || val === undefined) return '';
-  return JSON.stringify(val);
-};
+import { safe, relativeTime } from '../lib/format';
 
 const SplitViewNewsCard: React.FC<{
   article: ArticleProps;
@@ -31,18 +25,6 @@ const SplitViewNewsCard: React.FC<{
   const handleCloseModal = () => {
     setShowModal(false);
     if (onClearDeepLink) onClearDeepLink();
-  };
-
-  const getRelativeTime = (date: string) => {
-    if (!date) return '';
-    const d = new Date(date);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - d.getTime()) / 60000);
-    if (diffInMinutes < 60) return `${Math.max(1, diffInMinutes)}m ago`;
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays}d ago`;
   };
 
   const body = safe(article.article_body);
@@ -70,13 +52,13 @@ const SplitViewNewsCard: React.FC<{
     return null;
   };
 
-  const takeaways = article.key_takeaways || [];
-  const communityPoints = article.what_this_means_for_us || [];
+  const takeaways = Array.isArray(article.key_takeaways) ? article.key_takeaways : [];
+  const communityPoints = Array.isArray(article.what_this_means_for_us) ? article.what_this_means_for_us : [];
 
   return (
-    <section className="group mb-12 overflow-hidden rounded-sm border border-zinc-900 bg-[#0c0c0c] transition-all duration-500 hover:border-zinc-800 hover:shadow-2xl">
+    <section className="group mb-12 overflow-hidden rounded-sm border border-zinc-900 bg-ink-900 transition-all duration-500 hover:border-zinc-800 hover:shadow-2xl">
       {/* Article header row */}
-      <div className="flex items-center justify-between border-b border-zinc-900 bg-[#080808] px-6 py-4">
+      <div className="flex items-center justify-between border-b border-zinc-900 bg-ink-750 px-6 py-4">
         <div className="flex items-center gap-3">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-amber-500 opacity-40"></span>
@@ -91,7 +73,7 @@ const SplitViewNewsCard: React.FC<{
             rel="noopener noreferrer"
             className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors"
           >
-            {safe(article.source_name)} ↗
+            {safe(article.source_name)} â†—
           </a>
         )}
       </div>
@@ -109,7 +91,7 @@ const SplitViewNewsCard: React.FC<{
 
         {/* Byline */}
         <div className="mt-6">
-          <Byline desk={safe(article.category)} date={getRelativeTime(article.pub_date)} source={safe(article.source_name)} tone="bright" />
+          <Byline desk={safe(article.category)} date={relativeTime(article.pub_date)} source={safe(article.source_name)} tone="bright" />
         </div>
 
         {/* Hero image */}
@@ -129,7 +111,7 @@ const SplitViewNewsCard: React.FC<{
                 <span className="font-bold uppercase tracking-[0.2em]">{safe(article.category).replace(/_/g, ' ')}</span>
                 {article.source_name && (
                   <>
-                    <span className="text-zinc-700">·</span>
+                    <span className="text-zinc-700">Â·</span>
                     <span>Image via {safe(article.source_name)}</span>
                   </>
                 )}
@@ -145,7 +127,7 @@ const SplitViewNewsCard: React.FC<{
           </p>
         )}
 
-        {/* Key Takeaways — prominent "at a glance" panel near the top */}
+        {/* Key Takeaways â€” prominent "at a glance" panel near the top */}
         {takeaways.length > 0 && (
           <aside className="mt-2 mb-10 max-w-3xl rounded-sm border border-amber-500/25 bg-gradient-to-br from-[#181307] to-[#0f0e0a] p-7">
             <div className="flex items-center gap-3 mb-5 pb-4 border-b border-amber-500/15">
@@ -169,11 +151,11 @@ const SplitViewNewsCard: React.FC<{
         <div className="max-w-3xl">
           {renderArticleBody()}
 
-          {/* Pull quote — magazine styling */}
+          {/* Pull quote â€” magazine styling */}
           {pullQuote && hasBody && (
             <blockquote className="my-10 border-l-3 border-amber-500/60 pl-6">
               <p className="font-serif text-2xl italic leading-snug text-zinc-100 sm:text-[1.7rem]">
-                “{pullQuote.length > 260 ? pullQuote.slice(0, 260).replace(/\s+\S*$/, '') + '…' : pullQuote}”
+                â€œ{pullQuote.length > 260 ? pullQuote.slice(0, 260).replace(/\s+\S*$/, '') + 'â€¦' : pullQuote}â€
               </p>
             </blockquote>
           )}
@@ -181,7 +163,7 @@ const SplitViewNewsCard: React.FC<{
 
         {/* Analysis callout */}
         {article.cultural_lens_analysis && (
-          <div className="mt-10 max-w-3xl rounded-sm border-l-2 border-amber-500/60 bg-[#111111] p-6">
+          <div className="mt-10 max-w-3xl rounded-sm border-l-2 border-amber-500/60 bg-ink-800 p-6">
             <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500">Analysis</span>
             <p className="mt-3 text-[15px] leading-relaxed text-zinc-300">{safe(article.cultural_lens_analysis)}</p>
           </div>
@@ -194,11 +176,10 @@ const SplitViewNewsCard: React.FC<{
           </div>
         )}
 
-        {/* Analytics + historical context rail */}
-        {(article.statistical_data || true) && (
-          <div className="mt-12 grid grid-cols-1 gap-6 border-t border-zinc-900 pt-10 lg:grid-cols-2">
-            {article.statistical_data && <AnalyticsChart data={article.statistical_data} />}
-            <InlineHistoricalContext articleId={article.url_hash || article.id || 0} />
+        {/* Analytics rail — historical context loads on demand inside the insight panel */}
+        {article.statistical_data && (
+          <div className="mt-12 grid grid-cols-1 gap-6 border-t border-zinc-900 pt-10">
+            <AnalyticsChart data={article.statistical_data} />
           </div>
         )}
 

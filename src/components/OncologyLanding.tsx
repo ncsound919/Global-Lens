@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { OncologyOverview } from '../types';
 import FindingOfTheDay from './FindingOfTheDay';
 import FindingCard from './FindingCard';
@@ -39,7 +39,7 @@ export default function OncologyLanding() {
   };
 
   if (error) return <p className="p-8 text-zinc-500">Unable to load oncology research ({error}).</p>;
-  if (!data) return <p className="p-8 text-zinc-500">Loading oncology research…</p>;
+  if (!data) return <p className="p-8 text-zinc-500">Loading oncology researchâ€¦</p>;
 
   const kinds = ['all', 'calibration', 'benchmark', 'discovery', 'simulation'];
   return (
@@ -51,19 +51,23 @@ export default function OncologyLanding() {
         </div>
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-widest text-zinc-500">Funded by the community</p>
-          <p className="text-2xl font-bold text-amber-300">${data.donations.settledUsd.toLocaleString()}</p>
-          <p className="text-xs text-zinc-500">{data.donations.totalDonations} settled donations</p>
+          <p className="text-2xl font-bold text-amber-300">${(data.donations?.settledUsd ?? 0).toLocaleString()}</p>
+          <p className="text-xs text-zinc-500">{data.donations?.totalDonations ?? 0} settled donations</p>
         </div>
       </div>
 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        {data.finding_of_day?.finding ? (
         <FindingOfTheDay finding={data.finding_of_day.finding} day={data.finding_of_day.day} />
+      ) : (
+        <p className="text-sm text-zinc-400">No finding selected today.</p>
+      )}
         <button
           onClick={donate}
           disabled={donating}
           className="rounded-full border border-amber-500 bg-amber-500 px-6 py-3 text-xs font-bold uppercase tracking-widest text-zinc-950 hover:bg-white hover:border-white disabled:opacity-50"
         >
-          {donating ? 'Redirecting…' : 'Donate'}
+          {donating ? 'Redirectingâ€¦' : 'Donate'}
         </button>
       </div>
 

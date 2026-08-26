@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
+import { COOKIE_CONSENT_KEY } from '../lib/constants';
 
 export default function CookieConsent() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const consent = localStorage.getItem('bgl_cookie_consent');
+    const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
     if (!consent) {
       setShow(true);
     }
   }, []);
 
   const accept = () => {
-    localStorage.setItem('bgl_cookie_consent', 'true');
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
     setShow(false);
   };
 

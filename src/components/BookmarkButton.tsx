@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Bookmark } from 'lucide-react';
 import { ArticleProps } from '../types';
+import { SAVED_ARTICLES_KEY } from '../lib/constants';
 
 interface BookmarkButtonProps {
   article: ArticleProps;
@@ -11,7 +12,7 @@ export default function BookmarkButton({ article }: BookmarkButtonProps) {
 
   useEffect(() => {
     try {
-      const savedData = localStorage.getItem('globalLens_saved');
+      const savedData = localStorage.getItem(SAVED_ARTICLES_KEY);
       if (savedData) {
         const savedArticles = JSON.parse(savedData) as ArticleProps[];
         setIsSaved(savedArticles.some(a => a.url_hash === article.url_hash || a.id === article.id));
@@ -21,9 +22,9 @@ export default function BookmarkButton({ article }: BookmarkButtonProps) {
 
   const toggleSave = () => {
     try {
-      const savedData = localStorage.getItem('globalLens_saved');
+      const savedData = localStorage.getItem(SAVED_ARTICLES_KEY);
       let savedArticles = savedData ? JSON.parse(savedData) as ArticleProps[] : [];
-      
+
       if (isSaved) {
         savedArticles = savedArticles.filter(a => a.url_hash !== article.url_hash && a.id !== article.id);
         setIsSaved(false);
@@ -31,8 +32,8 @@ export default function BookmarkButton({ article }: BookmarkButtonProps) {
         savedArticles = [article, ...savedArticles];
         setIsSaved(true);
       }
-      
-      localStorage.setItem('globalLens_saved', JSON.stringify(savedArticles));
+
+      localStorage.setItem(SAVED_ARTICLES_KEY, JSON.stringify(savedArticles));
     } catch (e) {
       console.error('Error saving article', e);
     }

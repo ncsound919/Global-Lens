@@ -1,11 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Leaf, RefreshCw, AlertCircle, Newspaper, FlaskConical, Recycle, Sun, Droplets, Mountain, Atom, Waves, Cpu, Wind, Sprout, Home, Factory, Lightbulb, Zap } from 'lucide-react';
+﻿import { Leaf, RefreshCw, AlertCircle, FlaskConical, Recycle, Sun, Droplets, Waves, Cpu, Wind, Sprout, Home, Factory, Lightbulb, Zap, Atom } from 'lucide-react';
 import PaperCard from './PaperCard';
 import EvidenceLegend from './EvidenceLegend';
 import { PaperProps } from '../types';
-import { safe } from '../lib/format';
 
-// The 13 ECOS environmental initiatives — each is a research sector.
+// The 13 ECOS environmental initiatives â€” each is a research sector.
 export const ENVIRONMENT_SECTORS = [
   { key: 'env-ecohomes', project: 'P01', name: 'EcoHomes OS', icon: Home },
   { key: 'env-agriconnect', project: 'P02', name: 'AgriConnect', icon: Sprout },
@@ -30,22 +28,8 @@ interface EnvironmentSectionProps {
   onRefresh: () => void;
 }
 
-function envSignal(paper: PaperProps): { label: string; value: string } | null {
-  const payload = paper.payload as any;
-  const exp = Array.isArray(payload?.experiments) ? payload.experiments[0] : null;
-  const f = exp?.findings || {};
-  const out = f.outputs || {};
-  const key = Object.keys(out).find((k) => typeof out[k] === 'number');
-  if (!key) return null;
-  const val = out[key];
-  const num = typeof val === 'number' ? val : parseFloat(val);
-  const fmt = Number.isFinite(num) ? num.toLocaleString(undefined, { maximumFractionDigits: 2 }) : String(val);
-  return { label: key.replace(/_/g, ' '), value: fmt };
-}
-
 export default function EnvironmentSection({ papers, status, error, onOpenPaper, onRefresh }: EnvironmentSectionProps) {
   const bySector = (sector: string) => papers.filter((p) => p.id === `synthesis-${sector}` || String(p.id).startsWith(sector));
-  const sectionMeta = papers.find((p) => (p.payload as any)?.section === 'Environmental');
   const sectorsWithPapers = ENVIRONMENT_SECTORS.filter((s) => bySector(s.key).length > 0);
   const noSectors = sectorsWithPapers.length === 0;
 
@@ -59,12 +43,12 @@ export default function EnvironmentSection({ papers, status, error, onOpenPaper,
           </span>
           <div>
             <h3 className="text-lg font-serif text-white">Environmental Research Desk</h3>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.25em] text-emerald-500">
+<p className="mt-1 text-[10px] font-bold uppercase tracking-[0.25em] text-emerald-500">
               13 Sectors · ECOS Environmental Initiatives · Ongoing Research
             </p>
-          </div>
         </div>
-        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-zinc-400">
+      </div>
+      <p className="mt-4 max-w-3xl text-sm leading-relaxed text-zinc-400">
           The Environmental section tracks thirteen environmental initiatives — foam housing, mycorrhizal
           agriculture, closed-loop farming, biocomposites, resonant illumination, reactor twins, plastic-eating
           bacteria, long-life lighting, atmospheric water, geothermal district heat, thorium fuel cycles, community
@@ -83,7 +67,7 @@ export default function EnvironmentSection({ papers, status, error, onOpenPaper,
               >
                 <Icon className="h-3 w-3" />
                 {s.project} · {s.name}
-                <span className={`rounded-full px-1.5 text-[9px] ${count ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-500'}`}>{count}</span>
+                <span className={`rounded-full px-1.5 text-[9px] ${count ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-400'}`}>{count}</span>
               </a>
             );
           })}
@@ -94,11 +78,11 @@ export default function EnvironmentSection({ papers, status, error, onOpenPaper,
       {status === 'loading' || status === 'idle' ? (
         <section aria-label="Loading environmental research" className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-72 animate-pulse rounded-sm border border-zinc-900 bg-[#0c0c0c]" />
+            <div key={i} className="h-72 animate-pulse rounded-sm border border-zinc-900 bg-ink-900" />
           ))}
         </section>
       ) : status === 'error' ? (
-        <section className="rounded-sm border border-red-500/20 bg-[#0a0a0a] px-6 py-20 text-center">
+        <section className="rounded-sm border border-red-500/20 bg-ink-950 px-6 py-20 text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-red-500/20 bg-zinc-950 text-red-400">
             <AlertCircle className="h-6 w-6" />
           </div>
@@ -113,7 +97,7 @@ export default function EnvironmentSection({ papers, status, error, onOpenPaper,
           </button>
         </section>
       ) : noSectors ? (
-        <section className="rounded-sm border border-zinc-900 bg-[#0c0c0c] px-6 py-20 text-center">
+        <section className="rounded-sm border border-zinc-900 bg-ink-900 px-6 py-20 text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 text-emerald-400">
             <FlaskConical className="h-6 w-6" />
           </div>

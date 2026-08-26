@@ -1,11 +1,10 @@
-import React from 'react';
-import { FindingProps } from '../types';
+﻿import { FindingProps } from '../types';
 import { tierBadgeClasses } from '../lib/format';
 import ResultSig from './ResultSig';
 
 export default function FindingCard({ finding }: { finding: FindingProps }) {
   return (
-    <article className="flex flex-col rounded-sm border border-zinc-900 bg-[#0c0c0c] p-5">
+    <article className="flex flex-col rounded-sm border border-zinc-900 bg-ink-900 p-5">
       <div className="flex items-center justify-between gap-3">
         <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-amber-500">{finding.kind}</span>
         {finding.evidence_tier && <span className={tierBadgeClasses(finding.evidence_tier)}>{finding.evidence_tier}</span>}
@@ -16,7 +15,7 @@ export default function FindingCard({ finding }: { finding: FindingProps }) {
         {finding.reference_claim && <span className="text-zinc-500"> vs {finding.reference_claim}</span>}
       </p>
       <p className="mt-2 text-[11px] uppercase tracking-widest text-zinc-500">
-        {finding.dataset}{finding.sample_size ? ` · N=${finding.sample_size}` : ''}
+        {finding.dataset}{finding.sample_size ? ` Â· N=${finding.sample_size}` : ''}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <ResultSig label="manifest" value={finding.manifest_hash} />

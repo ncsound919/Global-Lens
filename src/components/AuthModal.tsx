@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Mail, Lock, LogIn, UserPlus } from 'lucide-react';
+import { useModalA11y } from '../lib/useModalA11y';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -7,6 +8,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
+  const panelRef = useModalA11y(onClose);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -92,9 +94,14 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-      <div 
-         className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 flex flex-col shadow-2xl p-6"
-         onClick={e => e.stopPropagation()}
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isLogin ? 'Reader Login' : 'Create Account'}
+        tabIndex={-1}
+        className="relative w-full max-w-md bg-zinc-950 border border-zinc-800 flex flex-col shadow-2xl p-6"
+        onClick={e => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -105,7 +112,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
               Create an account to sync your saved articles across devices and maintain your reading preferences.
             </p>
           </div>
-          <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900 rounded-sm self-start">
+          <button onClick={onClose} aria-label="Close login" className="p-2 text-zinc-400 hover:text-white transition-colors bg-zinc-900 rounded-sm self-start">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -126,7 +133,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm focus:border-red-500 focus:outline-none pl-10 pr-4 py-2"
+                className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/60 pl-10 pr-4 py-2"
                 placeholder="name@example.com"
               />
             </div>
@@ -142,7 +149,7 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
                 onChange={e => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm focus:border-red-500 focus:outline-none pl-10 pr-4 py-2"
+                className="w-full bg-zinc-900 border border-zinc-800 text-white text-sm focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/60 pl-10 pr-4 py-2"
                 placeholder="Minimum 6 characters"
               />
             </div>

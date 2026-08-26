@@ -92,17 +92,6 @@ export interface MetaphorPackage {
   _unavailable?: boolean;
 }
 
-export interface ContentFeedItem {
-  type: 'paper' | 'trend' | 'discovery';
-  id: string;
-  title: string;
-  summary?: string;
-  item_group?: string;
-  link?: string;
-  evidence_tier?: string;
-  pub_date?: string;
-}
-
 export interface FindingProps {
   id: string;
   paper_id?: string | null;

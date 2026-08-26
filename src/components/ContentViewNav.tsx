@@ -1,5 +1,4 @@
-import React from 'react';
-import { Newspaper, BookOpen, TrendingUp, Sparkles, Leaf } from 'lucide-react';
+﻿import { Newspaper, BookOpen, TrendingUp, Sparkles, Leaf } from 'lucide-react';
 
 export const CONTENT_VIEWS = [
   { key: 'news', label: 'News', icon: Newspaper },

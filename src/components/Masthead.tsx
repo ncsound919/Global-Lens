@@ -1,5 +1,4 @@
-import React from 'react';
-import { RefreshCw, Settings as SettingsIcon } from 'lucide-react';
+﻿import { RefreshCw, Settings as SettingsIcon } from 'lucide-react';
 
 interface MastheadProps {
   isOnline: boolean;
@@ -29,8 +28,8 @@ export default function Masthead({ isOnline, isRefreshing, isLoading, insightRef
               An Overlay365 Publication
             </span>
           </div>
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-            Research · News · Intelligence
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+            Research Â· News Â· Intelligence
           </p>
         </div>
 
@@ -58,8 +57,8 @@ export default function Masthead({ isOnline, isRefreshing, isLoading, insightRef
               <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isOnline ? 'bg-amber-500' : 'bg-red-500'}`} />
               <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-amber-500' : 'bg-red-500'}`} />
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              {today} · Global Edition
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+              {today} Â· Global Edition
             </span>
           </div>
         </div>

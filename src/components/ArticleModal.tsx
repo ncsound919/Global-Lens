@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, ImageIcon, AlertTriangle, X } from 'lucide-react';
+﻿import { useState, useEffect, useRef } from 'react';
+import { RefreshCw, AlertTriangle, X } from 'lucide-react';
 import MetaphorBox from './MetaphorBox';
 import { MetaphorPackage } from '../types';
 
@@ -45,14 +45,22 @@ export default function ArticleModal({
   const [metaphor, setMetaphor] = useState<MetaphorPackage | null>(null);
   const [loadingMetaphor, setLoadingMetaphor] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Focus and handle Escape key
+  // Focus the dialog, lock background scroll, and handle Escape key
   useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [onClose]);
 
   // Fetch the deep context asset only when the user opens the story view
@@ -111,15 +119,22 @@ export default function ArticleModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex justify-end z-50 animate-fade-in">
-      <div 
+      <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        role="dialog"
+        aria-modal="true"
+        aria-label={headline}
         className="w-full max-w-2xl bg-zinc-950/90 border-l border-zinc-800 h-full overflow-y-auto p-8 shadow-2xl flex flex-col justify-between"
       >
         
         <div>
-          <button onClick={onClose} className="text-xs uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors">
-            <span className="text-lg">←</span> Back to the story
+          <button
+            ref={closeButtonRef}
+            onClick={onClose}
+            className="text-xs uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <span className="text-lg">â†</span> Back to the story
           </button>
           
           <h1 className="text-3xl font-serif text-white mb-4 leading-tight sm:text-4xl">{headline}</h1>
@@ -172,7 +187,7 @@ export default function ArticleModal({
                     }
                  }}
                  disabled={generatingImage}
-                 className="text-xs uppercase font-bold tracking-widest text-emerald-500 hover:text-emerald-300 disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer transition-colors"
+                 className="text-xs uppercase font-bold tracking-widest text-emerald-500 hover:text-emerald-300 disabled:text-zinc-400 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer transition-colors"
               >
                  {generatingImage ? (
                    <>
@@ -181,7 +196,7 @@ export default function ArticleModal({
                    </>
                  ) : (
                    <>
-                     <span>✨ Generate {imageStyle} Image</span>
+                     <span>âœ¨ Generate {imageStyle} Image</span>
                    </>
                  )}
               </button>
@@ -189,7 +204,7 @@ export default function ArticleModal({
                 value={imageStyle}
                 onChange={(e) => setImageStyle(e.target.value)}
                 disabled={generatingImage}
-                className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-widest p-2 rounded cursor-pointer outline-none border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-widest p-2 rounded cursor-pointer border border-zinc-700 focus-visible:ring-2 focus-visible:ring-amber-500/60 focus-visible:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="photorealistic">Photorealistic</option>
                 <option value="cyberpunk">Cyberpunk</option>
@@ -213,10 +228,11 @@ export default function ArticleModal({
                   referrerPolicy="no-referrer"
                   className="w-full h-auto rounded-lg max-h-80 object-cover"
                 />
-                <button 
-                  onClick={() => setGeneratedImageUrl(null)} 
+                <button
+                  onClick={() => setGeneratedImageUrl(null)}
                   className="absolute top-4 right-4 bg-black/80 hover:bg-black text-white p-1.5 rounded-full transition-colors"
                   title="Dismiss image"
+                  aria-label="Dismiss generated image"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -259,13 +275,13 @@ export default function ArticleModal({
               <div className="space-y-8 text-sm">
                 <div>
                   <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">The Roots</h4>
-                  <p className="text-zinc-300 left-relaxed text-[15px]">{safe(backstory.the_past_roots)}</p>
+                  <p className="text-zinc-300 leading-relaxed text-[15px]">{safe(backstory.the_past_roots)}</p>
                 </div>
 
                 {backstory.ongoing_players && (
                   <div>
                     <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">Key Players</h4>
-                    <p className="text-zinc-300 left-relaxed text-[15px]">{safe(backstory.ongoing_players)}</p>
+                    <p className="text-zinc-300 leading-relaxed text-[15px]">{safe(backstory.ongoing_players)}</p>
                   </div>
                 )}
 

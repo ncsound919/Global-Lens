@@ -1,5 +1,4 @@
-import React from 'react';
-import { ArticleProps } from '../types';
+﻿import { ArticleProps } from '../types';
 
 export const CATEGORIES = [
   'all',

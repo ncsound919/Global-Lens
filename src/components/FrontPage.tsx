@@ -1,5 +1,4 @@
-import React from 'react';
-import { ArticleProps, PaperProps, TrendProps, DiscoveryProps } from '../types';
+﻿import { ArticleProps, PaperProps, TrendProps, DiscoveryProps } from '../types';
 import HeroStoryCard from './HeroStoryCard';
 import SplitViewNewsCard from './SplitViewNewsCard';
 import ResearchDeskRail from './ResearchDeskRail';
@@ -39,7 +38,7 @@ export default function FrontPage({
               </ErrorBoundary>
             ))
           ) : (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-zinc-400">
               More from this edition will appear here as the sync processes the feed.
             </p>
           )}

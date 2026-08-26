@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+﻿import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   RefreshCw,
   Settings as SettingsIcon,
@@ -12,7 +12,6 @@ import { PrivacyPolicyModal, TermsOfServiceModal } from './components/LegalModal
 import CookieConsent from './components/CookieConsent';
 import { ArticleProps } from './types';
 
-import AuthModal from './components/AuthModal';
 import AboutMission from './components/AboutMission';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -29,6 +28,7 @@ import PublicationFooter from './components/PublicationFooter';
 import PublicationModal, { PublicationItem } from './components/PublicationModal';
 import EvidenceLegend from './components/EvidenceLegend';
 import { PaperProps, TrendProps, DiscoveryProps } from './types';
+import { SAVED_ARTICLES_KEY } from './lib/constants';
 
 type FetchStatus = 'idle' | 'loading' | 'refreshing' | 'success' | 'error';
 
@@ -45,8 +45,6 @@ export default function App() {
   const [deepLinkedArticle, setDeepLinkedArticle] = useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-  const [user, setUser] = useState<{id: string, email: string} | null>(null);
 
   const [view, setView] = useState<ContentView>('news');
   const [papers, setPapers] = useState<PaperProps[]>([]);
@@ -82,6 +80,11 @@ export default function App() {
     if (category === 'oncology') return 'Oncology Research';
     return category === 'all' ? 'Top Stories' : `${category.replace(/_/g, ' ')} News`;
   }, [view, category]);
+
+  // Keep the browser tab title in sync with the active view/category.
+  useEffect(() => {
+    document.title = `Overlay Global Lens — ${pageTitle}`;
+  }, [pageTitle]);
 
   const fetchInsights = useCallback(
     async (v: ContentView, mode: 'initial' | 'refresh' = 'initial') => {
@@ -140,8 +143,16 @@ export default function App() {
 
       try {
         if (category === 'saved') {
-           const savedData = localStorage.getItem('globalLens_saved');
-           const nextArticles = savedData ? JSON.parse(savedData) : [];
+           const savedData = localStorage.getItem(SAVED_ARTICLES_KEY);
+           let nextArticles: ArticleProps[] = [];
+           if (savedData) {
+             try {
+               const parsed = JSON.parse(savedData);
+               nextArticles = Array.isArray(parsed) ? parsed : [];
+             } catch {
+               nextArticles = [];
+             }
+           }
            setArticles(nextArticles);
            setStatus('success');
            setLastUpdated(new Date());
@@ -232,7 +243,7 @@ export default function App() {
       return (
         <section aria-label="Loading intelligence" className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-72 animate-pulse rounded-sm border border-zinc-900 bg-[#0c0c0c]" />
+            <div key={i} className="h-72 animate-pulse rounded-sm border border-zinc-900 bg-ink-900" />
           ))}
         </section>
       );
@@ -240,7 +251,7 @@ export default function App() {
 
     if (insightStatus === 'error') {
       return (
-        <section className="rounded-sm border border-red-500/20 bg-[#0a0a0a] px-6 py-20 text-center">
+        <section className="rounded-sm border border-red-500/20 bg-ink-950 px-6 py-20 text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-red-500/20 bg-zinc-950 text-red-400">
             <AlertCircle className="h-6 w-6" />
           </div>
@@ -259,12 +270,12 @@ export default function App() {
 
     if (items.length === 0) {
       return (
-        <section className="rounded-sm border border-zinc-900 bg-[#0c0c0c] px-6 py-20 text-center">
+        <section className="rounded-sm border border-zinc-900 bg-ink-900 px-6 py-20 text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400">
             <Newspaper className="h-6 w-6" />
           </div>
           <h3 className="text-xl font-serif text-white mb-2">No {pageTitle.toLowerCase()} found</h3>
-          <p className="mx-auto mt-2 max-w-md text-sm text-zinc-500">
+          <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
             New research items appear here as the publication desk processes them. Check back with the next edition.
           </p>
         </section>
@@ -279,11 +290,11 @@ export default function App() {
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3 rounded-sm border border-zinc-900 bg-[#0c0c0c] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-sm border border-zinc-900 bg-ink-900 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-serif text-white">The Research Desk</h3>
             <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-500">
-              Overlay Science · Overlay Writing · Overlay Sport
+              Overlay Science Â· Overlay Writing Â· Overlay Sport
             </p>
           </div>
           <EvidenceLegend />
@@ -306,7 +317,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 font-sans flex flex-col selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-ink-950 text-zinc-100 font-sans flex flex-col selection:bg-amber-500 selection:text-black">
       <Masthead
         isOnline={isOnline}
         isRefreshing={isRefreshing}
@@ -315,7 +326,7 @@ export default function App() {
         onRefresh={() => (view === 'news' ? fetchNews('refresh') : fetchInsights(view, 'refresh'))}
         onOpenSettings={() => setShowSettings(true)}
       />
-      <header className="sticky top-0 z-30 border-b border-zinc-900/80 bg-[#0a0a0a] backdrop-blur-2xl">
+      <header className="sticky top-0 z-30 border-b border-zinc-900/80 bg-ink-950 backdrop-blur-2xl">
         <ContentViewNav view={view} setView={setView} />
         {view === 'news' && <CategoryNav category={category} setCategory={setCategory} articles={articles} />}
       </header>
@@ -338,9 +349,9 @@ export default function App() {
           <div className="flex items-center gap-2 border border-zinc-900 bg-zinc-950 px-4 py-2 rounded-sm shadow-sm">
             <span className="relative flex h-1.5 w-1.5 mr-1">
               {isRefreshing && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75"></span>}
-              <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isOnline ? (isRefreshing ? 'bg-amber-500' : 'bg-amber-500') : 'bg-red-500'}`}></span>
+              <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-amber-500' : 'bg-red-500'}`}></span>
             </span>
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
               {lastUpdated ? `Sync // ${lastUpdated.toLocaleTimeString()}` : 'Awaiting sync'}
             </div>
           </div>
@@ -366,9 +377,9 @@ export default function App() {
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="flex flex-col overflow-hidden rounded-sm border border-zinc-900 bg-[#0c0c0c]"
+                className="flex flex-col overflow-hidden rounded-sm border border-zinc-900 bg-ink-900"
               >
-                 <div className="h-14 border-b border-zinc-900 bg-[#080808] px-6" />
+                 <div className="h-14 border-b border-zinc-900 bg-ink-750 px-6" />
                  <div className="p-8 lg:p-12">
                    <div className="h-3 w-24 animate-pulse rounded-sm bg-zinc-900" />
                    <div className="mt-8 space-y-4">
@@ -385,7 +396,7 @@ export default function App() {
             ))}
           </section>
         ) : status === 'error' ? (
-          <section className="rounded-sm border border-red-500/20 bg-[#0a0a0a] px-6 py-20 text-center">
+          <section className="rounded-sm border border-red-500/20 bg-ink-950 px-6 py-20 text-center">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-red-500/20 bg-zinc-950 text-red-400 shadow-[0_0_30px_rgba(239,68,68,0.1)]">
               {isOnline ? (
                 <AlertCircle className="h-6 w-6" />
@@ -410,7 +421,7 @@ export default function App() {
             </button>
           </section>
         ) : !hasArticles ? (
-          <section className="rounded-sm border border-zinc-900 bg-[#0c0c0c] px-6 py-20 text-center">
+          <section className="rounded-sm border border-zinc-900 bg-ink-900 px-6 py-20 text-center">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400">
               <Newspaper className="h-6 w-6" />
             </div>
@@ -487,15 +498,16 @@ export default function App() {
         )}
       </main>
 
-      <PublicationFooter onOpenPrivacy={() => setShowPrivacy(true)} onOpenTerms={() => setShowTerms(true)} />
+      <PublicationFooter
+        onOpenPrivacy={() => setShowPrivacy(true)}
+        onOpenTerms={() => setShowTerms(true)}
+        onSelectSection={(s) => {
+          const key = ({ News: 'news', Research: 'papers', Environment: 'environment', Trends: 'trends', Discoveries: 'discoveries' } as Record<string, ContentView>)[s];
+          if (key) setView(key);
+        }}
+      />
 
       {showSettings && <SettingsDashboard onClose={() => setShowSettings(false)} />}
-      {showAuth && (
-        <AuthModal 
-          onClose={() => setShowAuth(false)} 
-          onSuccess={(u) => { setUser(u); setShowAuth(false); }} 
-        />
-      )}
       {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
       {showTerms && <TermsOfServiceModal onClose={() => setShowTerms(false)} />}
       {pubModal && <PublicationModal data={pubModal} onClose={() => setPubModal(null)} />}

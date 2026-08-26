@@ -1,5 +1,4 @@
-import React from 'react';
-
+﻿
 interface TakeawayProps {
   takeaways: string[];
 }
@@ -15,7 +14,7 @@ export default function CommunityTakeawaysWidget({ takeaways }: TakeawayProps) {
   if (items.length === 0) return null;
 
   return (
-    <div className="relative mt-8 rounded-sm border border-zinc-800 bg-[#0f0f0f] overflow-hidden">
+    <div className="relative mt-8 rounded-sm border border-zinc-800 bg-ink-850 overflow-hidden">
       {/* Top accent bar */}
       <div className="h-0.5 w-full bg-gradient-to-r from-amber-500 via-amber-400/50 to-transparent" />
 
@@ -29,7 +28,7 @@ export default function CommunityTakeawaysWidget({ takeaways }: TakeawayProps) {
             <h4 className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-500">
               What this means for you
             </h4>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-600 mt-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400 mt-0.5">
               Community perspective
             </p>
           </div>
@@ -40,7 +39,7 @@ export default function CommunityTakeawaysWidget({ takeaways }: TakeawayProps) {
           {items.map((point, index) => (
             <li key={index} className="flex items-start gap-3.5 text-zinc-300">
               <span className="mt-[3px] shrink-0 flex h-5 w-5 items-center justify-center rounded-sm bg-amber-500/10 text-amber-500">
-                <span className="text-[9px] font-black">›</span>
+                <span className="text-[9px] font-black">â€º</span>
               </span>
               <span className="text-[14px] font-sans leading-relaxed">{safe(point)}</span>
             </li>
