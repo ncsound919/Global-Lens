@@ -1,4 +1,4 @@
-const CACHE_NAME = 'overlay-global-lens-v3';
+const CACHE_NAME = 'overlay-global-lens-v4';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
