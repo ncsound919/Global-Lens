@@ -95,14 +95,17 @@ const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 })
 
 // ============================================================================
 // LLM lineup — mirrors the ecosystem's canonical provider chain
-// (Draymond-Orchestrator/src/lib/draymond/llm.ts). Free tier first, then paid
-// Go tier, then direct providers, then local Ollama. Global Lens uses the same
-// keys, endpoints, and fallback order as every other Overlay365 service.
+// (Draymond-Orchestrator/src/lib/draymond/llm.ts). Free tiers first (OpenCode
+// Zen free cycling the Keywire account pool + free-model catalog, then
+// OpenRouter free), then paid Go tier, direct providers, then local Ollama.
+// Global Lens uses the same keys, endpoints, and fallback order as every other
+// Overlay365 service.
 // ============================================================================
 
 type AIProvider =
-  | 'deepseek'
   | 'opencode-free'
+  | 'openrouter'
+  | 'deepseek'
   | 'opencode'
   | 'gemini'
   | 'ollama'
@@ -111,11 +114,12 @@ type AIProvider =
   | 'qwen';
 
 const PROVIDER_URLS: Record<AIProvider, string> = {
-  // Primary — the opencode Go tier's monthly quota is exhausted (resets in ~16d),
-  // so DeepSeek direct is the fast, funded path right now. Keep LiteLLM (config
-  // model "deepseek") as an option via LITELLM_URL when quota returns.
-  deepseek: process.env.DEEPSEEK_URL || 'https://api.deepseek.com/v1/chat/completions',
+  // Primary — OpenCode Zen free tier. Data-driven model + account pool; muse
+  // is the bootstrap default until the catalog (model-routing.json) publishes
+  // otherwise. Paid Go tier (deepseek-v4-flash) stays as a fallback below.
   'opencode-free': 'https://opencode.ai/zen/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  deepseek: process.env.DEEPSEEK_URL || 'https://api.deepseek.com/v1/chat/completions',
   opencode: 'https://opencode.ai/zen/go/v1/chat/completions',
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models',
   ollama: 'http://localhost:11434/v1/chat/completions',
@@ -130,8 +134,9 @@ function sdkBaseUrl(provider: AIProvider): string {
 }
 
 const PROVIDER_ENV: Record<AIProvider, string> = {
+  'opencode-free': 'OPENCODE_API_KEY', // pool fallback; see opencodeFreeKeys()
+  openrouter: 'OPENROUTER_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
-  'opencode-free': 'OPENCODE_API_KEY',
   opencode: 'OPENCODE_API_KEY',
   gemini: 'GEMINI_API_KEY',
   ollama: 'OLLAMA_ENABLED',
@@ -140,9 +145,18 @@ const PROVIDER_ENV: Record<AIProvider, string> = {
   qwen: 'QWEN_API_KEY',
 };
 
+/** Bootstrap default until the Keywire-maintained catalog publishes the list. */
+const DEFAULT_FREE_MODEL = 'muse-spark-1.2-contributor-free';
+const OPENROUTER_DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning:free';
+
 const DEFAULT_MODELS: Record<AIProvider, string> = {
-  deepseek: 'deepseek-v4-flash',
-  'opencode-free': 'deepseek-v4-flash-free',
+  // Zen free tier — current catalog winner by default; callProvider() resolves
+  // the live model set from ASSIGNED_FREE_MODEL / FREE_MODEL_LIST.
+  'opencode-free': DEFAULT_FREE_MODEL,
+  openrouter: process.env.OPENROUTER_FREE_MODEL || OPENROUTER_DEFAULT_MODEL,
+  // Direct api.deepseek.com serves `deepseek-chat` — `deepseek-v4-flash` is an
+  // opencode-only model id and returns empty/errors here.
+  deepseek: 'deepseek-chat',
   opencode: 'deepseek-v4-flash',
   gemini: 'gemini-3.5-flash',
   ollama: 'llama3.2:1b',
@@ -151,10 +165,11 @@ const DEFAULT_MODELS: Record<AIProvider, string> = {
   qwen: 'qwen-plus',
 };
 
-/** Canonical fallback order used across the ecosystem. */
+/** Canonical fallback order used across the ecosystem. Free tiers first, paid last. */
 const FALLBACK_ORDER: AIProvider[] = [
-  'deepseek',
   'opencode-free',
+  'openrouter',
+  'deepseek',
   'opencode',
   'gemini',
   'ollama',
@@ -163,8 +178,56 @@ const FALLBACK_ORDER: AIProvider[] = [
   'qwen',
 ];
 
+// ── OpenCode Zen free tier: account × free-model cycling ────────────────────
+// Data-driven — never hard-married to one model id. In the fleet, ecosystemEnv
+// inherits the catalog (assignedFreeModel + freeModelList) and the Keywire
+// account key pool from Draymond; standalone deploys set them via env directly.
+// The runtime rotates the starting account/model per call and retries across
+// accounts then models on retryable statuses, so quota spreads over every
+// opencode account and survives a free model being rotated out upstream.
+
+const OPENCODE_KEY_NAMES = [
+  'OPENCODE_KEY_TAP919BEATS',
+  'OPENCODE_KEY_NCSOUND919',
+  'OPENCODE_KEY_TAP4500',
+  'OPENCODE_API_KEY',
+  'OPENCODE_KEY_JOHNREDD', // operator's personal account — last resort only
+];
+
+function opencodeFreeKeys(): string[] {
+  const names = (process.env.OPENCODE_KEY_POOL || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const pool = names.length ? names : OPENCODE_KEY_NAMES;
+  return pool
+    .map((n) => process.env[n])
+    .filter((v): v is string => !!v && v.trim() !== '');
+}
+
+function freeModelList(): string[] {
+  const assigned = process.env.ASSIGNED_FREE_MODEL || DEFAULT_FREE_MODEL;
+  const envList = (process.env.FREE_MODEL_LIST || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const list = envList.length ? envList : [assigned];
+  return [...new Set([assigned, ...list])];
+}
+
+let freeCursor = { value: 0 };
+let keyCursor = { value: 0 };
+
+function nextCursor(cursor: { value: number }, len: number): number {
+  if (len <= 0) return 0;
+  const i = cursor.value % len;
+  cursor.value = i + 1;
+  return i;
+}
+
 function providerConfigured(p: AIProvider): boolean {
   if (p === 'ollama') return !!process.env.OLLAMA_ENABLED;
+  if (p === 'opencode-free') return opencodeFreeKeys().length > 0;
   const key = process.env[PROVIDER_ENV[p]];
   return !!key && key.length > 10 && !key.includes('API_KEY');
 }
@@ -185,6 +248,10 @@ let opencodeRated = false;
 
 /** Single-provider JSON-capable text call. Throws on failure so the chain retries. */
 async function callProvider(provider: AIProvider, prompt: string): Promise<string> {
+  // OpenCode Zen free tier is data-driven: it cycles the Keywire account pool
+  // and the free-model catalog instead of a single key/model.
+  if (provider === 'opencode-free') return callOpenCodeFree(prompt);
+
   const apiKey = process.env[PROVIDER_ENV[provider]] || '';
   const model = DEFAULT_MODELS[provider];
 
@@ -251,7 +318,9 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
       model,
       ...(provider === 'ollama'
         ? { format: 'json' as const }
-        : { response_format: { type: 'json_object' as const } }),
+        : provider === 'openrouter'
+          ? {}
+          : { response_format: { type: 'json_object' as const } }),
       temperature: 0.1,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -259,6 +328,62 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
   const content = res.choices?.[0]?.message?.content;
   if (!content) throw new Error(`Empty response from ${provider}`);
   return content;
+}
+
+// ── OpenCode Zen free tier: account × free-model cycling ─────────────────────
+// Rotates the starting account/model round-robin per call and retries across
+// accounts then models on retryable statuses (429/401/404/5xx/network), so the
+// free quota spreads over every opencode account and survives a free model
+// being rotated out upstream. Only the assigned model is tried per account on
+// the first pass; remaining free models are reached after all accounts fail.
+
+function isRetryableFreeStatus(status: number | null): boolean {
+  if (status === null) return true;
+  return status === 429 || status === 401 || status === 404 || status >= 500;
+}
+
+async function callOpenCodeFree(prompt: string): Promise<string> {
+  const keys = opencodeFreeKeys();
+  if (!keys.length) throw new Error('No opencode free key configured');
+  const models = freeModelList();
+
+  const startKey = nextCursor(keyCursor, keys.length);
+  const startModel = nextCursor(freeCursor, models.length);
+  let lastErr: unknown;
+
+  for (let mi = 0; mi < models.length; mi++) {
+    const model = models[(startModel + mi) % models.length];
+    for (let ki = 0; ki < keys.length; ki++) {
+      const key = keys[(startKey + ki) % keys.length];
+      try {
+        const client = new OpenAI({
+          apiKey: key,
+          baseURL: 'https://opencode.ai/zen/v1',
+          maxRetries: 0,
+          timeout: 60_000,
+        });
+        const res = await retryWithBackoff(async () => {
+          return await client.chat.completions.create({
+            model,
+            response_format: { type: 'json_object' },
+            temperature: 0.1,
+            messages: [{ role: 'user', content: prompt }],
+          });
+        });
+        const content = res.choices?.[0]?.message?.content;
+        if (!content) throw new Error(`Empty response from opencode-free (${model})`);
+        return content;
+      } catch (e: any) {
+        lastErr = e;
+        const status =
+          e?.status ??
+          (Number(/API error (\d+)/.exec(e?.message ?? '')?.[1] ?? 0) || null);
+        // Hard client errors (400/403/422) mean the payload is bad — don't rotate.
+        if (status !== null && !isRetryableFreeStatus(status)) throw e;
+      }
+    }
+  }
+  throw lastErr ?? new Error('All opencode free accounts/models failed');
 }
 
 export const callAIConfigured = async (prompt: string): Promise<string | null> => {
