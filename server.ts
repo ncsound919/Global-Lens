@@ -5,7 +5,6 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import helmet from "helmet";
-import { createServer as createViteServer } from "vite";
 import { syncRSSNews, backfillArticleImages } from "./server/rss";
 import { syncSportsAPI } from "./server/sports";
 import { syncResearchPapers } from "./server/research";
@@ -345,6 +344,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
