@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import { loadEcosystemEnv } from "./server/ecosystemEnv";
 loadEcosystemEnv();
 import express from "express";
@@ -20,92 +20,100 @@ import cors from "cors";
 import cron from "node-cron";
 import rateLimit from "express-rate-limit";
 
-// kick off initial sync in bg — staggered so the five syncs don't pile onto
+// Vercel serverless mode: no long-running process. The Express app is wrapped by
+// api/index.ts; boot syncs and node-cron are disabled and replaced by Vercel
+// Cron hitting /api/cron/sync.
+const isVercel = process.env.VERCEL === "1";
+
+// kick off initial sync in bg â€” staggered so the five syncs don't pile onto
 // the same event loop tick at boot (that cold-start contention spiked CPU/mem
 // and made the first /api/health probes slow). Each sync is already guarded by
 // its own in-module reentrancy lock; spacing them keeps the server responsive.
-const STAGGER_MS = 3_000;
-setTimeout(() => syncRSSNews(), 0);
-setTimeout(() => syncSportsAPI(), STAGGER_MS);
-setTimeout(() => syncResearchPapers(), STAGGER_MS * 2);
-setTimeout(() => syncTrendsAndDiscoveries(), STAGGER_MS * 3);
-setTimeout(() => {
-  backfillArticleImages(25).catch((e) => console.warn(`[image] initial backfill failed: ${e.message}`));
-}, STAGGER_MS * 4);
-setTimeout(() => {
-  syncDomainResearchWithEditorial().catch((e) =>
-    console.warn(`[domain] initial domain research sync failed: ${e.message}`)
-  );
-}, STAGGER_MS * 5);
-setTimeout(() => {
-  synthesizeResearchPapers()
-    .then((r) => console.log(`[synthesis] initial research synthesis: ${JSON.stringify(r)}`))
-    .catch((e) => console.warn(`[synthesis] initial synthesis failed: ${e.message}`));
-}, STAGGER_MS * 6);
-setTimeout(() => {
-  syncCrossDomainSignals()
-    .then((r) => console.log(`[cross-domain] initial cross-domain sync: ${JSON.stringify(r)}`))
-    .catch((e) => console.warn(`[cross-domain] initial cross-domain sync failed: ${e.message}`));
-}, STAGGER_MS * 7);
+// (Skipped on Vercel â€” the cron endpoint triggers these instead.)
+if (!isVercel) {
+  const STAGGER_MS = 3_000;
+  setTimeout(() => syncRSSNews(), 0);
+  setTimeout(() => syncSportsAPI(), STAGGER_MS);
+  setTimeout(() => syncResearchPapers(), STAGGER_MS * 2);
+  setTimeout(() => syncTrendsAndDiscoveries(), STAGGER_MS * 3);
+  setTimeout(() => {
+    backfillArticleImages(25).catch((e) => console.warn(`[image] initial backfill failed: ${e.message}`));
+  }, STAGGER_MS * 4);
+  setTimeout(() => {
+    syncDomainResearchWithEditorial().catch((e) =>
+      console.warn(`[domain] initial domain research sync failed: ${e.message}`)
+    );
+  }, STAGGER_MS * 5);
+  setTimeout(() => {
+    synthesizeResearchPapers()
+      .then((r) => console.log(`[synthesis] initial research synthesis: ${JSON.stringify(r)}`))
+      .catch((e) => console.warn(`[synthesis] initial synthesis failed: ${e.message}`));
+  }, STAGGER_MS * 6);
+  setTimeout(() => {
+    syncCrossDomainSignals()
+      .then((r) => console.log(`[cross-domain] initial cross-domain sync: ${JSON.stringify(r)}`))
+      .catch((e) => console.warn(`[cross-domain] initial cross-domain sync failed: ${e.message}`));
+  }, STAGGER_MS * 7);
 
-// Comic Metaphor Engine connectivity probe (observability only)
-if (process.env.COMIC_ENGINE_URL) {
-  const probe = `${process.env.COMIC_ENGINE_URL.replace(/\/$/, "")}/health`;
-  fetch(probe, { signal: AbortSignal.timeout(5000) })
-    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-    .then((j: any) =>
-      console.log(`[metaphor] Comic engine reachable: ${j?.service} v${j?.version} (${j?.protocols_loaded ?? "?"} protocols)`)
-    )
-    .catch((e: any) => console.warn(`[metaphor] Comic engine unreachable at ${probe}: ${e.message}`));
+  // Comic Metaphor Engine connectivity probe (observability only)
+  if (process.env.COMIC_ENGINE_URL) {
+    const probe = `${process.env.COMIC_ENGINE_URL.replace(/\/$/, "")}/health`;
+    fetch(probe, { signal: AbortSignal.timeout(5000) })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j: any) =>
+        console.log(`[metaphor] Comic engine reachable: ${j?.service} v${j?.version} (${j?.protocols_loaded ?? "?"} protocols)`)
+      )
+      .catch((e: any) => console.warn(`[metaphor] Comic engine unreachable at ${probe}: ${e.message}`));
+  }
+
+  // Run cron job every 3 hours
+  cron.schedule("0 */3 * * *", () => {
+    console.log("Running scheduled morning RSS and Sports sync...");
+    syncRSSNews();
+    syncSportsAPI();
+  }, { timezone: "UTC" });
+
+  // Daily ecosystem content sync (research papers + trends/discoveries) at 02:15 UTC
+  cron.schedule("15 2 * * *", () => {
+    console.log("Running daily ecosystem content sync...");
+    const papers = syncResearchPapers();
+    const insights = syncTrendsAndDiscoveries();
+    console.log(`Ecosystem content sync complete. Papers: ${JSON.stringify(papers)}. Insights: ${JSON.stringify(insights)}`);
+  }, { timezone: "UTC" });
+
+  // Daily research synthesis at 02:20 UTC â€” bundle the science programs into
+  // definitive papers, re-run through the Overlay Science engines, synthesize.
+  cron.schedule("20 2 * * *", () => {
+    console.log("Running daily research synthesis...");
+    synthesizeResearchPapers()
+      .then((r) => console.log(`Research synthesis complete. ${JSON.stringify(r)}`))
+      .catch((e) => console.warn(`Research synthesis failed: ${e.message}`));
+  }, { timezone: "UTC" });
+
+  // Daily cross-domain sync at 02:25 UTC â€” detect cross-pillar signals.
+  cron.schedule("25 2 * * *", () => {
+    console.log("Running daily cross-domain sync...");
+    syncCrossDomainSignals()
+      .then((r) => console.log(`Cross-domain sync complete. ${JSON.stringify(r)}`))
+      .catch((e) => console.warn(`Cross-domain sync failed: ${e.message}`));
+  }, { timezone: "UTC" });
+
+  // Daily domain research repopulation at 02:30 UTC â€” pulls updated APIs + our new
+  // research, cross-analyzes against established literature, and regenerates the
+  // outlet's research database + editorial articles. Keeps the research archive
+  // growing every day (compounding credibility).
+  cron.schedule("30 2 * * *", () => {
+    console.log("Running daily domain research repopulation...");
+    syncDomainResearchWithEditorial()
+      .then((r) => console.log(`Domain research repopulation complete. ${JSON.stringify(r)}`))
+      .catch((e) => console.warn(`Domain research repopulation failed: ${e.message}`));
+  }, { timezone: "UTC" });
 }
-
-// Run cron job every 3 hours
-cron.schedule("0 */3 * * *", () => {
-  console.log("Running scheduled morning RSS and Sports sync...");
-  syncRSSNews();
-  syncSportsAPI();
-}, { timezone: "UTC" });
-
-// Daily ecosystem content sync (research papers + trends/discoveries) at 02:15 UTC
-cron.schedule("15 2 * * *", () => {
-  console.log("Running daily ecosystem content sync...");
-  const papers = syncResearchPapers();
-  const insights = syncTrendsAndDiscoveries();
-  console.log(`Ecosystem content sync complete. Papers: ${JSON.stringify(papers)}. Insights: ${JSON.stringify(insights)}`);
-}, { timezone: "UTC" });
-
-// Daily research synthesis at 02:20 UTC — bundle the science programs into
-// definitive papers, re-run through the Overlay Science engines, synthesize.
-cron.schedule("20 2 * * *", () => {
-  console.log("Running daily research synthesis...");
-  synthesizeResearchPapers()
-    .then((r) => console.log(`Research synthesis complete. ${JSON.stringify(r)}`))
-    .catch((e) => console.warn(`Research synthesis failed: ${e.message}`));
-}, { timezone: "UTC" });
-
-// Daily cross-domain sync at 02:25 UTC — detect cross-pillar signals.
-cron.schedule("25 2 * * *", () => {
-  console.log("Running daily cross-domain sync...");
-  syncCrossDomainSignals()
-    .then((r) => console.log(`Cross-domain sync complete. ${JSON.stringify(r)}`))
-    .catch((e) => console.warn(`Cross-domain sync failed: ${e.message}`));
-}, { timezone: "UTC" });
-
-// Daily domain research repopulation at 02:30 UTC — pulls updated APIs + our new
-// research, cross-analyzes against established literature, and regenerates the
-// outlet's research database + editorial articles. Keeps the research archive
-// growing every day (compounding credibility).
-cron.schedule("30 2 * * *", () => {
-  console.log("Running daily domain research repopulation...");
-  syncDomainResearchWithEditorial()
-    .then((r) => console.log(`Domain research repopulation complete. ${JSON.stringify(r)}`))
-    .catch((e) => console.warn(`Domain research repopulation failed: ${e.message}`));
-}, { timezone: "UTC" });
 
 /**
  * Resolve the production build directory independently of the current working
  * directory. The bundled server.mjs lives inside dist/, so `import.meta.dirname`
- * differs between dev (tsx server.ts → project root) and prod (bundle → dist/).
+ * differs between dev (tsx server.ts â†’ project root) and prod (bundle â†’ dist/).
  * Tries every plausible location and picks the one that actually contains
  * index.html so the catch-all route never serves HTML for /assets/* (MIME errors).
  */
@@ -138,7 +146,7 @@ function escapeHtml(unsafe: string): string {
        .replace(/'/g, "&#039;");
 }
 
-async function startServer() {
+async function createApp() {
   // Startup assertions
   const isProd = process.env.NODE_ENV === "production";
   if (isProd && !process.env.APP_URL) {
@@ -146,7 +154,6 @@ async function startServer() {
   }
 
   const app = express();
-  const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.set("trust proxy", 1);
 
@@ -191,7 +198,7 @@ async function startServer() {
   });
 
   // Reliable session handling
-  app.use((req, res, next) => {
+  app.use(async (req, res, next) => {
     let sessionId: string | undefined = undefined;
     
     if (req.cookies) {
@@ -201,14 +208,14 @@ async function startServer() {
     if (sessionId) {
       // Validate session is not expired
       try {
-        const session = db.prepare('SELECT created_at, expires_at FROM sessions WHERE session_id = ?').get(sessionId) as any;
+        const session = await db.prepare('SELECT created_at, expires_at FROM sessions WHERE session_id = ?').get(sessionId) as any;
         if (session) {
           const createdAt = new Date(session.created_at).getTime();
           const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
           const isExpired = (session.expires_at && new Date(session.expires_at).getTime() < Date.now()) || (createdAt < thirtyDaysAgo);
           if (isExpired) {
             // Expired! Clean up from database
-            db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
+            await db.prepare('DELETE FROM sessions WHERE session_id = ?').run(sessionId);
             sessionId = undefined;
           }
         }
@@ -247,9 +254,9 @@ async function startServer() {
     res.send(`User-agent: *\nAllow: /\nSitemap: ${req.protocol}://${req.get("host")}/sitemap.xml`);
   });
 
-  app.get("/sitemap.xml", (req, res) => {
+  app.get("/sitemap.xml", async (req, res) => {
     try {
-      const articles = db.prepare("SELECT url_hash, pub_date FROM articles ORDER BY pub_date DESC LIMIT 1000").all() as any[];
+      const articles = await db.prepare("SELECT url_hash, pub_date FROM articles ORDER BY pub_date DESC LIMIT 1000").all() as any[];
       const baseUrl = `${req.protocol}://${req.get("host")}`;
       
       let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -304,7 +311,7 @@ async function startServer() {
 
     if (articleId) {
       try {
-        const article = db.prepare(`
+        const article = await db.prepare(`
           SELECT a.original_url, a.image_url, a.source_name, a.pub_date,
                  c.reframed_headline, c.cultural_lens_analysis
           FROM articles a
@@ -328,7 +335,7 @@ async function startServer() {
             <meta name="twitter:card" content="summary_large_image" />
           `;
           
-          const titleTag = `<title>${headline} — Overlay Global Lens</title>`;
+          const titleTag = `<title>${headline} â€” Overlay Global Lens</title>`;
           finalHtml = finalHtml
             .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
             .replace('</head>', `    <link rel="canonical" href="${canonicalUrl}" />\n    ${ogTags}\n  </head>`);
@@ -367,7 +374,7 @@ async function startServer() {
     const distPath = resolveDistDir();
     app.use(express.static(distPath, { index: false }));
     app.get("*", (req, res) => {
-      // Never serve index.html for missing static assets — 404 instead, so the
+      // Never serve index.html for missing static assets â€” 404 instead, so the
       // browser gets a real MIME type (or a proper miss) rather than text/html.
       if (/\.(js|mjs|css|json|png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|ttf|eot|map|txt|xml)$/i.test(req.path)) {
         return res.status(404).end();
@@ -375,6 +382,38 @@ async function startServer() {
       renderHtml(req, res, cachedProdTemplate as string);
     });
   }
+
+  // Vercel Cron / ops sync trigger â€” CRON_SECRET guarded. Serverless deployments
+  // have no node-cron, so Vercel Cron (or Draymond) calls this to repopulate.
+  app.all("/api/cron/sync", async (_req, res) => {
+    const secret = process.env.CRON_SECRET;
+    const auth = String(_req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+    if (!secret || auth !== secret) {
+      return res.status(401).json({ detail: "unauthorized" });
+    }
+    res.json({ started: true, at: new Date().toISOString() });
+    try {
+      syncRSSNews();
+      syncSportsAPI();
+    } catch (e) {
+      console.warn(`[cron] RSS/sports sync failed: ${e}`);
+    }
+    Promise.allSettled([syncResearchPapers(), syncTrendsAndDiscoveries()])
+      .then((results) =>
+        console.log(`[cron] ecosystem sync complete: ${JSON.stringify(results.map((r) => r.status))}`)
+      )
+      .catch((e) => console.warn(`[cron] ecosystem sync error: ${e}`));
+    syncDomainResearchWithEditorial().catch((e) =>
+      console.warn(`[cron] domain research sync failed: ${e.message}`)
+    );
+  });
+
+  return app;
+}
+
+async function startServer() {
+  const app = await createApp();
+  const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
@@ -394,4 +433,8 @@ async function startServer() {
   process.on('SIGINT', shutdown);
 }
 
-startServer().catch(console.error);
+export { createApp };
+
+if (!isVercel) {
+  startServer().catch(console.error);
+}

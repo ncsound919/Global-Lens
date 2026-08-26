@@ -1,10 +1,10 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import db from "./db";
 
 // ============================================================================
-// Overlay Global Lens — Science Research Validation Ingest
+// Overlay Global Lens â€” Science Research Validation Ingest
 //
 // Routes the VALIDATED scientific research outputs from
 //   02_Pillars/Overlay Science/research/
@@ -94,8 +94,8 @@ interface EstablishedPaper {
   category: string;
 }
 
-function loadEstablishedPapers(): EstablishedPaper[] {
-  const rows = db.prepare(
+async function loadEstablishedPapers(): Promise<EstablishedPaper[]> {
+  const rows = await db.prepare(
     "SELECT title, url, category FROM reference_papers WHERE title IS NOT NULL"
   ).all() as any[];
   return rows.map((r) => ({ title: r.title, url: r.url || "", category: r.category || "" }));
@@ -255,8 +255,8 @@ function validationFindings(papers: EstablishedPaper[]): ScienceFinding[] {
           const ref = crossRef(`ER+ breast cancer recurrence bbtech prognostic validation`, papers);
           const t = tierFor(true, ref.score);
           out.push({
-            title: `H1b ER+ RFS validation: ΔC=${primary.bootstrap_delta_c?.mean_delta_c?.toFixed(4) ?? "n/a"}, LR p=${fmtP(primary.likelihood_ratio_p)}, PASS=${primary.passed_primary}`,
-            insight: `Pre-registered ER+ recurrence-free survival validation on METABRIC (n=${primary.n}): baseline C-index ${primary.base_c?.toFixed(3) ?? "n/a"} → full C-index ${primary.full_c?.toFixed(3) ?? "n/a"}; bootstrap ΔC ${primary.bootstrap_delta_c?.mean_delta_c?.toFixed(4) ?? "n/a"} (95% CI [${(primary.bootstrap_delta_c?.ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}], ${(primary.bootstrap_delta_c?.pct_positive * 100).toFixed(0)}% positive); likelihood ratio p=${fmtP(primary.likelihood_ratio_p)} (FDR ${fmtP(primary.lr_p_fdr)}). Replication (stratified 50/50 cross-fit): both positive ΔC. Cross-referenced against ${ref.matched.length} established studies.`,
+            title: `H1b ER+ RFS validation: Î”C=${primary.bootstrap_delta_c?.mean_delta_c?.toFixed(4) ?? "n/a"}, LR p=${fmtP(primary.likelihood_ratio_p)}, PASS=${primary.passed_primary}`,
+            insight: `Pre-registered ER+ recurrence-free survival validation on METABRIC (n=${primary.n}): baseline C-index ${primary.base_c?.toFixed(3) ?? "n/a"} â†’ full C-index ${primary.full_c?.toFixed(3) ?? "n/a"}; bootstrap Î”C ${primary.bootstrap_delta_c?.mean_delta_c?.toFixed(4) ?? "n/a"} (95% CI [${(primary.bootstrap_delta_c?.ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}], ${(primary.bootstrap_delta_c?.pct_positive * 100).toFixed(0)}% positive); likelihood ratio p=${fmtP(primary.likelihood_ratio_p)} (FDR ${fmtP(primary.lr_p_fdr)}). Replication (stratified 50/50 cross-fit): both positive Î”C. Cross-referenced against ${ref.matched.length} established studies.`,
             category: "Validation",
             pillar: "science",
             measured: true,
@@ -268,8 +268,8 @@ function validationFindings(papers: EstablishedPaper[]): ScienceFinding[] {
         const secondary = data.secondary_erp_os;
         if (secondary) {
           out.push({
-            title: `H1b ER+ OS secondary: ΔC=${secondary.bootstrap_delta_c?.mean_delta_c?.toFixed(4) ?? "n/a"}, LR p=${fmtP(secondary.likelihood_ratio_p)}`,
-            insight: `Pre-registered ER+ overall-survival secondary endpoint (n=${secondary.n}): baseline C-index ${secondary.base_c?.toFixed(3)} → full C-index ${secondary.full_c?.toFixed(3)}; LR p=${fmtP(secondary.likelihood_ratio_p)}, FDR ${fmtP(secondary.lr_p_fdr)}. Cross-fit replication positive.`,
+            title: `H1b ER+ OS secondary: Î”C=${secondary.bootstrap_delta_c?.mean_delta_c?.toFixed(4) ?? "n/a"}, LR p=${fmtP(secondary.likelihood_ratio_p)}`,
+            insight: `Pre-registered ER+ overall-survival secondary endpoint (n=${secondary.n}): baseline C-index ${secondary.base_c?.toFixed(3)} â†’ full C-index ${secondary.full_c?.toFixed(3)}; LR p=${fmtP(secondary.likelihood_ratio_p)}, FDR ${fmtP(secondary.lr_p_fdr)}. Cross-fit replication positive.`,
             category: "Validation",
             pillar: "science",
             measured: true,
@@ -285,7 +285,7 @@ function validationFindings(papers: EstablishedPaper[]): ScienceFinding[] {
         const ref = crossRef(`TCGA breast cancer replication bbtech prognostic`, papers);
         out.push({
           title: `H1c TCGA replication: independent-cohort validation of bbtech prognostic`,
-          insight: `Independent-cohort replication of the bbtech prognostic on TCGA (all-comers and ER+ strata). Pre-registered analysis (PRE_REGISTRATION_H1c_TCGA.md) reports ΔC and LR p per arm; replication confirms direction and effect size. Cross-referenced against ${ref.matched.length} established studies.`,
+          insight: `Independent-cohort replication of the bbtech prognostic on TCGA (all-comers and ER+ strata). Pre-registered analysis (PRE_REGISTRATION_H1c_TCGA.md) reports Î”C and LR p per arm; replication confirms direction and effect size. Cross-referenced against ${ref.matched.length} established studies.`,
           category: "Replication",
           pillar: "science",
           measured: true,
@@ -302,8 +302,8 @@ function validationFindings(papers: EstablishedPaper[]): ScienceFinding[] {
         if (gse) {
           const ref = crossRef(`GSE20685 Kao Taiwan breast cancer all-comers OS replication`, papers);
           out.push({
-            title: `Round-100 GSE20685 replication: ΔC=${gse.bootstrap_delta_c?.mean_delta_c?.toFixed(4)}, PASS=${gse.passed}`,
-            insight: `Pre-registered round-100 replication of the bbtech prognostic on GSE20685 (Kao 2011, Taiwan, independent cohort, n=${gse.n}, ${gse.n_events} events). Baseline C-index ${gse.base_c?.toFixed(4)} → full C-index ${gse.full_c?.toFixed(4)}; bootstrap ΔC ${gse.bootstrap_delta_c?.mean_delta_c?.toFixed(4)} (95% CI [${(gse.bootstrap_delta_c?.ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}]); LR p=${fmtP(gse.likelihood_ratio_p)}. Result: ${gse.passed ? "PASS" : "FAIL"}. Cross-referenced against ${ref.matched.length} established studies.`,
+            title: `Round-100 GSE20685 replication: Î”C=${gse.bootstrap_delta_c?.mean_delta_c?.toFixed(4)}, PASS=${gse.passed}`,
+            insight: `Pre-registered round-100 replication of the bbtech prognostic on GSE20685 (Kao 2011, Taiwan, independent cohort, n=${gse.n}, ${gse.n_events} events). Baseline C-index ${gse.base_c?.toFixed(4)} â†’ full C-index ${gse.full_c?.toFixed(4)}; bootstrap Î”C ${gse.bootstrap_delta_c?.mean_delta_c?.toFixed(4)} (95% CI [${(gse.bootstrap_delta_c?.ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}]); LR p=${fmtP(gse.likelihood_ratio_p)}. Result: ${gse.passed ? "PASS" : "FAIL"}. Cross-referenced against ${ref.matched.length} established studies.`,
             category: "Replication",
             pillar: "science",
             measured: true,
@@ -314,8 +314,8 @@ function validationFindings(papers: EstablishedPaper[]): ScienceFinding[] {
         }
         if (meta?.pooled) {
           out.push({
-            title: `Round-100 meta-analysis (${meta.pooled.n_studies} cohorts): random-effects ΔC=${meta.pooled.random_effect_delta_c?.toFixed(4)} (I²=${meta.pooled.i2_pct?.toFixed(1)}%)`,
-            insight: `Cross-cohort meta-analysis of bbtech prognostic across ${meta.pooled.n_studies} independent cohorts (METABRIC ER+ RFS, TCGA Firehose all-comers OS, TCGA Firehose ER+ OS, TCGA PanCancer ER+ OS, GSE20685 all-comers OS). Fixed-effect ΔC ${meta.pooled.fixed_effect_delta_c?.toFixed(4)} (95% CI [${(meta.pooled.fixed_effect_ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}]); random-effects ΔC ${meta.pooled.random_effect_delta_c?.toFixed(4)} (95% CI [${(meta.pooled.random_effect_ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}]); heterogeneity I²=${meta.pooled.i2_pct?.toFixed(1)}%, τ²=${meta.pooled.tau2}.`,
+            title: `Round-100 meta-analysis (${meta.pooled.n_studies} cohorts): random-effects Î”C=${meta.pooled.random_effect_delta_c?.toFixed(4)} (IÂ²=${meta.pooled.i2_pct?.toFixed(1)}%)`,
+            insight: `Cross-cohort meta-analysis of bbtech prognostic across ${meta.pooled.n_studies} independent cohorts (METABRIC ER+ RFS, TCGA Firehose all-comers OS, TCGA Firehose ER+ OS, TCGA PanCancer ER+ OS, GSE20685 all-comers OS). Fixed-effect Î”C ${meta.pooled.fixed_effect_delta_c?.toFixed(4)} (95% CI [${(meta.pooled.fixed_effect_ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}]); random-effects Î”C ${meta.pooled.random_effect_delta_c?.toFixed(4)} (95% CI [${(meta.pooled.random_effect_ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}]); heterogeneity IÂ²=${meta.pooled.i2_pct?.toFixed(1)}%, Ï„Â²=${meta.pooled.tau2}.`,
             category: "Meta-Analysis",
             pillar: "science",
             measured: true,
@@ -367,8 +367,8 @@ function validationFindings(papers: EstablishedPaper[]): ScienceFinding[] {
           const ref = crossRef(`survival analysis bbtech ${outcome} C-index`, papers);
           const t = tierFor(true, ref.score);
           out.push({
-            title: `Survival ${outcome}: baseline C-index ${testBase?.toFixed(3) ?? "n/a"} → full ${testFull?.toFixed(3) ?? "n/a"} (ΔC=${base.toFixed(4)}, LR p=${fmtP(lr)})`,
-            insight: `Baseline vs baseline+bbtech survival ${outcome} on METABRIC (n=${o.n_patients}, ${o.n_events} events). Bootstrap ΔC ${base.toFixed(4)} (95% CI [${(o.bootstrap_delta_c?.ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}], ${(o.bootstrap_delta_c?.pct_positive * 100).toFixed(0)}% positive); LR p=${fmtP(lr)}; cross-validated full C-index ${(o.cv_full_cindex ?? []).map((x: number) => x.toFixed(3)).join(", ")}. Cross-referenced against ${ref.matched.length} established studies.`,
+            title: `Survival ${outcome}: baseline C-index ${testBase?.toFixed(3) ?? "n/a"} â†’ full ${testFull?.toFixed(3) ?? "n/a"} (Î”C=${base.toFixed(4)}, LR p=${fmtP(lr)})`,
+            insight: `Baseline vs baseline+bbtech survival ${outcome} on METABRIC (n=${o.n_patients}, ${o.n_events} events). Bootstrap Î”C ${base.toFixed(4)} (95% CI [${(o.bootstrap_delta_c?.ci95 ?? []).map((x: number) => x.toFixed(4)).join(", ")}], ${(o.bootstrap_delta_c?.pct_positive * 100).toFixed(0)}% positive); LR p=${fmtP(lr)}; cross-validated full C-index ${(o.cv_full_cindex ?? []).map((x: number) => x.toFixed(3)).join(", ")}. Cross-referenced against ${ref.matched.length} established studies.`,
             category: "Survival Analysis",
             pillar: "science",
             measured: true,
@@ -417,7 +417,7 @@ function validationFindings(papers: EstablishedPaper[]): ScienceFinding[] {
         const n = data.n_golfers ?? data.n ?? null;
         const ref = crossRef(`PGA golf surgical capacity translation ${cohort}`, papers);
         out.push({
-          title: `PGA surgical-capacity translation (${cohort}${n ? ", n=" + n : ""}): golf → surgical framework cohort profile`,
+          title: `PGA surgical-capacity translation (${cohort}${n ? ", n=" + n : ""}): golf â†’ surgical framework cohort profile`,
           insight: `Golf-to-surgery translation cohort profile built from PGA Tour data (${cohort}${n ? ", n=" + n : ""}). Used to derive the surgeon-index, success-rate and cognitive-load baselines for cross-domain calibration. Cross-referenced against ${ref.matched.length} established studies.`,
           category: "Cross-Domain Calibration",
           pillar: "science",
@@ -446,7 +446,7 @@ function gapDomainFindings(papers: EstablishedPaper[]): ScienceFinding[] {
       const ref = crossRef(`${d.title ?? ""} ${d.queries?.join(" ") ?? ""}`.toLowerCase(), papers);
       const t = tierFor(true, ref.score);
       out.push({
-        title: `${anchor} gap domain — ${d.title} (status: ${d.status ?? "n/a"}, scan ${runLabel})`,
+        title: `${anchor} gap domain â€” ${d.title} (status: ${d.status ?? "n/a"}, scan ${runLabel})`,
         insight: `Cross-cancer gap-domain scan anchored on ${anchor}. Domain "${d.title}": ${d.gap ?? ""}. Breast-specific focus: ${d.breast_specific ?? "n/a"}. Marker: ${d.marker_definition?.name ?? "n/a"} (threshold ${d.marker_definition?.threshold_score ?? "n/a"}, evidence ${d.marker_definition?.evidence ?? "n/a"}). Queries: ${(d.queries ?? []).join("; ")}. Cross-referenced against ${ref.matched.length} established studies.`,
         category: "Gap-Domain Scan",
         pillar: "science",
@@ -484,7 +484,7 @@ function golfOncoCorrelationFindings(papers: EstablishedPaper[]): ScienceFinding
       const ref = crossRef(`${key.replace(/_/g, " ")} golf sports science correlation`, papers);
       const t = tierFor(true, ref.score);
       out.push({
-        title: `Golf onco/surgery metric correlation — ${key} (r=${r.toFixed(4)}, ${strength})`,
+        title: `Golf onco/surgery metric correlation â€” ${key} (r=${r.toFixed(4)}, ${strength})`,
         insight: `Measured ${strength} correlation (r=${r.toFixed(4)}) for ${key} from the golf onco / sports-science engine run (${runLabel}). Cross-referenced against ${ref.matched.length} established studies.`,
         category: "Golf Sports Science",
         pillar: "sport",
@@ -500,8 +500,8 @@ function golfOncoCorrelationFindings(papers: EstablishedPaper[]): ScienceFinding
 
 // ---- Public entry ----------------------------------------------------------------
 
-export function scienceValidationFindings(): ScienceFinding[] {
-  const papers = loadEstablishedPapers();
+export async function scienceValidationFindings(): Promise<ScienceFinding[]> {
+  const papers = await loadEstablishedPapers();
   return [
     ...validationFindings(papers),
     ...gapDomainFindings(papers),

@@ -1,16 +1,16 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import db from "./db";
 
-// Overlay Global Lens — research papers ingestion.
+// Overlay Global Lens â€” research papers ingestion.
 // Reads research papers produced by the ecosystem (Draymond research-papers.json)
 // from a local ingest dir, a Draymond checkout, or an HTTP endpoint. Never the
 // source of truth for research state: the outlet is a reader.
 //
 // IMPORTANT (public-outlet rule): the ecosystem's research-papers.json mirrors
 // ESTABLISHED literature (OpenAlex/PubMed). We do NOT republish others' work.
-// Those rows land in the `reference_papers` table — a reference pool used ONLY
+// Those rows land in the `reference_papers` table â€” a reference pool used ONLY
 // to cross-reference OUR conclusions. `research_papers` holds Overlay's own
 // research exclusively and is what the publication surfaces.
 
@@ -90,7 +90,7 @@ function extractDoi(url: string): string {
   return m ? m[1].trim() : "";
 }
 
-const upsertPaper = db.prepare(`
+const upsertPaper = await db.prepare(`
   INSERT INTO reference_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
   VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -108,7 +108,7 @@ const upsertPaper = db.prepare(`
     pub_date = excluded.pub_date
 `);
 
-export function syncResearchPapers(): { inserted: number; updated: number; total: number; source: string | null } {
+export async function syncResearchPapers(): Promise<{ inserted: number; updated: number; total: number; source: string | null }> {
   const loaded = loadResearchDoc();
   if (!loaded) return { inserted: 0, updated: 0, total: 0, source: null };
 
@@ -126,7 +126,7 @@ export function syncResearchPapers(): { inserted: number; updated: number; total
       const id = p.id || p.url || crypto.createHash("sha256").update(`${goalKey}:${p.title}`).digest("hex");
       const doi = extractDoi(p.url || "");
       const pubDate = p.year ? `${p.year}-01-01T00:00:00.000Z` : nowIso;
-      const info = upsertPaper.run({
+      const info = await upsertPaper.run({
         id,
         source: p.source || "openalex",
         title: String(p.title || "Untitled"),
@@ -151,9 +151,9 @@ export function syncResearchPapers(): { inserted: number; updated: number; total
   return { inserted, updated, total: inserted + updated, source };
 }
 
-export function getPaperStats() {
-  const count = db.prepare("SELECT COUNT(*) as c FROM research_papers").get() as any;
-  const byPillar = db.prepare("SELECT pillar, COUNT(*) as c FROM research_papers GROUP BY pillar").all() as any[];
-  const refCount = db.prepare("SELECT COUNT(*) as c FROM reference_papers").get() as any;
+export async function getPaperStats() {
+  const count = await db.prepare("SELECT COUNT(*) as c FROM research_papers").get() as any;
+  const byPillar = await db.prepare("SELECT pillar, COUNT(*) as c FROM research_papers GROUP BY pillar").all() as any[];
+  const refCount = await db.prepare("SELECT COUNT(*) as c FROM reference_papers").get() as any;
   return { count: count?.c || 0, referenceCount: refCount?.c || 0, byPillar };
 }

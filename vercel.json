@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 3,
+  "buildCommand": "npm run build",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 300,
+      "includeFiles": "dist/**"
+    }
+  },
+  "routes": [
+    { "src": "/assets/(.*)", "dest": "/api/index.ts" },
+    { "src": "/(.*)", "dest": "/api/index.ts" }
+  ],
+  "crons": [
+    { "path": "/api/cron/sync", "schedule": "0 */3 * * *" },
+    { "path": "/api/cron/sync", "schedule": "30 2 * * *" }
+  ]
+}

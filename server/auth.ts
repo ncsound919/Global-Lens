@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -23,7 +23,7 @@ const AuthSchema = z.object({
 /**
  * Migrates settings from bgl_guest_settings cookie into user_settings table for authenticated user.
  */
-function migrateGuestSettings(req: express.Request, res: express.Response, userId: string) {
+async function migrateGuestSettings(req: express.Request, res: express.Response, userId: string) {
   try {
     const guestSettingsCookie = req.cookies?.bgl_guest_settings;
     if (guestSettingsCookie) {
@@ -44,11 +44,11 @@ function migrateGuestSettings(req: express.Request, res: express.Response, userI
         let finalEncryptedKey = "";
         if (rawParsed.encryptedGeminiApiKey) {
           finalEncryptedKey = String(rawParsed.encryptedGeminiApiKey);
-        } else if (validated.geminiApiKey && validated.geminiApiKey !== "••••" && validated.geminiApiKey !== "••••••••••••••••") {
+        } else if (validated.geminiApiKey && validated.geminiApiKey !== "â€¢â€¢â€¢â€¢" && validated.geminiApiKey !== "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢") {
           finalEncryptedKey = encrypt(validated.geminiApiKey);
         }
 
-        db.prepare(`
+        await db.prepare(`
           INSERT INTO user_settings (owner_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key)
           VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(owner_id) DO UPDATE SET
@@ -82,20 +82,20 @@ function migrateGuestSettings(req: express.Request, res: express.Response, userI
 authRouter.post("/register", authLimiter, async (req, res) => {
   try {
     const parsed = AuthSchema.parse(req.body);
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(parsed.email);
+    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(parsed.email);
     if (existing) return res.status(400).json({ error: "Email already exists" });
 
     const id = uuidv4();
     const hash = await bcrypt.hash(parsed.password, 10);
-    db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)').run(id, parsed.email, hash);
+    await db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)').run(id, parsed.email, hash);
     
     // Auto login
     const sessionId = uuidv4();
-    db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, id);
+    await db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, id);
     res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
     // Migrate anonymous settings from cookie to authenticated user_id if present
-    migrateGuestSettings(req, res, id);
+    await migrateGuestSettings(req, res, id);
 
     res.json({ success: true, user: { id, email: parsed.email } });
   } catch(e: any) {
@@ -106,17 +106,17 @@ authRouter.post("/register", authLimiter, async (req, res) => {
 authRouter.post("/login", authLimiter, async (req, res) => {
   try {
     const parsed = AuthSchema.parse(req.body);
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(parsed.email) as any;
+    const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(parsed.email) as any;
     if (!user || !(await bcrypt.compare(parsed.password, user.password_hash))) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const sessionId = uuidv4();
-    db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
+    await db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
     res.cookie('bgl_session', sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000 });
     
     // Migrate anonymous settings from cookie to authenticated user_id if present
-    migrateGuestSettings(req, res, user.id);
+    await migrateGuestSettings(req, res, user.id);
 
     res.json({ success: true, user: { id: user.id, email: user.email } });
   } catch(e: any) {
@@ -124,11 +124,11 @@ authRouter.post("/login", authLimiter, async (req, res) => {
   }
 });
 
-authRouter.post("/logout", (req, res) => {
+authRouter.post("/logout", async (req, res) => {
   const authSessionId = req.cookies?.bgl_session as string | undefined;
 
   if (authSessionId) {
-    db.prepare('DELETE FROM sessions WHERE session_id = ?').run(authSessionId);
+    await db.prepare('DELETE FROM sessions WHERE session_id = ?').run(authSessionId);
   }
 
   res.clearCookie('bgl_session', {
@@ -237,18 +237,18 @@ authRouter.get("/google/callback", async (req, res) => {
     }
 
     // Check if user exists by email
-    let user = db.prepare('SELECT id, email FROM users WHERE email = ?').get(email) as any;
+    let user = await db.prepare('SELECT id, email FROM users WHERE email = ?').get(email) as any;
     
     if (!user) {
       // Create user. Google authenticated users don't have a local password_hash.
       const id = uuidv4();
-      db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, NULL)').run(id, email);
+      await db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, NULL)').run(id, email);
       user = { id, email };
     }
 
     // Auto login
     const sessionId = uuidv4();
-    db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
+    await db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
     
     res.cookie('bgl_session', sessionId, { 
       httpOnly: true, 
@@ -258,7 +258,7 @@ authRouter.get("/google/callback", async (req, res) => {
     });
     
     // Migrate anonymous settings
-    migrateGuestSettings(req, res, user.id);
+    await migrateGuestSettings(req, res, user.id);
 
     const userJson = JSON.stringify({ id: user.id, email: user.email });
 
@@ -297,4 +297,3 @@ authRouter.get("/google/callback", async (req, res) => {
     `);
   }
 });
-

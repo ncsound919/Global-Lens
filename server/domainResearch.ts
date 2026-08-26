@@ -1,4 +1,4 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import db from "./db";
@@ -6,16 +6,16 @@ import { callAIQueued } from "./aiService";
 import { scienceValidationFindings } from "./scienceIngest";
 
 // ============================================================================
-// Overlay Global Lens — Domain Research Engine
+// Overlay Global Lens â€” Domain Research Engine
 //
 // Takes OUR research (sports science metrics, biotech/scientific research, hemp
 // research) and cross-analyzes it against ESTABLISHED datasets and science
 // papers (OpenAlex/PubMed literature already mirrored into research_papers).
-// The engine then produces public research items for the outlet — findings,
-// trends, and generated research papers — so Overlay Global Lens accumulates an
+// The engine then produces public research items for the outlet â€” findings,
+// trends, and generated research papers â€” so Overlay Global Lens accumulates an
 // original, evidence-tiered research database of its own.
 //
-// PUBLIC-OUTLET RULE: same as trends.ts — only public-facing signal is written.
+// PUBLIC-OUTLET RULE: same as trends.ts â€” only public-facing signal is written.
 // Internal agent names, patch ids and repair instructions never appear here.
 // ============================================================================
 
@@ -64,8 +64,8 @@ interface EstablishedPaper {
   category: string;
 }
 
-function loadEstablishedPapers(): EstablishedPaper[] {
-  const rows = db.prepare(
+async function loadEstablishedPapers(): Promise<EstablishedPaper[]> {
+  const rows = await db.prepare(
     "SELECT title, url, category FROM reference_papers WHERE title IS NOT NULL"
   ).all() as any[];
   return rows.map((r) => ({ title: r.title, url: r.url || "", category: r.category || "" }));
@@ -108,7 +108,7 @@ function evidenceTierFor(isMeasured: boolean, supportScore: number): string {
 
 // ---- Writes ----------------------------------------------------------------
 
-const upsertDiscovery = db.prepare(`
+const upsertDiscovery = await db.prepare(`
   INSERT INTO discoveries (id, title, insight, evidence_tier, hypothesis_id, linked_patch_id, source, category, payload, pub_date)
   VALUES (@id, @title, @insight, @evidence_tier, @hypothesis_id, @linked_patch_id, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -117,7 +117,7 @@ const upsertDiscovery = db.prepare(`
     pub_date = excluded.pub_date
 `);
 
-const upsertTrend = db.prepare(`
+const upsertTrend = await db.prepare(`
   INSERT INTO trends (id, title, summary, direction, slope, confidence, evidence_tier, recommended_action, source, category, payload, pub_date)
   VALUES (@id, @title, @summary, @direction, @slope, @confidence, @evidence_tier, @recommended_action, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -127,7 +127,7 @@ const upsertTrend = db.prepare(`
     category = excluded.category, payload = excluded.payload, pub_date = excluded.pub_date
 `);
 
-const upsertPaper = db.prepare(`
+const upsertPaper = await db.prepare(`
   INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
   VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -226,7 +226,7 @@ function sportsScienceFindings(papers: EstablishedPaper[]): SportsFinding[] {
         const flattening = typeof s.nba_era_flattening_score === "number" ? s.nba_era_flattening_score : null;
         findings.push({
           title: `Era-adjusted NBA efficiency has been ${direction} across decades`,
-          insight: `Era-adjusted efficiency across ${decades.length} decades (${decades[0][0]}–${decades[decades.length - 1][0]}) moved from ${first.toFixed(2)} to ${last.toFixed(2)}${flattening !== null ? `, with a ${flattening.toFixed(2)} flattening score` : ""} once three-point inflation is removed. This is an original time-series finding against NBA season data.`,
+          insight: `Era-adjusted efficiency across ${decades.length} decades (${decades[0][0]}â€“${decades[decades.length - 1][0]}) moved from ${first.toFixed(2)} to ${last.toFixed(2)}${flattening !== null ? `, with a ${flattening.toFixed(2)} flattening score` : ""} once three-point inflation is removed. This is an original time-series finding against NBA season data.`,
           category: "Sports Science",
           pillar: "sport",
           direction,
@@ -359,7 +359,7 @@ function codexOncoFindings(): SportsFinding[] {
     }
     if (diffs.length) {
       findings.push({
-        title: "Pipeline audit: same stat name, different formulas — TER scales differ across engines",
+        title: "Pipeline audit: same stat name, different formulas â€” TER scales differ across engines",
         insight: diffs
           .slice(0, 3)
           .map((d: any) => (typeof d === "string" ? d : JSON.stringify(d)))
@@ -501,7 +501,7 @@ function hempResearchFindings(hemp: { trends: HempTrend[]; insights: HempInsight
 // ---- Oncology calibration ingestion (Overlay Oncology subdomain) -------------
 //
 // Overlay Oncology (`oncology.overlay365.com`) exposes real, cited calibration
-// state via GET {ONCOLOGY_URL}/api/calibration/state — calibrated potency (CCLE
+// state via GET {ONCOLOGY_URL}/api/calibration/state â€” calibrated potency (CCLE
 // IC50) and survival (TCGA Weibull) fits with provenance. The outlet surfaces
 // these as evidence-tiered findings. PUBLIC-OUTLET RULE applies: no internal
 // ids/agent names; sources map to public labels. Degrades gracefully when the
@@ -556,8 +556,8 @@ function oncologyFindings(cal: OncologyCalibration | null, papers: EstablishedPa
     const ref = crossReference("cancer cell line drug sensitivity IC50 pharmacogenomics", papers);
     const dataset = potency.provenance?.source || "CCLE drug-treatment IC50";
     findings.push({
-      title: `Oncology potency calibration: median IC50 ${potency.medianIc50.toFixed(2)} µM across ${potency.n ?? "n/a"} cell lines`,
-      insight: `The Overlay Oncology simulator is calibrated to real pharmacogenomic data (${dataset}${potency.provenance?.rowCount ? `, ${potency.provenance.rowCount} measurements` : ""}) with median IC50 ${potency.medianIc50.toFixed(2)} µM and 95% CI [${(potency.ciLow ?? 0).toFixed(2)}, ${(potency.ciHigh ?? 0).toFixed(2)}]. Cross-referenced against ${ref.matched.length} established cancer-sensitivity studies.`,
+      title: `Oncology potency calibration: median IC50 ${potency.medianIc50.toFixed(2)} ÂµM across ${potency.n ?? "n/a"} cell lines`,
+      insight: `The Overlay Oncology simulator is calibrated to real pharmacogenomic data (${dataset}${potency.provenance?.rowCount ? `, ${potency.provenance.rowCount} measurements` : ""}) with median IC50 ${potency.medianIc50.toFixed(2)} ÂµM and 95% CI [${(potency.ciLow ?? 0).toFixed(2)}, ${(potency.ciHigh ?? 0).toFixed(2)}]. Cross-referenced against ${ref.matched.length} established cancer-sensitivity studies.`,
       category: "Oncology",
       pillar: "science",
       measured: true,
@@ -589,15 +589,15 @@ function oncologyFindings(cal: OncologyCalibration | null, papers: EstablishedPa
 function generateResearchPaper(findings: SportsFinding[]): void {
   if (!findings.length) return;
   const top = findings.slice(0, 8);
-  const title = "Overlay Research Digest — Sports Science & Hemp Research Findings";
+  const title = "Overlay Research Digest â€” Sports Science & Hemp Research Findings";
   const nowIso = new Date().toISOString();
   const dateKey = nowIso.slice(0, 10);
-  const abstractLines = top.map((f) => `• ${f.title}`);
+  const abstractLines = top.map((f) => `â€¢ ${f.title}`);
   const evidence = top.every((f) => f.measured) ? "E1" : top.some((f) => f.measured) ? "E2" : "E3";
 
   upsertPaper.run({
     // Stable ID (no date) so the daily digest updates ONE canonical row each
-    // day instead of inserting a new paper — the digest accumulates findings
+    // day instead of inserting a new paper â€” the digest accumulates findings
     // in place and never floods the publication with near-identical rows.
     id: `overlay-research-digest`,
     source: "Overlay Research Desk",
@@ -621,7 +621,7 @@ function generateCodexOpenSourcePaper(): void {
   const nowIso = new Date().toISOString();
   const dateKey = nowIso.slice(0, 10);
   upsertPaper.run({
-    // Stable ID (no date) — one canonical toolchain paper, updated in place.
+    // Stable ID (no date) â€” one canonical toolchain paper, updated in place.
     id: `codex-open-source-integration`,
     source: "Overlay Research Desk",
     title: "NBA Codex Open-Source Toolchain Integration Research",
@@ -646,14 +646,14 @@ export async function syncDomainResearch(): Promise<{
   papers: number;
   source: string | null;
 }> {
-  const papers = loadEstablishedPapers();
+  const papers = await loadEstablishedPapers();
   const oncologyCal = await loadOncologyCalibrationHttp();
   const findings = [
     ...sportsScienceFindings(papers),
     ...codexOncoFindings(),
     ...oncologyFindings(oncologyCal, papers),
     ...hempResearchFindings(loadHempResearch(), papers),
-    ...scienceValidationFindings(),
+    ...(await scienceValidationFindings()),
   ];
 
   let discoveries = 0;
@@ -719,7 +719,7 @@ export async function syncDomainResearch(): Promise<{
 // ---- Editorial article generation (best-effort, LLM lineup) --------------------
 
 export async function generateEditorialArticles(findings?: SportsFinding[]): Promise<{ published: number }> {
-  const f = findings || sportsScienceFindings(loadEstablishedPapers());
+  const f = findings || sportsScienceFindings(await loadEstablishedPapers());
   if (!f.length) return { published: 0 };
   const top = f.slice(0, 3);
   let published = 0;
@@ -753,7 +753,7 @@ Output strictly valid JSON with no markdown fences:
         .update(`Overlay Research:${finding.title}`)
         .digest("hex");
       const pubDate = new Date().toISOString();
-      db.prepare(
+      await db.prepare(
         "INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).run(
         urlHash,

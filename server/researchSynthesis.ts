@@ -1,4 +1,4 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { execFile } from "child_process";
@@ -8,30 +8,30 @@ import { runScienceExperiments, findingsBlock } from "./scienceExperiments";
 import { crossDomainFindings, crossDomainStateBlob } from "./crossDomain";
 
 // ============================================================================
-// Overlay Global Lens — Research Synthesis Engine
+// Overlay Global Lens â€” Research Synthesis Engine
 //
 // The science pillar (02_Pillars/Overlay Science) accumulates a LOT of research
 // outputs. Rather than flood the outlet with dozens of micro-discoveries, this
 // engine BUNDLES that research into a small number of definitive, full papers:
 //
-//   1. CLUSTER  — each research program (validation ledger, gap-domain scan,
-//                 golf→surgery, golf→breast-cancer, NBA→biotech, sports science)
+//   1. CLUSTER  â€” each research program (validation ledger, gap-domain scan,
+//                 golfâ†’surgery, golfâ†’breast-cancer, NBAâ†’biotech, sports science)
 //                 is one cluster.
-//   2. DEEPEN   — the cluster's OWN data is re-run through the Overlay Science
+//   2. DEEPEN   â€” the cluster's OWN data is re-run through the Overlay Science
 //                 Python engines (disease_research, science_bridge,
 //                 golf_surgery_core) to recompute fresh metrics this run.
-//   3. SYNTHESIZE — measured cluster data + cross-referenced literature is fed
+//   3. SYNTHESIZE â€” measured cluster data + cross-referenced literature is fed
 //                 to the LLM (trends & insights engine) to write ONE definitive
 //                 paper per cluster: abstract, measurable & verifiable
 //                 hypothesis, methods, results, conclusion and figures.
-//   4. PUBLISH  — one research_papers row per cluster (Overlay's own research).
+//   4. PUBLISH  â€” one research_papers row per cluster (Overlay's own research).
 //                 The literature mirror stays in the separate reference_papers
 //                 pool and is never published.
 //
 // Deterministic + auditable: every number in a published paper traces to a
 // measured output or an engine recomputation; evidence tiers are assigned from
 // the source material. If the LLM is unavailable, a deterministic paper is
-// assembled from the real measured values — content never fabricates.
+// assembled from the real measured values â€” content never fabricates.
 // ============================================================================
 
 function ecosystemRoot(): string {
@@ -111,8 +111,8 @@ interface RefPaper {
   category: string;
 }
 
-function loadReferencePool(): RefPaper[] {
-  const rows = db.prepare(
+async function loadReferencePool(): Promise<RefPaper[]> {
+  const rows = await db.prepare(
     "SELECT title, url, category FROM reference_papers WHERE title IS NOT NULL"
   ).all() as any[];
   return rows.map((r) => ({ title: r.title, url: r.url || "", category: r.category || "" }));
@@ -200,7 +200,7 @@ const CLUSTERS: ResearchCluster[] = [
     category: "Validation",
     pillar: "science",
     hypothesis:
-      "H1: Adding the bbtech features (ter_composite, tai, immune_score) to a clinical baseline improves relapse-free and overall survival discrimination (ΔC > 0, bootstrap CI excludes 0, LR p < 0.05).",
+      "H1: Adding the bbtech features (ter_composite, tai, immune_score) to a clinical baseline improves relapse-free and overall survival discrimination (Î”C > 0, bootstrap CI excludes 0, LR p < 0.05).",
     description:
       "Pre-registered, real-data validation of the bbtech prognostic framework on METABRIC, TCGA (Firehose + PanCancer), GSE20685 (Kao 2011, independent Taiwan cohort) and Canterbury surgical-complication data. 100/100 validation ledger.",
     dataDirs: ["2026-08-15-validation"],
@@ -231,25 +231,25 @@ const CLUSTERS: ResearchCluster[] = [
     hypothesis:
       "H3: PGA golf performance metrics translate to surgical-capacity baselines (surgeon index, success rate, cognitive load) that calibrate within published NSQIP/reference-framework bands.",
     description:
-      "Golf archetypes → surgical capacity through the golf_surgery_core translation engine. Validated on PGA 2020/2021 data against major-surgery, complication and mortality benchmark bands.",
+      "Golf archetypes â†’ surgical capacity through the golf_surgery_core translation engine. Validated on PGA 2020/2021 data against major-surgery, complication and mortality benchmark bands.",
     dataDirs: ["2026-08-15-golf-to-surgery", "2026-08-15-validation"],
     keyFiles: ["golf_surgery_validation.json", "golf_surgery_replication_2021.json", "pga_surgical_capacity", "README.md"],
   },
   {
     id: "golf-breast-cancer",
-    title: "Golf Archetype → Breast Cancer Tumor Models",
+    title: "Golf Archetype â†’ Breast Cancer Tumor Models",
     category: "Oncology Translation",
     pillar: "science",
     hypothesis:
-      "H4: Golf player archetypes mapped through bbtech (proliferation drive → TER, scrambling → immune tolerance, putts → apoptosis) reproduce onco-ter and recurrence-risk distributions consistent with the oncology playbook isomorphism.",
+      "H4: Golf player archetypes mapped through bbtech (proliferation drive â†’ TER, scrambling â†’ immune tolerance, putts â†’ apoptosis) reproduce onco-ter and recurrence-risk distributions consistent with the oncology playbook isomorphism.",
     description:
-      "Eight golf player archetypes translated onto breast cancer tumor models through sports_science → disease_research → bbtech, computing TAI, spatial disorganization (Voronoi/Ripley), ACWR dose-intensity and adaptive-therapy simulations.",
+      "Eight golf player archetypes translated onto breast cancer tumor models through sports_science â†’ disease_research â†’ bbtech, computing TAI, spatial disorganization (Voronoi/Ripley), ACWR dose-intensity and adaptive-therapy simulations.",
     dataDirs: ["2026-08-15-golf-breast-cancer-bbtech"],
     keyFiles: ["summary_stats.json", "golf_onco_metrics.json", "README.md"],
   },
   {
     id: "nba-biotech",
-    title: "NBA → Biotech Oncology Translation (Codex / bbtech)",
+    title: "NBA â†’ Biotech Oncology Translation (Codex / bbtech)",
     category: "Oncology Translation",
     pillar: "science",
     hypothesis:
@@ -282,9 +282,9 @@ const CLUSTERS: ResearchCluster[] = [
     category: "Cross-Domain Intelligence",
     pillar: "research",
     hypothesis:
-      "H7: The Overlay365 pillars (health, wealth, justice, finance, music, writing, science, sport) share transferable mechanisms — a finding in one domain compounds into another via translation bridges.",
+      "H7: The Overlay365 pillars (health, wealth, justice, finance, music, writing, science, sport) share transferable mechanisms â€” a finding in one domain compounds into another via translation bridges.",
     description:
-      "Cross-domain detection across all nine pillars: domain state (goals/hypotheses/kairos/learning), translation bridges (sport↔biotech, golf→surgery, injury→contract risk), coupled-domain momentum, and operational cross-impact.",
+      "Cross-domain detection across all nine pillars: domain state (goals/hypotheses/kairos/learning), translation bridges (sportâ†”biotech, golfâ†’surgery, injuryâ†’contract risk), coupled-domain momentum, and operational cross-impact.",
     dataDirs: [],
     keyFiles: [],
   },
@@ -305,7 +305,7 @@ interface EnvSectorSpec {
 const ENV_SECTORS: EnvSectorSpec[] = [
   {
     id: "env-ecohomes",
-    title: "EcoHomes OS — Foam-Housing Thermal Envelope & Energy Payback",
+    title: "EcoHomes OS â€” Foam-Housing Thermal Envelope & Energy Payback",
     hypothesis:
       "E1: Spray-foam insulation R-value rise reduces heating energy demand and drives cumulative CO2 avoidance that passes an energy-payback milestone within the simulated service life.",
     description:
@@ -313,7 +313,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-agriconnect",
-    title: "AgriConnect — Plant-Fungi Symbiosis Yield & Soil-Carbon",
+    title: "AgriConnect â€” Plant-Fungi Symbiosis Yield & Soil-Carbon",
     hypothesis:
       "E2: Mycorrhizal mycelium expansion raises soil NPK uptake efficiency and boosts crop yield by a measurable margin while sequestering soil carbon.",
     description:
@@ -321,7 +321,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-regenerafarm",
-    title: "RegeneraFarm — Closed-Loop Nutrient Cycle & Soil-Carbon Sequestration",
+    title: "RegeneraFarm â€” Closed-Loop Nutrient Cycle & Soil-Carbon Sequestration",
     hypothesis:
       "E3: Closed-loop waste-to-nutrient recycling raises soil organic carbon and cuts nitrogen leaching below open-loop baseline, generating Verra VM0042 carbon credits.",
     description:
@@ -329,7 +329,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-hempmobility",
-    title: "HempMobility — Hemp Biocomposite Strength & Lifecycle CO2",
+    title: "HempMobility â€” Hemp Biocomposite Strength & Lifecycle CO2",
     hypothesis:
       "E4: Rising hemp-fiber volume fraction increases composite strength-to-weight ratio, cutting vehicle mass and lifecycle CO2 versus conventional composites.",
     description:
@@ -337,7 +337,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-lumifreq",
-    title: "LumiFreq — Resonant Illumination Photosynthetic Efficiency",
+    title: "LumiFreq â€” Resonant Illumination Photosynthetic Efficiency",
     hypothesis:
       "E5: AI-tuned light recipes raise photosynthetic photon use efficiency (PPUE), growing plant biomass per joule and lowering energy cost per gram.",
     description:
@@ -345,7 +345,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-nucleosim",
-    title: "NucleoSim — Fast-Reactor Digital Twin Safety Envelope",
+    title: "NucleoSim â€” Fast-Reactor Digital Twin Safety Envelope",
     hypothesis:
       "E6: Neutron-multiplication and thermal feedback dynamics keep the fast-reactor twin within its safety envelope across the simulated burnup window.",
     description:
@@ -353,7 +353,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-plasticycle",
-    title: "PlastiCycle — Plastic-Degrading Bacteria Bioprocess",
+    title: "PlastiCycle â€” Plastic-Degrading Bacteria Bioprocess",
     hypothesis:
       "E7: Engineered bacterial degradation reduces PET plastic mass while recovering monomer feedstock, with pH-modulated degradation kinetics.",
     description:
@@ -361,7 +361,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-everlume",
-    title: "EverLume — Centennial-Bulb Bayesian Reliability",
+    title: "EverLume â€” Centennial-Bulb Bayesian Reliability",
     hypothesis:
       "E8: Cumulative voltage/thermal stress drives a measurable hazard-rate and lumen-depreciation trajectory that predicts maintenance needs years ahead.",
     description:
@@ -369,7 +369,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-aquagen",
-    title: "AquaGen — Atmospheric Water Generation Energy per Liter",
+    title: "AquaGen â€” Atmospheric Water Generation Energy per Liter",
     hypothesis:
       "E9: Humidity-window scheduling lowers energy cost per liter, and water production meets a target within the simulated window when humidity is favorable.",
     description:
@@ -377,7 +377,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-thermalgrid",
-    title: "ThermalGrid — Geothermal District-Heat Balance",
+    title: "ThermalGrid â€” Geothermal District-Heat Balance",
     hypothesis:
       "E10: Ground-loop extraction balances building demand with sustained COP, displacing natural-gas combustion and CO2 at a measurable rate.",
     description:
@@ -385,7 +385,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-thoriumos",
-    title: "ThoriumOS — Molten-Salt Fuel-Cycle Breeding",
+    title: "ThoriumOS â€” Molten-Salt Fuel-Cycle Breeding",
     hypothesis:
       "E11: Thorium breeding to fissile U-233 sustains a breeding ratio above unity while suppressing long-lived transuranic waste.",
     description:
@@ -393,7 +393,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-solarshare",
-    title: "SolarShare — Community-Solar Generation & Carbon Credits",
+    title: "SolarShare â€” Community-Solar Generation & Carbon Credits",
     hypothesis:
       "E12: Solar array generation displaces grid-mix CO2 at a measurable rate, with Verra VM0038 carbon credits computed from generated kWh.",
     description:
@@ -401,7 +401,7 @@ const ENV_SECTORS: EnvSectorSpec[] = [
   },
   {
     id: "env-microhydro",
-    title: "MicroHydro — Stream-Flow Hydro Power Capacity",
+    title: "MicroHydro â€” Stream-Flow Hydro Power Capacity",
     hypothesis:
       "E13: Stream-flow forecasting sustains a hydro capacity factor that produces baseload kWh with grid-mix CO2 displacement.",
     description:
@@ -529,10 +529,10 @@ function paperPrompt(cluster: ResearchCluster, digest: any, engineOut: any, refs
   const engineBlob = engineOut ? JSON.stringify(engineOut).slice(0, 6_000) : "(no engine recomputation)";
   return `
 You are the research desk of Overlay Global Lens, a premium science publication. You write definitive,
-full, well-rounded research papers — NOT micro-observations.
+full, well-rounded research papers â€” NOT micro-observations.
 
 Write ONE definitive paper for the research program below. Draw the paper's conclusions from the
-FRESHLY MEASURED EXPERIMENT RESULTS wherever possible — these are the breakthroughs. Use the
+FRESHLY MEASURED EXPERIMENT RESULTS wherever possible â€” these are the breakthroughs. Use the
 static measured data only as supporting context. Do NOT invent numbers, statistics, or sources.
 
 RESEARCH PROGRAM: ${cluster.title}
@@ -595,7 +595,7 @@ async function synthesizeClusterPaper(cluster: ResearchCluster, digest: any, eng
 
 // ---- Publish ------------------------------------------------------------------------
 
-const upsertPaper = db.prepare(`
+const upsertPaper = await db.prepare(`
   INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
   VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -606,11 +606,11 @@ const upsertPaper = db.prepare(`
 `);
 
 export async function synthesizeResearchPapers(): Promise<{ papers: number; pruned: number; experiments: number; cross_domain_signals: number }> {
-  const refs = loadReferencePool();
+  const refs = await loadReferencePool();
   const nowIso = new Date().toISOString();
   let papers = 0;
 
-  // Run the fresh experiments FIRST — these produce new measured results that
+  // Run the fresh experiments FIRST â€” these produce new measured results that
   // the papers report as breakthroughs (not compiled restatements).
   const experiments = await runScienceExperiments();
   const experimentBlock = findingsBlock(experiments);
@@ -627,21 +627,21 @@ export async function synthesizeResearchPapers(): Promise<{ papers: number; prun
   for (const cluster of CLUSTERS) {
     const inputs = resolveClusterInputs(cluster);
     if (cluster.id === "cross-domain-ecosystem") {
-      // Cross-domain cluster has no science data dirs — synthesizes from the
+      // Cross-domain cluster has no science data dirs â€” synthesizes from the
       // whole-ecosystem signal surface.
       const engineOut = null;
       const paper = await synthesizeClusterPaper(cluster, { cross_domain_signals: crossDomainSignals.map((s) => ({ type: s.type, title: s.title, insight: s.insight })) }, engineOut, refs, experimentBlock, crossDomainBlock);
       const ref = crossRef(cluster.description, refs);
       const summaryLines = [
-        `Abstract — ${paper.abstract || ""}`,
+        `Abstract â€” ${paper.abstract || ""}`,
         ``,
-        `Hypothesis — ${paper.hypothesis || cluster.hypothesis}`,
+        `Hypothesis â€” ${paper.hypothesis || cluster.hypothesis}`,
         ``,
-        `Methods — ${paper.methods || ""}`,
+        `Methods â€” ${paper.methods || ""}`,
         ``,
-        `Results — ${paper.results || ""}`,
+        `Results â€” ${paper.results || ""}`,
         ``,
-        `Conclusion — ${paper.conclusion || ""}`,
+        `Conclusion â€” ${paper.conclusion || ""}`,
       ].filter(Boolean).join("\n");
       upsertPaper.run({
         id: `synthesis-${cluster.id}`,
@@ -683,15 +683,15 @@ export async function synthesizeResearchPapers(): Promise<{ papers: number; prun
       const paper = await synthesizeClusterPaper(cluster, digest, engineOut, refs, findingsBlock(exp), crossDomainBlock);
       const ref = crossRef(cluster.description + " " + cluster.hypothesis, refs);
       const summaryLines = [
-        `Abstract — ${paper.abstract || ""}`,
+        `Abstract â€” ${paper.abstract || ""}`,
         ``,
-        `Hypothesis — ${paper.hypothesis || cluster.hypothesis}`,
+        `Hypothesis â€” ${paper.hypothesis || cluster.hypothesis}`,
         ``,
-        `Methods — ${paper.methods || ""}`,
+        `Methods â€” ${paper.methods || ""}`,
         ``,
-        `Results — ${paper.results || ""}`,
+        `Results â€” ${paper.results || ""}`,
         ``,
-        `Conclusion — ${paper.conclusion || ""}`,
+        `Conclusion â€” ${paper.conclusion || ""}`,
       ].filter(Boolean).join("\n");
       upsertPaper.run({
         id: `synthesis-${cluster.id}`,
@@ -728,15 +728,15 @@ export async function synthesizeResearchPapers(): Promise<{ papers: number; prun
     const ref = crossRef(cluster.description + " " + cluster.hypothesis, refs);
 
     const summaryLines = [
-      `Abstract — ${paper.abstract || ""}`,
+      `Abstract â€” ${paper.abstract || ""}`,
       ``,
-      `Hypothesis — ${paper.hypothesis || cluster.hypothesis}`,
+      `Hypothesis â€” ${paper.hypothesis || cluster.hypothesis}`,
       ``,
-      `Methods — ${paper.methods || ""}`,
+      `Methods â€” ${paper.methods || ""}`,
       ``,
-      `Results — ${paper.results || ""}`,
+      `Results â€” ${paper.results || ""}`,
       ``,
-      `Conclusion — ${paper.conclusion || ""}`,
+      `Conclusion â€” ${paper.conclusion || ""}`,
     ].filter(Boolean).join("\n");
 
     upsertPaper.run({
@@ -777,7 +777,7 @@ export async function synthesizeResearchPapers(): Promise<{ papers: number; prun
     papers++;
   }
 
-  // Reference pool is a separate table (reference_papers) — never published.
+  // Reference pool is a separate table (reference_papers) â€” never published.
   // No demotion needed here; research_papers holds only Overlay's own research.
 
   // Prune the micro-discovery flood that the definitive papers now absorb.
@@ -788,9 +788,9 @@ export async function synthesizeResearchPapers(): Promise<{ papers: number; prun
     "Sports Science",
   ];
   const placeholders = microCats.map(() => "?").join(",");
-  const pruned = db.prepare(
+  const pruned = (await db.prepare(
     `DELETE FROM discoveries WHERE source = 'Overlay Research Desk' AND category IN (${placeholders})`
-  ).run(...microCats).changes;
+  ).run(...microCats)).changes;
 
   return { papers, pruned, experiments: experiments.length, cross_domain_signals: crossDomainSignals.length };
 }

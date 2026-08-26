@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import db from "./db";
@@ -30,12 +30,12 @@ apiRouter.use(standardLimiter);
  * Validates session against database to return authenticated details.
  * Strictly uses the secure HTTP-only bgl_session cookie for session identification.
  */
-export function getAuthSession(req: express.Request) {
+export async function getAuthSession(req: express.Request) {
   const sessionId = req.cookies?.bgl_session as string | undefined;
   if (!sessionId) return null;
   
   try {
-    const session = db.prepare(`
+    const session = await db.prepare(`
       SELECT s.session_id, s.user_id, u.email 
       FROM sessions s 
       JOIN users u ON s.user_id = u.id 
@@ -55,18 +55,18 @@ export function getAuthSession(req: express.Request) {
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/user", settingsRouter);
 apiRouter.use("/news", newsRouter);
-// Overlay Global Lens — ecosystem content (papers/trends/discoveries/metaphors)
+// Overlay Global Lens â€” ecosystem content (papers/trends/discoveries/metaphors)
 apiRouter.use("/", insightsRouter);
 
-// Overlay Oncology — verified research findings + transparent donations.
+// Overlay Oncology â€” verified research findings + transparent donations.
 apiRouter.use("/donate", donateRouter);
 
-apiRouter.get("/oncology/overview", (req, res) => {
+apiRouter.get("/oncology/overview", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
-  const fod = getFindingOfDay(today);
+  const fod = await getFindingOfDay(today);
   const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
-  const findings = getFindings({ kind });
-  const papers = db.prepare(`
+  const findings = await getFindings({ kind });
+  const papers = await db.prepare(`
     SELECT * FROM research_papers
     WHERE category = 'cancer-research'
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT 50
@@ -80,7 +80,7 @@ apiRouter.get("/oncology/overview", (req, res) => {
       category: p.category, pillar: p.pillar, evidence_tier: p.evidence_tier,
       pub_date: p.pub_date,
     })),
-    donations: getSettledDonationStats(),
+    donations: await getSettledDonationStats(),
   });
 });
 
@@ -91,12 +91,12 @@ apiRouter.get("/oncology/overview", (req, res) => {
 const countCache = new Map<string, { value: number; at: number }>();
 const COUNT_TTL_MS = 5_000;
 
-function countRows(sql: string, key: string): number {
+async function countRows(sql: string, key: string): Promise<number> {
   const hit = countCache.get(key);
   if (hit && Date.now() - hit.at < COUNT_TTL_MS) return hit.value;
   let value = 0;
   try {
-    value = (db.prepare(sql).get() as any)?.c ?? 0;
+    value = (await db.prepare(sql).get() as any)?.c ?? 0;
   } catch {
     value = 0;
   }
@@ -104,20 +104,20 @@ function countRows(sql: string, key: string): number {
   return value;
 }
 
-apiRouter.get("/health", (req, res) => {
+apiRouter.get("/health", async (req, res) => {
   try {
-    const isDbAlive = db.prepare("SELECT 1").get();
+    const isDbAlive = await db.prepare("SELECT 1").get();
     if (!isDbAlive) throw new Error("DB unreachable");
     res.json({ 
        status: "ok", 
        timestamp: new Date().toISOString(),
        db: "connected",
-       feeds: countRows("SELECT COUNT(*) as c FROM rss_feeds", "feeds"),
-       research_papers: countRows("SELECT COUNT(*) as c FROM research_papers", "papers"),
-       reference_papers: countRows("SELECT COUNT(*) as c FROM reference_papers", "refs"),
-       trends: countRows("SELECT COUNT(*) as c FROM trends", "trends"),
-       discoveries: countRows("SELECT COUNT(*) as c FROM discoveries", "discoveries"),
-       metaphors: countRows("SELECT COUNT(*) as c FROM metaphors", "metaphors")
+       feeds: await countRows("SELECT COUNT(*) as c FROM rss_feeds", "feeds"),
+       research_papers: await countRows("SELECT COUNT(*) as c FROM research_papers", "papers"),
+       reference_papers: await countRows("SELECT COUNT(*) as c FROM reference_papers", "refs"),
+       trends: await countRows("SELECT COUNT(*) as c FROM trends", "trends"),
+       discoveries: await countRows("SELECT COUNT(*) as c FROM discoveries", "discoveries"),
+       metaphors: await countRows("SELECT COUNT(*) as c FROM metaphors", "metaphors")
     });
   } catch (err: any) {
     console.error("Health check failed:", err.message);
@@ -130,23 +130,23 @@ apiRouter.post("/sync", syncLimiter, (req, res) => {
   res.json({ success: true, message: "Sync started" });
 });
 
-apiRouter.get("/feeds/health", (req, res) => {
-  res.json({ health: getFeedHealth() });
+apiRouter.get("/feeds/health", async (req, res) => {
+  res.json({ health: await getFeedHealth() });
 });
 
 /**
- * POST /api/publish — fleet ingest point.
+ * POST /api/publish â€” fleet ingest point.
  * Overlay365 agents (e.g. the Hemp Research & News digest) publish finished
  * articles/insights here so they flow through the Global Lens AI pipeline
  * (reframing, takeaways, backstory) like any RSS article.
  *
  * Body: { title, body, category?, source_name?, url?, image_url? }
- * Auth: Bearer <GL_PUBLISH_KEY> REQUIRED — fail-closed when unset so an
+ * Auth: Bearer <GL_PUBLISH_KEY> REQUIRED â€” fail-closed when unset so an
  * unconfigured deployment can never accept forged "verified research".
  * Deterministic: a stable sha256 hash over source+title+body
  * makes re-publishes idempotent (INSERT OR IGNORE).
  */
-apiRouter.post("/publish", (req, res) => {
+apiRouter.post("/publish", async (req, res) => {
   const key = process.env.GL_PUBLISH_KEY;
   if (!key) {
     return res.status(503).json({ detail: "publish disabled: GL_PUBLISH_KEY not configured" });
@@ -187,7 +187,7 @@ apiRouter.post("/publish", (req, res) => {
   const urlHash = crypto.createHash("sha256").update(`${source_name}:${title}:${finalBody.slice(0, 50)}`).digest("hex");
   const pubDate = new Date().toISOString();
 
-  const info = db.prepare(
+  const info = await db.prepare(
     "INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(urlHash, category, source_name, title.slice(0, 500), url || `global-lens://${urlHash}`, image_url, finalBody, pubDate);
 
@@ -205,7 +205,7 @@ apiRouter.post("/publish", (req, res) => {
       ? String(paper.id)
       : `paper-${crypto.createHash("sha256").update(`${paper.source || 'CureMind'}:${paper.title}`).digest("hex").slice(0, 24)}`;
     paperId = stableId;
-    const paperInfo = db.prepare(`
+    const paperInfo = await db.prepare(`
       INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
       VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
       ON CONFLICT(id) DO UPDATE SET title=excluded.title, url=excluded.url, summary=excluded.summary, evidence_tier=excluded.evidence_tier, payload=excluded.payload
@@ -238,7 +238,7 @@ apiRouter.post("/publish", (req, res) => {
       const stableId = f.id && /^[a-zA-Z0-9][a-zA-Z0-9\-_]{3,127}$/.test(String(f.id))
         ? String(f.id)
         : `finding-${crypto.createHash("sha256").update(`${f.headline}:${f.metric || ""}:${f.value || ""}`).digest("hex").slice(0, 24)}`;
-      upsertFinding({
+      await upsertFinding({
         id: stableId,
         paper_id: f.paper_id || paperId,
         headline: String(f.headline),
@@ -261,7 +261,7 @@ apiRouter.post("/publish", (req, res) => {
   if (Array.isArray(finding_of_day)) {
     for (const fod of finding_of_day) {
       if (!fod || typeof fod.day !== "string" || typeof fod.finding_id !== "string") continue;
-      setFindingOfDay(fod.day, fod.finding_id);
+      await setFindingOfDay(fod.day, fod.finding_id);
     }
   }
 

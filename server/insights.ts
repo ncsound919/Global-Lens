@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import db from "./db";
@@ -47,25 +47,25 @@ const DiscoveriesQuerySchema = z.object({
   offset: z.coerce.number().min(0).catch(0),
 });
 
-insightsRouter.get("/papers", (req, res) => {
+insightsRouter.get("/papers", async (req, res) => {
   const q = PapersQuerySchema.parse(req.query);
   const clauses: string[] = [];
   const params: any[] = [];
   if (q.category) { clauses.push("category = ?"); params.push(q.category); }
   if (q.pillar) { clauses.push("pillar = ?"); params.push(q.pillar); }
-  // research_papers holds ONLY Overlay's own research — the OpenAlex/PubMed
+  // research_papers holds ONLY Overlay's own research â€” the OpenAlex/PubMed
   // reference pool lives in a separate `reference_papers` table and is never
   // surfaced here. No source filter needed.
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
-  const papers = db.prepare(`
+  const papers = await db.prepare(`
     SELECT * FROM research_papers
     ${where}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ? OFFSET ?
   `).all(...params) as any[];
 
-  const total = (db.prepare(`SELECT COUNT(*) as c FROM research_papers ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
+  const total = (await db.prepare(`SELECT COUNT(*) as c FROM research_papers ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
 
   const out = papers.map((p) => ({
     id: p.id,
@@ -101,7 +101,7 @@ function summarize(p: any): string {
   return title.slice(0, 200);
 }
 
-insightsRouter.get("/trends", (req, res) => {
+insightsRouter.get("/trends", async (req, res) => {
   const q = TrendsQuerySchema.parse(req.query);
   const clauses: string[] = [];
   const params: any[] = [];
@@ -110,13 +110,13 @@ insightsRouter.get("/trends", (req, res) => {
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
-  const trends = db.prepare(`
+  const trends = await db.prepare(`
     SELECT * FROM trends
     ${where}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ? OFFSET ?
   `).all(...params) as any[];
 
-  const total = (db.prepare(`SELECT COUNT(*) as c FROM trends ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
+  const total = (await db.prepare(`SELECT COUNT(*) as c FROM trends ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
 
   res.json({
     trends: trends.map((t) => ({
@@ -136,7 +136,7 @@ insightsRouter.get("/trends", (req, res) => {
   });
 });
 
-insightsRouter.get("/discoveries", (req, res) => {
+insightsRouter.get("/discoveries", async (req, res) => {
   const q = DiscoveriesQuerySchema.parse(req.query);
   const clauses: string[] = [];
   const params: any[] = [];
@@ -145,13 +145,13 @@ insightsRouter.get("/discoveries", (req, res) => {
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
-  const discoveries = db.prepare(`
+  const discoveries = await db.prepare(`
     SELECT * FROM discoveries
     ${where}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ? OFFSET ?
   `).all(...params) as any[];
 
-  const total = (db.prepare(`SELECT COUNT(*) as c FROM discoveries ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
+  const total = (await db.prepare(`SELECT COUNT(*) as c FROM discoveries ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
 
   res.json({
     discoveries: discoveries.map((d) => ({
@@ -167,22 +167,22 @@ insightsRouter.get("/discoveries", (req, res) => {
   });
 });
 
-insightsRouter.get("/insights/feed", (req, res) => {
+insightsRouter.get("/insights/feed", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100);
 
   // research_papers = Overlay's own research only; reference pool is separate.
-  const papers = db.prepare(`
+  const papers = await db.prepare(`
     SELECT 'paper' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, pillar as item_group, url as link, evidence_tier
     FROM research_papers
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
-  const trends = db.prepare(`
+  const trends = await db.prepare(`
     SELECT 'trend' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
     FROM trends ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
-  const discoveries = db.prepare(`
+  const discoveries = await db.prepare(`
     SELECT 'discovery' as type, id, title, insight as summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
     FROM discoveries ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
@@ -234,9 +234,9 @@ insightsRouter.post("/sync/domain", syncLimiter, async (req, res) => {
 // scan, golf onco correlations) into the outlet's discoveries/trends/papers.
 // Runs as part of the full domain sync; exposed separately so operators can
 // verify the ingest surface independently.
-insightsRouter.post("/sync/science", syncLimiter, (req, res) => {
+insightsRouter.post("/sync/science", syncLimiter, async (req, res) => {
   try {
-    const findings = scienceValidationFindings();
+    const findings = await scienceValidationFindings();
     res.json({ success: true, findings: findings.length, sample: findings.slice(0, 3).map((f) => ({ title: f.title, category: f.category, pillar: f.pillar })) });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message });

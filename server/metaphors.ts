@@ -1,9 +1,9 @@
-import db from "./db";
+﻿import db from "./db";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
-// Overlay Global Lens — comic metaphor enrichment.
+// Overlay Global Lens â€” comic metaphor enrichment.
 // Calls the Comic Metaphor Engine (FastAPI / MCP) to frame each story as a comic
 // storyline. Mirrors the existing `backstory` pattern: generated on demand and
 // cached. If the engine is unreachable the endpoint degrades to an explicit
@@ -104,8 +104,8 @@ function fallbackPackage(topic: string): MetaphorPackage {
   };
 }
 
-export function getMetaphorCached(articleId: string): MetaphorPackage | null {
-  const row = db.prepare("SELECT * FROM metaphors WHERE url_hash = ? LIMIT 1").get(articleId) as any;
+export async function getMetaphorCached(articleId: string): Promise<MetaphorPackage | null> {
+  const row = await db.prepare("SELECT * FROM metaphors WHERE url_hash = ? LIMIT 1").get(articleId) as any;
   if (!row) return null;
   return {
     topic: row.topic,
@@ -119,8 +119,8 @@ export function getMetaphorCached(articleId: string): MetaphorPackage | null {
   };
 }
 
-export function getMetaphorByTopic(topic: string): MetaphorPackage | null {
-  const row = db.prepare("SELECT * FROM metaphors WHERE topic = ? ORDER BY created_at DESC LIMIT 1").get(topic) as any;
+export async function getMetaphorByTopic(topic: string): Promise<MetaphorPackage | null> {
+  const row = await db.prepare("SELECT * FROM metaphors WHERE topic = ? ORDER BY created_at DESC LIMIT 1").get(topic) as any;
   if (!row) return null;
   return {
     topic: row.topic,
@@ -143,8 +143,8 @@ function safeParse(data: string, fallback: any): any {
   }
 }
 
-function deriveTopicFromArticle(articleId: string): { topic: string; title: string } | null {
-  const article = db.prepare(`
+async function deriveTopicFromArticle(articleId: string): Promise<{ topic: string; title: string } | null> {
+  const article = await db.prepare(`
     SELECT a.original_title, c.reframed_headline
     FROM articles a
     LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash
@@ -156,8 +156,8 @@ function deriveTopicFromArticle(articleId: string): { topic: string; title: stri
   return { topic: title, title };
 }
 
-function saveMetaphor(pkg: MetaphorPackage, articleId: string | null) {
-  db.prepare(`
+async function saveMetaphor(pkg: MetaphorPackage, articleId: string | null): Promise<void> {
+  await db.prepare(`
     INSERT OR REPLACE INTO metaphors (id, url_hash, topic, protocol_id, core_tension, mappings, beat_structure, narrative, lesson, codex_scores)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -194,10 +194,10 @@ function attachSeed(pkg: MetaphorPackage): MetaphorPackage {
 
 export async function generateMetaphorForArticle(articleId: string): Promise<{ metaphor: MetaphorPackage | null; cached: boolean }> {
   try {
-    const cached = getMetaphorCached(articleId);
+    const cached = await getMetaphorCached(articleId);
     if (cached) return { metaphor: cached, cached: true };
 
-    const derived = deriveTopicFromArticle(articleId);
+    const derived = await deriveTopicFromArticle(articleId);
     if (!derived) return { metaphor: null, cached: false };
 
     const base = comicEngineBase();
@@ -211,18 +211,18 @@ export async function generateMetaphorForArticle(articleId: string): Promise<{ m
     });
     const pkg = attachSeed(packageFromMapping(mapping, derived.topic));
     if (!pkg.protocol_id) return { metaphor: fallbackPackage(derived.topic), cached: false };
-    saveMetaphor(pkg, articleId);
+    await saveMetaphor(pkg, articleId);
     return { metaphor: pkg, cached: false };
   } catch (e: any) {
     console.warn(`[metaphor] Engine unavailable for ${articleId}: ${e?.message}`);
-    const topic = safeTopicForArticle(articleId);
+    const topic = await safeTopicForArticle(articleId);
     return { metaphor: fallbackPackage(topic), cached: false };
   }
 }
 
 export async function generateMetaphorForTopic(topic: string): Promise<{ metaphor: MetaphorPackage; cached: boolean }> {
   try {
-    const cached = getMetaphorByTopic(topic);
+    const cached = await getMetaphorByTopic(topic);
     if (cached) return { metaphor: cached, cached: true };
 
     const base = comicEngineBase();
@@ -236,7 +236,7 @@ export async function generateMetaphorForTopic(topic: string): Promise<{ metapho
     });
     const pkg = attachSeed(packageFromMapping(mapping, topic));
     if (!pkg.protocol_id) return { metaphor: fallbackPackage(topic), cached: false };
-    saveMetaphor(pkg, null);
+    await saveMetaphor(pkg, null);
     return { metaphor: pkg, cached: false };
   } catch (e: any) {
     console.warn(`[metaphor] Engine unavailable for topic "${topic}": ${e?.message}`);
@@ -244,9 +244,9 @@ export async function generateMetaphorForTopic(topic: string): Promise<{ metapho
   }
 }
 
-function safeTopicForArticle(articleId: string): string {
+async function safeTopicForArticle(articleId: string): Promise<string> {
   try {
-    const derived = deriveTopicFromArticle(articleId);
+    const derived = await deriveTopicFromArticle(articleId);
     return derived?.topic || "Untitled story";
   } catch {
     return "Untitled story";

@@ -1,28 +1,28 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import db from "./db";
 import { callAIQueued } from "./aiService";
 
 // ============================================================================
-// Overlay Global Lens — Cross-Domain Detection Engine
+// Overlay Global Lens â€” Cross-Domain Detection Engine
 //
 // The ecosystem spans 9 pillars (Health, Wealth, Justice, Finance, Music,
 // Writing, Science, Sport, AI-Safety) but the current trends/insights engine
 // only reads science + fleet-health signals. This engine widens detection to
 // CROSS-DOMAIN information:
 //
-//   1. DOMAIN STATE — reads every pillar's goals, hypotheses, experiments,
+//   1. DOMAIN STATE â€” reads every pillar's goals, hypotheses, experiments,
 //      kairos moments, learning outcomes and treasury to build a per-domain
 //      signal profile (activity, validation momentum, risk, funding).
-//   2. CROSS-DOMAIN BRIDGES — uses the real translation engines (sport↔biotech
-//      lexicon, athlete archetypes, golf→surgery) to find analogous concepts
+//   2. CROSS-DOMAIN BRIDGES â€” uses the real translation engines (sportâ†”biotech
+//      lexicon, athlete archetypes, golfâ†’surgery) to find analogous concepts
 //      across domains.
-//   3. TRANSFER DETECTION — finds signals that LEAP domains (e.g. a biotech
+//   3. TRANSFER DETECTION â€” finds signals that LEAP domains (e.g. a biotech
 //      load model mirroring sports fatigue mirroring finance volatility).
-//   4. OPERATIONAL CROSS-IMPACT — links kairos/fleet-health moments to the
+//   4. OPERATIONAL CROSS-IMPACT â€” links kairos/fleet-health moments to the
 //      domains they affect, surfacing cross-domain dependencies.
-//   5. SYNTHESIS — LLM derives NEW cross-domain conclusions from the detected
+//   5. SYNTHESIS â€” LLM derives NEW cross-domain conclusions from the detected
 //      bridges and writes them as discoveries/trends.
 //
 // Every row carries an evidence tier + trace; nothing is fabricated.
@@ -79,18 +79,18 @@ function domainMatches(dataKey: string | undefined, pillar: { key: string; dataK
 // Known cross-domain concept bridges (used to detect transfers). These mirror
 // the real translation engines where available and add documented analogies.
 const CROSS_BRIDGES: Array<{ from: string; to: string; concept: string; description: string }> = [
-  { from: "sport", to: "biotech", concept: "load→toxicity", description: "Sports workload/ACWR maps to chemotherapy dose-intensity and toxicity windows (bbtech translation)." },
-  { from: "sport", to: "biotech", concept: "efficiency→viability", description: "Player efficiency (TER) maps to tumor viability/composite oncologic score (science_bridge)." },
-  { from: "sport", to: "biotech", concept: "fatigue→immune", description: "Athlete fatigue/HRV maps to immune engagement and recovery state." },
-  { from: "biotech", to: "sport", concept: "resistance→stagnation", description: "Drug resistance maps to athlete development plateaus (clonal escape = skill stagnation)." },
-  { from: "biotech", to: "sport", concept: "heterogeneity→role", description: "Tumor heterogeneity maps to on-court role/usage diversity." },
-  { from: "golf", to: "surgery", concept: "precision→outcome", description: "Golf precision translates to surgical capacity and outcome bands (golf_surgery_core)." },
-  { from: "sport", to: "finance", concept: "injury→contract risk", description: "Injury risk / durability maps to contract risk and roster economics (performance-economics)." },
-  { from: "biotech", to: "finance", concept: "trial→investment", description: "Therapy development phase maps to venture/portfolio risk-reward." },
-  { from: "health", to: "wealth", concept: "wellness→net-worth", description: "Preventive health status compounds into lifetime wealth (Overlay365 interconnect)." },
-  { from: "writing", to: "music", concept: "narrative→composition", description: "Narrative structure maps to musical arrangement and arc." },
-  { from: "justice", to: "health", concept: "access→outcome", description: "Legal/document access maps to health outcome equity." },
-  { from: "music", to: "writing", concept: "rhythm→pacing", description: "Musical rhythm maps to narrative pacing and cadence." },
+  { from: "sport", to: "biotech", concept: "loadâ†’toxicity", description: "Sports workload/ACWR maps to chemotherapy dose-intensity and toxicity windows (bbtech translation)." },
+  { from: "sport", to: "biotech", concept: "efficiencyâ†’viability", description: "Player efficiency (TER) maps to tumor viability/composite oncologic score (science_bridge)." },
+  { from: "sport", to: "biotech", concept: "fatigueâ†’immune", description: "Athlete fatigue/HRV maps to immune engagement and recovery state." },
+  { from: "biotech", to: "sport", concept: "resistanceâ†’stagnation", description: "Drug resistance maps to athlete development plateaus (clonal escape = skill stagnation)." },
+  { from: "biotech", to: "sport", concept: "heterogeneityâ†’role", description: "Tumor heterogeneity maps to on-court role/usage diversity." },
+  { from: "golf", to: "surgery", concept: "precisionâ†’outcome", description: "Golf precision translates to surgical capacity and outcome bands (golf_surgery_core)." },
+  { from: "sport", to: "finance", concept: "injuryâ†’contract risk", description: "Injury risk / durability maps to contract risk and roster economics (performance-economics)." },
+  { from: "biotech", to: "finance", concept: "trialâ†’investment", description: "Therapy development phase maps to venture/portfolio risk-reward." },
+  { from: "health", to: "wealth", concept: "wellnessâ†’net-worth", description: "Preventive health status compounds into lifetime wealth (Overlay365 interconnect)." },
+  { from: "writing", to: "music", concept: "narrativeâ†’composition", description: "Narrative structure maps to musical arrangement and arc." },
+  { from: "justice", to: "health", concept: "accessâ†’outcome", description: "Legal/document access maps to health outcome equity." },
+  { from: "music", to: "writing", concept: "rhythmâ†’pacing", description: "Musical rhythm maps to narrative pacing and cadence." },
 ];
 
 // ---- Domain state loading -------------------------------------------------------
@@ -150,7 +150,7 @@ function loadDomainSignals(): DomainSignal[] {
       learningSuccessRate: pOutcomes.length ? pOutcomes.filter((o: any) => o.success).length / pOutcomes.length : 0,
       assets: countAssets(pillar.root),
       hasTranslationBridges: bridgeCount,
-      bridgeDescriptions: CROSS_BRIDGES.filter((b) => b.from === domainKey || b.to === domainKey).map((b) => `${b.from}→${b.to}: ${b.concept}`),
+      bridgeDescriptions: CROSS_BRIDGES.filter((b) => b.from === domainKey || b.to === domainKey).map((b) => `${b.from}â†’${b.to}: ${b.concept}`),
     });
   }
   return signals;
@@ -251,8 +251,8 @@ function detectBridgeCrossSignals(): CrossDomainSignal[] {
     if (!src && !dst) continue; // neither side has data
     out.push({
       type: "cross-domain-bridge",
-      title: `Cross-domain bridge active: ${b.from} → ${b.to} (${b.concept})`,
-      insight: `The ${b.from}→${b.to} translation bridge (${b.concept}) is a live cross-domain mechanism in the ecosystem. ${b.description} When both sides have measured signals, findings in one domain transfer to the other.`,
+      title: `Cross-domain bridge active: ${b.from} â†’ ${b.to} (${b.concept})`,
+      insight: `The ${b.from}â†’${b.to} translation bridge (${b.concept}) is a live cross-domain mechanism in the ecosystem. ${b.description} When both sides have measured signals, findings in one domain transfer to the other.`,
       category: "Cross-Domain Bridge",
       pillar: b.to === "biotech" ? "science" : b.to,
       fromDomain: b.from,
@@ -313,7 +313,7 @@ function detectCoupledDomains(signals: DomainSignal[]): CrossDomainSignal[] {
 
 // ---- Write helpers (mirror trends.ts pattern) ---------------------------------------
 
-const upsertDiscovery = db.prepare(`
+const upsertDiscovery = await db.prepare(`
   INSERT INTO discoveries (id, title, insight, evidence_tier, hypothesis_id, linked_patch_id, source, category, payload, pub_date)
   VALUES (@id, @title, @insight, @evidence_tier, @hypothesis_id, @linked_patch_id, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -322,7 +322,7 @@ const upsertDiscovery = db.prepare(`
     pub_date = excluded.pub_date
 `);
 
-const upsertTrend = db.prepare(`
+const upsertTrend = await db.prepare(`
   INSERT INTO trends (id, title, summary, direction, slope, confidence, evidence_tier, recommended_action, source, category, payload, pub_date)
   VALUES (@id, @title, @summary, @direction, @slope, @confidence, @evidence_tier, @recommended_action, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -462,7 +462,7 @@ export async function syncCrossDomainSignals(): Promise<{
       }
     }
   } catch {
-    /* LLM unavailable — deterministic signals stand */
+    /* LLM unavailable â€” deterministic signals stand */
   }
 
   return {

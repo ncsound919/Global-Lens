@@ -1,4 +1,4 @@
-import Parser from "rss-parser";
+﻿import Parser from "rss-parser";
 import db from "./db";
 import { processRawArticleForConfig } from "./aiService";
 import { feeds } from "./feeds";
@@ -53,7 +53,7 @@ async function fetchOgImage(articleUrl: string): Promise<string | null> {
 // page (bounded per sync) so picture coverage fills in over time without
 // hammering publisher sites.
 export async function backfillArticleImages(limit = 30): Promise<number> {
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT url_hash, original_url FROM articles
     WHERE (image_url IS NULL OR image_url = '')
     ORDER BY created_at DESC LIMIT ?
@@ -64,7 +64,7 @@ export async function backfillArticleImages(limit = 30): Promise<number> {
     if (!url || url === "#" || url.startsWith("global-lens://")) continue;
     const img = await fetchOgImage(url);
     if (img) {
-      db.prepare("UPDATE articles SET image_url = ? WHERE url_hash = ?").run(img, row.url_hash);
+      await db.prepare("UPDATE articles SET image_url = ? WHERE url_hash = ?").run(img, row.url_hash);
       filled++;
     }
   }
@@ -190,8 +190,8 @@ export async function syncRSSNews() {
              pubDate = new Date().toISOString();
            }
            
-           const stmt = db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-           const info = stmt.run(
+           const stmt = await db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+           const info = await stmt.run(
              urlHash, feed.category, feed.source_name, item.title || "Untitled", item.link || "#", imageUrl, textDump, pubDate
            );
            
@@ -218,12 +218,12 @@ export async function syncRSSNews() {
     // Prune articles older than 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const pruneInfo = db.prepare("DELETE FROM articles WHERE created_at < ?").run(thirtyDaysAgo.toISOString());
+    const pruneInfo = await db.prepare("DELETE FROM articles WHERE created_at < ?").run(thirtyDaysAgo.toISOString());
     if (pruneInfo.changes > 0) {
        console.log(`Pruned ${pruneInfo.changes} legacy articles.`);
     }
 
-    const activeConfigs = db.prepare('SELECT DISTINCT reading_mode, lens_intensity FROM user_settings').all() as { reading_mode: string, lens_intensity: string }[];
+    const activeConfigs = await db.prepare('SELECT DISTINCT reading_mode, lens_intensity FROM user_settings').all() as { reading_mode: string, lens_intensity: string }[];
     if (!activeConfigs.some(c => c.reading_mode === 'simplified' && c.lens_intensity === 'balanced')) {
        activeConfigs.push({ reading_mode: 'simplified', lens_intensity: 'balanced' });
     }
@@ -231,7 +231,7 @@ export async function syncRSSNews() {
     // Instead of artificial limits per config, find un-processed top recent articles for each active config
     for (const config of activeConfigs) {
       // Find recent articles that haven't been AI processed for this specific config yet
-      const unprocessedArticles = db.prepare(`
+      const unprocessedArticles = await db.prepare(`
         SELECT a.* FROM articles a
         LEFT JOIN article_ai_cache c 
           ON a.url_hash = c.url_hash 

@@ -1,4 +1,4 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 import Stripe from "stripe";
 import express from "express";
 import db from "./db";
@@ -11,38 +11,38 @@ interface SettledInput {
   recurring?: number;
 }
 
-const insertDonation = db.prepare(`
+const insertDonation = await db.prepare(`
   INSERT OR IGNORE INTO donations (id, amount, currency, campaign, recurring, status, source, settled_at)
   VALUES (?, ?, ?, ?, ?, 'settled', 'stripe_webhook', ?)
 `);
 
-const seenStmt = db.prepare("SELECT 1 FROM donation_events WHERE event_id = ?");
-const markEventStmt = db.prepare("INSERT OR IGNORE INTO donation_events (event_id) VALUES (?)");
+const seenStmt = await db.prepare("SELECT 1 FROM donation_events WHERE event_id = ?");
+const markEventStmt = await db.prepare("INSERT OR IGNORE INTO donation_events (event_id) VALUES (?)");
 
-export function eventSeen(eventId: string): boolean {
-  return !!seenStmt.get(eventId);
+export async function eventSeen(eventId: string): Promise<boolean> {
+  return !!await seenStmt.get(eventId);
 }
 
-export function recordEvent(eventId: string): void {
+export async function recordEvent(eventId: string): Promise<void> {
   // INSERT OR IGNORE: a concurrent duplicate webhook for the same event must not
   // raise a UNIQUE error (which would surface as a spurious 500).
-  markEventStmt.run(eventId);
+  await markEventStmt.run(eventId);
 }
 
-export function recordSettledDonation(input: SettledInput): void {
-  if (eventSeen(input.eventId)) return;
+export async function recordSettledDonation(input: SettledInput): Promise<void> {
+  if (await eventSeen(input.eventId)) return;
   const id = crypto.createHash("sha256").update(input.eventId).digest("hex").slice(0, 32);
   const settledAt = new Date().toISOString();
-  insertDonation.run(id, input.amount, input.currency || "usd", input.campaign || "oncology", input.recurring || 0, settledAt);
-  recordEvent(input.eventId);
+  await insertDonation.run(id, input.amount, input.currency || "usd", input.campaign || "oncology", input.recurring || 0, settledAt);
+  await recordEvent(input.eventId);
 }
 
-export function getSettledDonationStats(): { totalDonations: number; settledUsd: number } {
-  const row = db.prepare(`
+export async function getSettledDonationStats(): Promise<{ totalDonations: number; settledUsd: number }> {
+  const row = await db.prepare(`
     SELECT COUNT(*) as total, COALESCE(SUM(amount), 0) as cents
     FROM donations WHERE status = 'settled'
   `).get() as any;
-  return { totalDonations: row.total, settledUsd: Math.round(row.cents / 100) };
+  return { totalDonations: Number(row.total), settledUsd: Math.round(Number(row.cents) / 100) };
 }
 
 export const donateRouter = express.Router();
@@ -98,7 +98,7 @@ donateRouter.post("/webhook", async (req, res) => {
 
   try {
     const event = new Stripe(secret).webhooks.constructEvent(req.body as Buffer, sig, webhookSecret);
-    handleDonationEvent(event);
+    await handleDonationEvent(event);
     return res.status(200).json({ received: true });
   } catch (e) {
     console.error("Donation webhook error:", e);
@@ -111,17 +111,13 @@ donateRouter.post("/webhook", async (req, res) => {
  * Extracted from the route handler so the subscription double-count guard can be
  * unit-tested without HTTP or Stripe. Stripe is the only writer of settled rows.
  */
-export function handleDonationEvent(event: Stripe.Event): void {
-  if (eventSeen(event.id)) return;
+export async function handleDonationEvent(event: Stripe.Event): Promise<void> {
+  if (await eventSeen(event.id)) return;
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    // One-time payment mode records here. For subscriptions, Stripe also fires
-    // checkout.session.completed AND invoice.paid for the first charge (with
-    // different event ids), so only record subscription charges from
-    // invoice.paid below to avoid double-counting the initial payment.
     if (session.mode !== "subscription") {
-      recordSettledDonation({
+      await recordSettledDonation({
         eventId: event.id,
         amount: session.amount_total || 0,
         currency: session.currency || "usd",
@@ -131,7 +127,7 @@ export function handleDonationEvent(event: Stripe.Event): void {
     }
   } else if (event.type === "invoice.paid") {
     const invoice = event.data.object as Stripe.Invoice;
-    recordSettledDonation({
+    await recordSettledDonation({
       eventId: event.id,
       amount: invoice.amount_paid || 0,
       currency: invoice.currency || "usd",
@@ -141,6 +137,6 @@ export function handleDonationEvent(event: Stripe.Event): void {
   }
 }
 
-donateRouter.get("/stats", (req, res) => {
-  res.json(getSettledDonationStats());
+donateRouter.get("/stats", async (req, res) => {
+  res.json(await getSettledDonationStats());
 });

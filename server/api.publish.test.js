@@ -11,7 +11,7 @@ test('publish accepts a paper attachment field', () => {
   assert.equal(payload.paper.evidence_tier, 'E1');
 });
 
-test('publish payload carries findings + finding_of_day', () => {
+test('publish payload carries findings + finding_of_day', async () => {
   const payload = {
     title: 'T', body: 'B', category: 'cancer-research', source_name: 'CureMind',
     paper: { id: 'hyp_1', title: 'P', evidence_tier: 'E1' },
@@ -25,8 +25,8 @@ test('publish payload carries findings + finding_of_day', () => {
   assert.ok(Array.isArray(payload.findings));
   assert.ok(Array.isArray(payload.finding_of_day));
   // Integration contract: publishing a payload like this must persist the finding.
-  upsertFinding(payload.findings[0]);
-  setFindingOfDay('2026-08-20', 'F2');
-  const list = getFindings({ kind: 'benchmark' }).findings;
-  assert.ok(list.some((f) => f.id === 'F2'));
+  await upsertFinding(payload.findings[0]);
+  await setFindingOfDay('2026-08-20', 'F2');
+  const list = await getFindings({ kind: 'benchmark' });
+  assert.ok(list.findings.some((f) => f.id === 'F2'));
 });

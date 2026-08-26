@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+﻿import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import db from "./db";
 import fs from "fs";
 import path from "path";
@@ -94,11 +94,11 @@ const PQueue = (PQueueMod as any).default || PQueueMod;
 const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 });
 
 // ============================================================================
-// LLM lineup — mirrors the ecosystem's canonical provider chain
+// LLM lineup â€” mirrors the ecosystem's canonical provider chain
 // (Draymond-Orchestrator/src/lib/draymond/llm.ts). Free tiers first (OpenCode
 // Zen free cycling the Keywire account pool + free-model catalog, then
 // OpenRouter free), then local Ollama, then the paid Go tier, direct providers.
-// DeepSeek direct is PAID now (no longer free) — last resort only. Global Lens
+// DeepSeek direct is PAID now (no longer free) â€” last resort only. Global Lens
 // uses the same keys, endpoints, and fallback order as every other Overlay365
 // service.
 // ============================================================================
@@ -115,7 +115,7 @@ type AIProvider =
   | 'qwen';
 
 const PROVIDER_URLS: Record<AIProvider, string> = {
-  // Primary — OpenCode Zen free tier. Data-driven model + account pool; muse
+  // Primary â€” OpenCode Zen free tier. Data-driven model + account pool; muse
   // is the bootstrap default until the catalog (model-routing.json) publishes
   // otherwise. Paid Go tier (deepseek-v4-flash) stays as a fallback below.
   'opencode-free': 'https://opencode.ai/zen/v1/chat/completions',
@@ -129,7 +129,7 @@ const PROVIDER_URLS: Record<AIProvider, string> = {
   qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
 };
 
-/** OpenAI SDK base URL — the SDK appends `/chat/completions` itself. */
+/** OpenAI SDK base URL â€” the SDK appends `/chat/completions` itself. */
 function sdkBaseUrl(provider: AIProvider): string {
   return PROVIDER_URLS[provider].replace(/\/chat\/completions$/, '');
 }
@@ -151,11 +151,11 @@ const DEFAULT_FREE_MODEL = 'muse-spark-1.2-contributor-free';
 const OPENROUTER_DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning:free';
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
-  // Zen free tier — current catalog winner by default; callProvider() resolves
+  // Zen free tier â€” current catalog winner by default; callProvider() resolves
   // the live model set from ASSIGNED_FREE_MODEL / FREE_MODEL_LIST.
   'opencode-free': DEFAULT_FREE_MODEL,
   openrouter: process.env.OPENROUTER_FREE_MODEL || OPENROUTER_DEFAULT_MODEL,
-  // Direct api.deepseek.com serves `deepseek-chat` — `deepseek-v4-flash` is an
+  // Direct api.deepseek.com serves `deepseek-chat` â€” `deepseek-v4-flash` is an
   // opencode-only model id and returns empty/errors here.
   deepseek: 'deepseek-chat',
   opencode: 'deepseek-v4-flash',
@@ -179,8 +179,8 @@ const FALLBACK_ORDER: AIProvider[] = [
   'qwen',
 ];
 
-// ── OpenCode Zen free tier: account × free-model cycling ────────────────────
-// Data-driven — never hard-married to one model id. In the fleet, ecosystemEnv
+// â”€â”€ OpenCode Zen free tier: account Ã— free-model cycling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Data-driven â€” never hard-married to one model id. In the fleet, ecosystemEnv
 // inherits the catalog (assignedFreeModel + freeModelList) and the Keywire
 // account key pool from Draymond; standalone deploys set them via env directly.
 // The runtime rotates the starting account/model per call and retries across
@@ -192,7 +192,7 @@ const OPENCODE_KEY_NAMES = [
   'OPENCODE_KEY_NCSOUND919',
   'OPENCODE_KEY_TAP4500',
   'OPENCODE_API_KEY',
-  'OPENCODE_KEY_JOHNREDD', // operator's personal account — last resort only
+  'OPENCODE_KEY_JOHNREDD', // operator's personal account â€” last resort only
 ];
 
 function opencodeFreeKeys(): string[] {
@@ -240,7 +240,7 @@ export const getAvailableProviders = (): AIProvider[] => {
 export const callAIQueued = (prompt: string) => aiQueue.add(() => callAIConfigured(prompt));
 
 // After opencode-free returns a rate-limit error once, skip it for subsequent
-// calls in this process — each retry otherwise wastes ~7s before the Go tier.
+// calls in this process â€” each retry otherwise wastes ~7s before the Go tier.
 let opencodeFreeRated = false;
 // Same treatment for the paid Go `opencode` tier: once it rate-limits, skip it
 // for the rest of the process and fall straight to deepseek/gemini. This keeps
@@ -306,7 +306,7 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
   }
 
   // OpenAI-compatible providers (opencode-free, opencode, deepseek, ollama, openai, qwen).
-  // maxRetries: 0 — the OpenAI SDK's built-in retry can hang forever against the
+  // maxRetries: 0 â€” the OpenAI SDK's built-in retry can hang forever against the
   // opencode gateway on a 429. Our retryWithBackoff already handles retries.
   const client = new OpenAI({
     apiKey: provider === 'ollama' ? 'ollama' : apiKey,
@@ -331,7 +331,7 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
   return content;
 }
 
-// ── OpenCode Zen free tier: account × free-model cycling ─────────────────────
+// â”€â”€ OpenCode Zen free tier: account Ã— free-model cycling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Rotates the starting account/model round-robin per call and retries across
 // accounts then models on retryable statuses (429/401/404/5xx/network), so the
 // free quota spreads over every opencode account and survives a free model
@@ -379,7 +379,7 @@ async function callOpenCodeFree(prompt: string): Promise<string> {
         const status =
           e?.status ??
           (Number(/API error (\d+)/.exec(e?.message ?? '')?.[1] ?? 0) || null);
-        // Hard client errors (400/403/422) mean the payload is bad — don't rotate.
+        // Hard client errors (400/403/422) mean the payload is bad â€” don't rotate.
         if (status !== null && !isRetryableFreeStatus(status)) throw e;
       }
     }
@@ -449,11 +449,11 @@ function getContext(lensFile: string) {
 }
 
 export async function processRawArticleForConfig(article: any, readingMode: string, lensIntensity: string) {
-  const existing = db.prepare('SELECT 1 FROM article_ai_cache WHERE url_hash = ? AND reading_mode = ? AND lens_intensity = ?').get(article.url_hash, readingMode, lensIntensity);
+  const existing = await db.prepare('SELECT 1 FROM article_ai_cache WHERE url_hash = ? AND reading_mode = ? AND lens_intensity = ?').get(article.url_hash, readingMode, lensIntensity);
   if (existing) return;
 
   if (readingMode === 'raw') {
-    db.prepare(`
+    await db.prepare(`
       INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data, article_body)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(article.url_hash, readingMode, lensIntensity, article.original_title, article.original_text_dump, "Raw dispatch. No AI analysis.", JSON.stringify([]), JSON.stringify([]), null, article.original_text_dump);
@@ -510,10 +510,10 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     };
   };
 
-  const insertDeterministicFallback = () => {
+  const insertDeterministicFallback = async () => {
      try {
        const fb = generateDeterministicFallback(article, readingMode, lensIntensity);
-       db.prepare(`
+       await db.prepare(`
          INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data, article_body)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        `).run(
@@ -547,7 +547,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
 
       const prompt = `
       You are the senior writer at Overlay Global Lens, a premium news publication owned by Overlay365.
-      You write clean, professional journalism that reads like a normal news outlet — NOT a fact sheet.
+      You write clean, professional journalism that reads like a normal news outlet â€” NOT a fact sheet.
 
       STYLE RULES:
       - The "lede" is one tight sentence that hooks the reader and states what happened.
@@ -605,7 +605,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
 
         if (aiResponse.is_safe === false) {
            console.warn(`[Content Moderation] Article filtered out: ${article.url_hash}. Warning: ${aiResponse.verification_warning}`);
-           db.prepare('UPDATE articles SET is_moderated = 1 WHERE url_hash = ?').run(article.url_hash);
+           await db.prepare('UPDATE articles SET is_moderated = 1 WHERE url_hash = ?').run(article.url_hash);
            return;
         }
 
@@ -635,7 +635,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
           : [];
         const articleBody = aiResponse.article_body || aiResponse.reframed_summary || article.original_text_dump?.substring(0, 600) || "";
 
-      db.prepare(`
+      await db.prepare(`
         INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data, article_body)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
