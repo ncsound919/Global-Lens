@@ -100,17 +100,28 @@ const toPlain = (rows: any[]): Record<string, unknown>[] =>
   );
   return {
     prepare(sql: string): Prepared {
+      // libSQL binds named parameters when `args` is an object (better-sqlite3
+      // does the same for statements using @name/:name/$name). Convert a single
+      // object arg into a named-args map only when the SQL actually uses them.
+      const toArgs = (p: Params): unknown =>
+        p.length === 1 &&
+        typeof p[0] === 'object' &&
+        p[0] !== null &&
+        !Array.isArray(p[0]) &&
+        /[@:$][A-Za-z_][A-Za-z0-9_]*/.test(sql)
+          ? p[0]
+          : p;
       return {
         get: async (...p) => {
-          const r = await client.execute({ sql, args: p });
+          const r = await client.execute({ sql, args: toArgs(p) as any });
           return toPlain(r.rows)[0];
         },
         all: async (...p) => {
-          const r = await client.execute({ sql, args: p });
+          const r = await client.execute({ sql, args: toArgs(p) as any });
           return toPlain(r.rows);
         },
         run: async (...p) => {
-          const r = await client.execute({ sql, args: p });
+          const r = await client.execute({ sql, args: toArgs(p) as any });
           return { changes: Number(r.rowsAffected || 0), lastInsertRowid: r.lastInsertRowid };
         },
       };
