@@ -141,17 +141,22 @@ apiRouter.get("/feeds/health", (req, res) => {
  * (reframing, takeaways, backstory) like any RSS article.
  *
  * Body: { title, body, category?, source_name?, url?, image_url? }
- * Auth: Bearer <GL_PUBLISH_KEY> when set; unauthenticated allowed otherwise
- * (local/dev). Deterministic: a stable sha256 hash over source+title+body
+ * Auth: Bearer <GL_PUBLISH_KEY> REQUIRED — fail-closed when unset so an
+ * unconfigured deployment can never accept forged "verified research".
+ * Deterministic: a stable sha256 hash over source+title+body
  * makes re-publishes idempotent (INSERT OR IGNORE).
  */
 apiRouter.post("/publish", (req, res) => {
   const key = process.env.GL_PUBLISH_KEY;
-  if (key) {
-    const auth = String(req.headers.authorization || "");
-    if (auth !== `Bearer ${key}`) {
-      return res.status(401).json({ detail: "unauthorized" });
-    }
+  if (!key) {
+    return res.status(503).json({ detail: "publish disabled: GL_PUBLISH_KEY not configured" });
+  }
+  const auth = String(req.headers.authorization || "");
+  const expected = `Bearer ${key}`;
+  const authBuf = Buffer.from(auth);
+  const expBuf = Buffer.from(expected);
+  if (authBuf.length !== expBuf.length || !crypto.timingSafeEqual(authBuf, expBuf)) {
+    return res.status(401).json({ detail: "unauthorized" });
   }
 
   const { title, body, category = "global", source_name = "Overlay365", url = "", image_url = "", insights, digest, trends } = (req.body || {}) as {
