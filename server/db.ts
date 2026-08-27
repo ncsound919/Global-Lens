@@ -49,7 +49,18 @@ function getLocalDbPath(): string {
   const existing = candidates.find((p) => fs.existsSync(p));
   if (existing) return existing;
   if (process.env.NODE_ENV === 'production' && !isVercel) {
-    console.warn("ðŸš¨ SECURITY & PERSISTENCE WARNING: Running in production without DB_PATH or /data volume. Data will be volatile!");
+    let isDataMounted = false;
+    try {
+      if (fs.existsSync('/proc/mounts')) {
+        const mounts = fs.readFileSync('/proc/mounts', 'utf8');
+        isDataMounted = mounts.includes(' /data ') || mounts.includes(' /data/');
+      }
+    } catch {
+      /* ignore */
+    }
+    if (!useRemote && !isDataMounted) {
+      throw new Error("CRITICAL PERSISTENCE ERROR: Running in production without a mounted /data volume or remote TURSO_URL database. SQLite data would be ephemeral and lost on container restart.");
+    }
   }
   return candidates[0];
 }

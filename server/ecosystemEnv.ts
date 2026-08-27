@@ -111,7 +111,7 @@ export function loadEcosystemEnv(): void {
 
   // Free-model catalog: mirror the fleet's assigned free model + fallback list
   // so the outlet cycles the same free models as the ecosystem.
-  if (draymondDir && !process.env.ASSIGNED_FREE_MODEL) {
+  if (draymondDir && (!process.env.ASSIGNED_FREE_MODEL || !process.env.FREE_MODEL_LIST)) {
     const catalog = freeCatalogFromDir(draymondDir);
     if (catalog.assignedFreeModel) {
       process.env.ASSIGNED_FREE_MODEL = catalog.assignedFreeModel;
