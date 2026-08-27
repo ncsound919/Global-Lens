@@ -6,6 +6,7 @@ import db from "./db.js";
 import { getAuthSession } from "./api.js";
 import { getAvailableProviders, callAIQueued } from "./aiService.js";
 import { feeds } from "./feeds.js";
+import { repairMojibake } from "./encoding.js";
 
 export const newsRouter = express.Router();
 
@@ -40,10 +41,10 @@ newsRouter.get("/:id/share", async (req, res) => {
 
   if (!article) return res.status(404).send('Not found');
 
-  const headline = sanitizeHtml(article.reframed_headline || 'Global Lens Story', { allowedTags: [] });
-  const description = sanitizeHtml((article.cultural_lens_analysis || '').slice(0, 200), { allowedTags: [] });
+  const headline = repairMojibake(sanitizeHtml(article.reframed_headline || 'Global Lens Story', { allowedTags: [] }));
+  const description = repairMojibake(sanitizeHtml((article.cultural_lens_analysis || '').slice(0, 200), { allowedTags: [] }));
   const image = article.image_url || '';
-  const sourceCredit = sanitizeHtml(article.source_name || '', { allowedTags: [] });
+  const sourceCredit = repairMojibake(sanitizeHtml(article.source_name || '', { allowedTags: [] }));
   const baseUrl = process.env.PUBLIC_URL || process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   const canonicalUrl = `${baseUrl}/?article=${encodeURIComponent(articleId)}`;
   const publishedTime = article.pub_date ? new Date(article.pub_date).toISOString() : new Date().toISOString();
@@ -178,8 +179,9 @@ newsRouter.get("/", async (req, res) => {
       bias = (feedConfig as any).bias;
     }
     
+    let articleOut: any;
     if (raw.reframed_headline) {
-      return sanitizeArticle({
+      articleOut = sanitizeArticle({
         id: raw.url_hash,
         url_hash: raw.url_hash,
         category: raw.category,
@@ -200,7 +202,7 @@ newsRouter.get("/", async (req, res) => {
         statistical_data: raw.statistical_data ? safeJSONParse(raw.statistical_data, null) : null,
       });
     } else {
-      return sanitizeArticle({
+      articleOut = sanitizeArticle({
         id: raw.url_hash,
         url_hash: raw.url_hash,
         category: raw.category,
@@ -220,6 +222,18 @@ newsRouter.get("/", async (req, res) => {
         what_this_means_for_us: []
       });
     }
+
+    // Repair feed-sourced mojibake (UTF-8 bytes mis-decoded as Windows-1252)
+    // so headers and body render with proper characters on the outlet.
+    for (const field of ['reframed_headline', 'original_title', 'reframed_summary', 'cultural_lens_analysis', 'article_body', 'source_name'] as const) {
+      if (typeof articleOut[field] === 'string') articleOut[field] = repairMojibake(articleOut[field]);
+    }
+    for (const field of ['key_takeaways', 'what_this_means_for_us'] as const) {
+      if (Array.isArray(articleOut[field])) {
+        articleOut[field] = articleOut[field].map((s: any) => typeof s === 'string' ? repairMojibake(s) : s);
+      }
+    }
+    return articleOut;
   });
   
   res.json({ articles: articlesOut });

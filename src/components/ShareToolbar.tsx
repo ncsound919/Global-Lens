@@ -11,10 +11,23 @@ interface ShareToolbarProps {
   analysis: string;
 }
 
+// Resolve the canonical origin (production domain) instead of the deployment
+// URL the reader happens to be on. The server renders <link rel="canonical">
+// from APP_URL/PUBLIC_URL, so preview/deployment URLs never leak into shares.
+function getCanonicalOrigin(): string {
+  try {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (link && link.href) return new URL(link.href).origin;
+  } catch {
+    /* fall through */
+  }
+  return window.location.origin;
+}
+
 export default function ShareToolbar({ articleId, headline, analysis }: ShareToolbarProps) {
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = `${window.location.origin}/api/news/${encodeURIComponent(articleId)}/share`;
+  const shareUrl = `${getCanonicalOrigin()}/api/news/${encodeURIComponent(articleId)}/share`;
   const shareUrlEncoded = encodeURIComponent(shareUrl);
   const shareText = encodeURIComponent(`"${headline}" - via Overlay Global Lens`);
 
