@@ -312,7 +312,9 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
     apiKey: provider === 'ollama' ? 'ollama' : apiKey,
     baseURL: sdkBaseUrl(provider),
     maxRetries: 0,
-    timeout: 60_000,
+    // OpenRouter free tier is slow/empty when quotas are tapped — cap it so a
+    // dead tier doesn't stall the chain; everything else keeps the full window.
+    timeout: provider === 'openrouter' ? 12_000 : 60_000,
   });
   const res = await retryWithBackoff(async () => {
     return await client.chat.completions.create({
@@ -343,14 +345,22 @@ function isRetryableFreeStatus(status: number | null): boolean {
   return status === 429 || status === 401 || status === 404 || status >= 500;
 }
 
+// Per-process circuit breakers: a model that 500s/401s or a key that 401s is
+// dead for this process — skip it instantly instead of re-probing every call.
+// Free-tier quota exhaustion (429) also marks the model for the process.
+const deadFreeModels = new Set<string>();
+const deadFreeKeys = new Set<string>();
+
 async function callOpenCodeFree(prompt: string): Promise<string> {
-  const keys = opencodeFreeKeys();
+  const keys = opencodeFreeKeys().filter((k) => !deadFreeKeys.has(k));
   if (!keys.length) throw new Error('No opencode free key configured');
-  const models = freeModelList();
+  const models = freeModelList().filter((m) => !deadFreeModels.has(m));
+  if (!models.length) throw new Error('No free model configured');
 
   const startKey = nextCursor(keyCursor, keys.length);
   const startModel = nextCursor(freeCursor, models.length);
   let lastErr: unknown;
+  let allRateLimited = true;
 
   for (let mi = 0; mi < models.length; mi++) {
     const model = models[(startModel + mi) % models.length];
@@ -361,15 +371,16 @@ async function callOpenCodeFree(prompt: string): Promise<string> {
           apiKey: key,
           baseURL: 'https://opencode.ai/zen/v1',
           maxRetries: 0,
-          timeout: 60_000,
+          timeout: 10_000,
         });
-        const res = await retryWithBackoff(async () => {
-          return await client.chat.completions.create({
-            model,
-            response_format: { type: 'json_object' },
-            temperature: 0.1,
-            messages: [{ role: 'user', content: prompt }],
-          });
+        // No retryWithBackoff and no response_format here: the free tier hangs
+        // on JSON-mode and quota-exhausted models stall if retried. One attempt
+        // per key×model with a short timeout keeps the cycle fast; the prompt
+        // already asks for JSON and callers extract it with a regex.
+        const res = await client.chat.completions.create({
+          model,
+          temperature: 0.1,
+          messages: [{ role: 'user', content: prompt }],
         });
         const content = res.choices?.[0]?.message?.content;
         if (!content) throw new Error(`Empty response from opencode-free (${model})`);
@@ -379,11 +390,19 @@ async function callOpenCodeFree(prompt: string): Promise<string> {
         const status =
           e?.status ??
           (Number(/API error (\d+)/.exec(e?.message ?? '')?.[1] ?? 0) || null);
-        // Hard client errors (400/403/422) mean the payload is bad â€” don't rotate.
+        // Hard client errors (400/403/422) mean the payload is bad — don't rotate.
         if (status !== null && !isRetryableFreeStatus(status)) throw e;
+        if (status === 401 || status === 404 || status === null || (status !== null && status >= 500)) {
+          deadFreeModels.add(model); // dead or hanging — stop re-probing it
+        }
+        if (status === 401 || status === null) deadFreeKeys.add(key); // invalid or hanging credential
+        if (status !== 429) allRateLimited = false;
       }
     }
   }
+  // Every candidate was rate-limited: stop using the free tier for the process
+  // so the paid chain can serve without re-probing the exhausted free tier.
+  if (allRateLimited) opencodeFreeRated = true;
   throw lastErr ?? new Error('All opencode free accounts/models failed');
 }
 
