@@ -53,9 +53,11 @@ insightsRouter.get("/papers", async (req, res) => {
   const params: any[] = [];
   if (q.category) { clauses.push("category = ?"); params.push(q.category); }
   if (q.pillar) { clauses.push("pillar = ?"); params.push(q.pillar); }
-  // research_papers holds ONLY Overlay's own research â€” the OpenAlex/PubMed
-  // reference pool lives in a separate `reference_papers` table and is never
-  // surfaced here. No source filter needed.
+  // Public surface: only real research. Hide leaked prompts that were stored as
+  // paper titles (deterministic fallback is internal), and the reference pool
+  // lives in `reference_papers` and is never surfaced here.
+  clauses.push("title NOT LIKE 'Ingest and process%'");
+  clauses.push("title NOT LIKE 'Return as JSON%'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
@@ -107,6 +109,12 @@ insightsRouter.get("/trends", async (req, res) => {
   const params: any[] = [];
   if (q.direction) { clauses.push("direction = ?"); params.push(q.direction); }
   if (q.evidence_tier) { clauses.push("evidence_tier = ?"); params.push(q.evidence_tier); }
+  // Public surface: hide internal operational monitoring (Cross-Domain Desk
+  // domain-risk / domain-state with from_domain=ops, stale heartbeats, job
+  // failures). Research is the Sports Science / Hemp / Biotech findings.
+  clauses.push("title NOT LIKE '%operational risk%'");
+  clauses.push("title NOT LIKE '%hypotheses, 0 validated%'");
+  clauses.push("(payload IS NULL OR payload NOT LIKE '%\"from_domain\":\"ops\"%')");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
@@ -142,6 +150,12 @@ insightsRouter.get("/discoveries", async (req, res) => {
   const params: any[] = [];
   if (q.evidence_tier) { clauses.push("evidence_tier = ?"); params.push(q.evidence_tier); }
   if (q.source) { clauses.push("source = ?"); params.push(q.source); }
+  // Public surface: hide internal hypotheses (inner-workings) and operational
+  // Cross-Domain Desk signals. Only measured research discoveries are public.
+  clauses.push("title NOT LIKE 'Research hypothesis:%'");
+  clauses.push("title NOT LIKE '%operational risk%'");
+  clauses.push("title NOT LIKE '%hypotheses, 0 validated%'");
+  clauses.push("(payload IS NULL OR payload NOT LIKE '%\"from_domain\":\"ops\"%')");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
@@ -170,21 +184,27 @@ insightsRouter.get("/discoveries", async (req, res) => {
 insightsRouter.get("/insights/feed", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100);
 
-  // research_papers = Overlay's own research only; reference pool is separate.
+  // Public feed: research_papers are Overlay's own research; operational
+  // Cross-Domain Desk signals and internal hypotheses are filtered out.
   const papers = await db.prepare(`
     SELECT 'paper' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, pillar as item_group, url as link, evidence_tier
     FROM research_papers
+    WHERE title NOT LIKE 'Ingest and process%' AND title NOT LIKE 'Return as JSON%'
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
   const trends = await db.prepare(`
     SELECT 'trend' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
-    FROM trends ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
+    FROM trends
+    WHERE title NOT LIKE '%operational risk%' AND title NOT LIKE '%hypotheses, 0 validated%' AND (payload IS NULL OR payload NOT LIKE '%"from_domain":"ops"%')
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
   const discoveries = await db.prepare(`
     SELECT 'discovery' as type, id, title, insight as summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
-    FROM discoveries ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
+    FROM discoveries
+    WHERE title NOT LIKE 'Research hypothesis:%' AND title NOT LIKE '%operational risk%' AND title NOT LIKE '%hypotheses, 0 validated%' AND (payload IS NULL OR payload NOT LIKE '%"from_domain":"ops"%')
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
   const items = [...papers, ...trends, ...discoveries]
