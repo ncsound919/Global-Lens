@@ -104,6 +104,24 @@ function fallbackPackage(topic: string): MetaphorPackage {
   };
 }
 
+function seededFallback(topic: string): MetaphorPackage {
+  const seeds = Array.from(seedProtocols().values());
+  if (!seeds.length) return fallbackPackage(topic);
+  const hash = crypto.createHash("sha256").update(topic).digest();
+  const idx = hash.readUInt32BE(0) % seeds.length;
+  const s = seeds[idx];
+  return {
+    topic,
+    protocol_id: s.protocol_id,
+    core_tension: s.core_tension,
+    mappings: s.mappings,
+    beat_structure: s.beat_structure,
+    codex_scores: null,
+    narrative: s.narrative,
+    lesson: s.lesson,
+  };
+}
+
 export async function getMetaphorCached(articleId: string): Promise<MetaphorPackage | null> {
   const row = await db.prepare("SELECT * FROM metaphors WHERE url_hash = ? LIMIT 1").get(articleId) as any;
   if (!row) return null;
@@ -201,7 +219,7 @@ export async function generateMetaphorForArticle(articleId: string): Promise<{ m
     if (!derived) return { metaphor: null, cached: false };
 
     const base = comicEngineBase();
-    if (!base) return { metaphor: fallbackPackage(derived.topic), cached: false };
+    if (!base) return { metaphor: seededFallback(derived.topic), cached: false };
 
     const mapping = await fetchJson(`${base}/api/map`, {
       topic: derived.topic,
@@ -210,13 +228,13 @@ export async function generateMetaphorForArticle(articleId: string): Promise<{ m
       top_k: 5,
     });
     const pkg = attachSeed(packageFromMapping(mapping, derived.topic));
-    if (!pkg.protocol_id) return { metaphor: fallbackPackage(derived.topic), cached: false };
+    if (!pkg.protocol_id) return { metaphor: seededFallback(derived.topic), cached: false };
     await saveMetaphor(pkg, articleId);
     return { metaphor: pkg, cached: false };
   } catch (e: any) {
     console.warn(`[metaphor] Engine unavailable for ${articleId}: ${e?.message}`);
     const topic = await safeTopicForArticle(articleId);
-    return { metaphor: fallbackPackage(topic), cached: false };
+    return { metaphor: seededFallback(topic), cached: false };
   }
 }
 
@@ -226,7 +244,7 @@ export async function generateMetaphorForTopic(topic: string): Promise<{ metapho
     if (cached) return { metaphor: cached, cached: true };
 
     const base = comicEngineBase();
-    if (!base) return { metaphor: fallbackPackage(topic), cached: false };
+    if (!base) return { metaphor: seededFallback(topic), cached: false };
 
     const mapping = await fetchJson(`${base}/api/map`, {
       topic,
@@ -235,12 +253,12 @@ export async function generateMetaphorForTopic(topic: string): Promise<{ metapho
       top_k: 5,
     });
     const pkg = attachSeed(packageFromMapping(mapping, topic));
-    if (!pkg.protocol_id) return { metaphor: fallbackPackage(topic), cached: false };
+    if (!pkg.protocol_id) return { metaphor: seededFallback(topic), cached: false };
     await saveMetaphor(pkg, null);
     return { metaphor: pkg, cached: false };
   } catch (e: any) {
     console.warn(`[metaphor] Engine unavailable for topic "${topic}": ${e?.message}`);
-    return { metaphor: fallbackPackage(topic), cached: false };
+    return { metaphor: seededFallback(topic), cached: false };
   }
 }
 

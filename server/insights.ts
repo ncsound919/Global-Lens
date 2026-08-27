@@ -81,7 +81,6 @@ insightsRouter.get("/papers", async (req, res) => {
     category: p.category,
     pillar: p.pillar,
     evidence_tier: p.evidence_tier,
-    payload: safeParse(p.payload, null),
     pub_date: p.pub_date,
   }));
 
@@ -228,13 +227,13 @@ insightsRouter.post("/metaphors/topic", metaphorLimiter, async (req, res) => {
   res.json({ metaphor, cached });
 });
 
-insightsRouter.post("/sync/research", syncLimiter, (req, res) => {
-  const result = syncResearchPapers();
+insightsRouter.post("/sync/research", syncLimiter, async (req, res) => {
+  const result = await syncResearchPapers();
   res.json({ success: true, ...result });
 });
 
-insightsRouter.post("/sync/trends", syncLimiter, (req, res) => {
-  const result = syncTrendsAndDiscoveries();
+insightsRouter.post("/sync/trends", syncLimiter, async (req, res) => {
+  const result = await syncTrendsAndDiscoveries();
   res.json({ success: true, ...result });
 });
 
@@ -274,7 +273,15 @@ insightsRouter.post("/sync/synthesis", syncLimiter, async (req, res) => {
 
 // Detect cross-domain signals across the whole ecosystem (all pillars): domain
 // state, translation bridges, coupled domains and operational cross-impact.
+// Restricted to operators — requires CRON_SECRET bearer or an authenticated session.
 insightsRouter.post("/sync/cross-domain", syncLimiter, async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = String(req.headers.authorization || "");
+  const hasCronSecret = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  const hasSession = !!(req as any).cookies?.bgl_session;
+  if (!hasCronSecret && !hasSession) {
+    return res.status(401).json({ detail: "unauthorized" });
+  }
   try {
     const result = await syncCrossDomainSignals();
     res.json({ success: true, ...result });

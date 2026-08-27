@@ -255,12 +255,12 @@ async function createApp() {
   // shared CRON_SECRET so fleet/downstream callers can trigger it too.
   // Registered BEFORE the SPA catch-all so /api/cron/sync is not swallowed.
   app.all("/api/cron/sync", async (_req, res) => {
-    if (_req.method !== "GET") {
-      const secret = process.env.CRON_SECRET;
-      const auth = String(_req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-      if (!secret || auth !== secret) {
-        return res.status(401).json({ detail: "unauthorized" });
-      }
+    const secret = process.env.CRON_SECRET;
+    const auth = String(_req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+    // Vercel Cron sends Authorization: Bearer <CRON_SECRET> automatically when
+    // CRON_SECRET is set. All callers (Vercel Cron, Draymond, manual) must auth.
+    if (!secret || auth !== secret) {
+      return res.status(401).json({ detail: "unauthorized" });
     }
     // Await the core syncs before responding — serverless functions are frozen
     // after the response, so fire-and-forget work would never complete.

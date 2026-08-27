@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, AlertTriangle, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import MetaphorBox from './MetaphorBox';
 import { MetaphorPackage } from '../types';
 
@@ -38,10 +38,6 @@ export default function ArticleModal({
 }) {
   const [backstory, setBackstory] = useState<BackstoryData | null>(null);
   const [loadingBackstory, setLoadingBackstory] = useState(false);
-  const [imageStyle, setImageStyle] = useState('photorealistic');
-  const [generatingImage, setGeneratingImage] = useState(false);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [generationError, setGenerationError] = useState<string | null>(null);
   const [metaphor, setMetaphor] = useState<MetaphorPackage | null>(null);
   const [loadingMetaphor, setLoadingMetaphor] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -154,92 +150,6 @@ export default function ArticleModal({
             </div>
           )}
           
-          <div className="mb-6 space-y-4">
-            <div className="flex items-center gap-4">
-              <button 
-                 onClick={async () => {
-                    setGeneratingImage(true);
-                    setGeneratedImageUrl(null);
-                    setGenerationError(null);
-                    try {
-                      const res = await fetch(`/api/news/${encodeURIComponent(articleId)}/generate-image`, { 
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ style: imageStyle })
-                      });
-                      const text = await res.text();
-                      let data;
-                      try {
-                        data = JSON.parse(text);
-                      } catch (parseErr) {
-                        throw new Error(text || "Failed to generate image (Invalid server response)");
-                      }
-                      if (res.ok && data?.imageUrl) {
-                         setGeneratedImageUrl(data.imageUrl);
-                      } else {
-                         setGenerationError(data?.error || "Failed to generate image");
-                      }
-                    } catch (err: any) {
-                      console.error("Image generation error:", err);
-                      setGenerationError(err?.message || "An error occurred while generating the image.");
-                    } finally {
-                      setGeneratingImage(false);
-                    }
-                 }}
-                 disabled={generatingImage}
-                 className="text-xs uppercase font-bold tracking-[0.2em] text-emerald-500 hover:text-emerald-300 disabled:text-zinc-400 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                 {generatingImage ? (
-                   <>
-                     <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-500" />
-                     <span>Generating Image...</span>
-                   </>
-                 ) : (
-                   <>
-                     <span>âœ¨ Generate {imageStyle} Image</span>
-                   </>
-                 )}
-              </button>
-              <select 
-                value={imageStyle}
-                onChange={(e) => setImageStyle(e.target.value)}
-                disabled={generatingImage}
-                className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-[0.2em] p-2 rounded cursor-pointer border border-zinc-700 focus-visible:ring-2 focus-visible:ring-amber-500/60 focus-visible:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="photorealistic">Photorealistic</option>
-                <option value="cyberpunk">Cyberpunk</option>
-                <option value="artistic">Artistic</option>
-                <option value="minimalist">Minimalist</option>
-              </select>
-            </div>
-
-            {generationError && (
-              <div className="bg-red-950/20 border border-red-900/30 text-red-400 text-xs p-3 rounded flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
-                <span>{generationError}</span>
-              </div>
-            )}
-
-            {generatedImageUrl && (
-              <div className="relative group bg-zinc-900 p-2 rounded-xl border border-zinc-800 overflow-hidden">
-                <img 
-                  src={generatedImageUrl} 
-                  alt="AI Generated Visualization" 
-                  referrerPolicy="no-referrer"
-                  className="w-full h-auto rounded-lg max-h-80 object-cover"
-                />
-                <button
-                  onClick={() => setGeneratedImageUrl(null)}
-                  className="absolute top-4 right-4 bg-black/80 hover:bg-black text-white p-1.5 rounded-full transition-colors"
-                  title="Dismiss image"
-                  aria-label="Dismiss generated image"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-
           {articleBody && (
             <div className="article-prose mb-8">
               {articleBody.split(/\n{2,}/).map((p, i) => (

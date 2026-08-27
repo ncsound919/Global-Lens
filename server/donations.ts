@@ -64,10 +64,13 @@ donateRouter.post("/checkout", async (req, res) => {
       (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")
     ).trim();
 
+    if (recurring && !process.env.STRIPE_PRICE_DONATE_RECURRING) {
+      return res.status(503).json({ error: "Recurring donations not configured" });
+    }
     const params: Stripe.Checkout.SessionCreateParams = recurring
       ? {
           mode: "subscription",
-          line_items: [{ price: process.env.STRIPE_PRICE_DONATE_RECURRING!, quantity: 1 }],
+          line_items: [{ price: process.env.STRIPE_PRICE_DONATE_RECURRING as string, quantity: 1 }],
           metadata: { campaign: "oncology" },
           success_url: `${appUrl}/?donated=1`,
           cancel_url: `${appUrl}/`,
@@ -100,7 +103,13 @@ donateRouter.post("/webhook", async (req, res) => {
     const event = new Stripe(secret).webhooks.constructEvent(req.body as Buffer, sig, webhookSecret);
     await handleDonationEvent(event);
     return res.status(200).json({ received: true });
-  } catch (e) {
+  } catch (e: any) {
+    // Invalid signature is a client error (400); Stripe will retry 500s forever
+    const isSignatureError = e?.message?.toLowerCase().includes('signature') || e?.type?.includes('SignatureVerification');
+    if (isSignatureError) {
+      console.warn("Donation webhook: invalid signature");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
     console.error("Donation webhook error:", e);
     return res.status(500).json({ error: "Webhook processing failed" });
   }

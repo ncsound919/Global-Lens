@@ -2,9 +2,9 @@
 import rateLimit from "express-rate-limit";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
-import db, { decrypt } from "./db.js";
+import db from "./db.js";
 import { getAuthSession } from "./api.js";
-import { getAvailableProviders, callAIQueued, generateImage } from "./aiService.js";
+import { getAvailableProviders, callAIQueued } from "./aiService.js";
 import { feeds } from "./feeds.js";
 
 export const newsRouter = express.Router();
@@ -18,7 +18,7 @@ const backstoryLimiter = rateLimit({
 });
 
 const NewsQuerySchema = z.object({
-  category: z.enum(["all", "global", "politics", "diaspora", "finance", "culture", "health", "music", "sports"]).catch("all"),
+  category: z.enum(["all", "global", "politics", "diaspora", "finance", "culture", "health", "music", "sports", "oncology"]).catch("all"),
   limit: z.coerce.number().min(1).max(50).catch(20),
   offset: z.coerce.number().min(0).catch(0)
 });
@@ -244,7 +244,11 @@ newsRouter.get("/:id/backstory", backstoryLimiter, async (req, res) => {
 
   const cache = await db.prepare('SELECT historical_backstory FROM article_backstory_cache WHERE url_hash = ?').get(articleId) as any;
   if (cache && cache.historical_backstory) {
-    return res.json(JSON.parse(cache.historical_backstory));
+    try {
+      return res.json(JSON.parse(cache.historical_backstory));
+    } catch {
+      // Corrupt cache row — fall through to regeneration
+    }
   }
 
   // If there's already an active generation promise for this article, await it.
@@ -328,7 +332,15 @@ newsRouter.get("/:id/backstory", backstoryLimiter, async (req, res) => {
       };
       
     } catch(e) {
-      // parse error
+      // parse error — leave backstoryJson as {}
+    }
+
+    const hasContent = backstoryJson && (
+      (typeof backstoryJson.the_past_roots === 'string' && backstoryJson.the_past_roots.trim().length > 20) ||
+      (Array.isArray(backstoryJson.timeline) && backstoryJson.timeline.length > 0)
+    );
+    if (!hasContent) {
+      throw new Error('Empty backstory response');
     }
 
     await db.prepare('INSERT OR REPLACE INTO article_backstory_cache (url_hash, historical_backstory) VALUES (?, ?)').run(
@@ -361,38 +373,4 @@ newsRouter.get("/:id/backstory", backstoryLimiter, async (req, res) => {
   }
 });
 
-newsRouter.post("/:id/generate-image", async (req, res) => {
-  const articleId = req.params.id;
-  const allowedStyles = ['photorealistic', 'cyberpunk', 'artistic', 'minimalist'];
-  const style = allowedStyles.includes(req.body.style) ? req.body.style : 'photorealistic';
-  const article = await db.prepare('SELECT original_title FROM articles WHERE url_hash = ?').get(articleId) as any;
-  if (!article) return res.status(404).json({ error: "Article not found" });
 
-  const session = await getAuthSession(req);
-  let settings: any = null;
-
-  if (session) {
-    settings = await db.prepare('SELECT gemini_api_key FROM user_settings WHERE owner_id = ?').get(session.user_id) as any;
-  } else {
-    const cookieVal = req.cookies?.bgl_guest_settings;
-    if (cookieVal) {
-      try {
-        const parsed = JSON.parse(cookieVal);
-        settings = {
-          gemini_api_key: parsed.encryptedGeminiApiKey
-        };
-      } catch (e) {
-        // Safe fallback
-      }
-    }
-  }
-  
-  try {
-    const decryptedKey = settings?.gemini_api_key ? (settings.gemini_api_key === "â€¢â€¢â€¢â€¢" || settings.gemini_api_key === "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" ? undefined : decrypt(settings.gemini_api_key)) : undefined;
-    const imageUrl = await generateImage(article.original_title, style, decryptedKey || undefined);
-    res.json({ imageUrl });
-  } catch (e: any) {
-    console.error("Image generation error:", e);
-    res.status(500).json({ error: e.message || "Failed to generate image" });
-  }
-});

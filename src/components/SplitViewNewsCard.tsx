@@ -94,8 +94,8 @@ const SplitViewNewsCard: React.FC<{
           <Byline desk={safe(article.category)} date={relativeTime(article.pub_date)} source={safe(article.source_name)} tone="bright" />
         </div>
 
-        {/* Hero image */}
-        {article.image_url && (
+        {/* Hero image — with editorial placeholder when the feed has no image */}
+        {article.image_url ? (
           <figure className="mt-8 mb-8">
             <div className="overflow-hidden rounded-sm border border-zinc-900 bg-zinc-950">
               <img
@@ -111,13 +111,17 @@ const SplitViewNewsCard: React.FC<{
                 <span className="font-bold uppercase tracking-[0.2em]">{safe(article.category).replace(/_/g, ' ')}</span>
                 {article.source_name && (
                   <>
-                    <span className="text-zinc-700">Â·</span>
+                    <span className="text-zinc-700">·</span>
                     <span>Image via {safe(article.source_name)}</span>
                   </>
                 )}
               </figcaption>
             )}
           </figure>
+        ) : (
+          <div className="mt-8 mb-8 flex h-40 items-center justify-center rounded-sm border border-dashed border-zinc-800 bg-zinc-950/50 text-zinc-600">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]">No image available</span>
+          </div>
         )}
 
         {/* Lede */}

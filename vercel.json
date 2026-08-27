@@ -3,7 +3,7 @@
   "version": 2,
   "builds": [
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
-    { "src": "api/index.ts", "use": "@vercel/node", "config": { "includeFiles": ["dist/**"], "maxDuration": 60 } }
+    { "src": "api/index.ts", "use": "@vercel/node", "config": { "includeFiles": ["dist/**", "scripts/seeds/business-marvel-protocols.json", "context/**"], "maxDuration": 60 } }
   ],
   "routes": [
     { "src": "/(.*)", "dest": "/api/index.ts" }

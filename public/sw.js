@@ -6,7 +6,13 @@ const URLS_TO_CACHE = [
   '/favicon.svg'
 ];
 
-const OFFLINE_RESPONSE = () =>
+const OFFLINE_HTML = () =>
+  new Response('<!doctype html><title>Offline</title><p style="font-family:sans-serif;padding:2rem">Offline: connection failed. Please check your connection and refresh.</p>', {
+    status: 503,
+    headers: { 'Content-Type': 'text/html' }
+  });
+
+const OFFLINE_TEXT = () =>
   new Response('Offline: connection failed.', {
     status: 503,
     headers: { 'Content-Type': 'text/plain' }
@@ -54,7 +60,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() =>
-          caches.match(event.request).then((cached) => cached || OFFLINE_RESPONSE())
+          caches.match(event.request).then((cached) => cached || OFFLINE_HTML())
         )
     );
     return;
@@ -80,7 +86,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => OFFLINE_RESPONSE());
+        .catch(() => OFFLINE_TEXT());
     })
   );
 });

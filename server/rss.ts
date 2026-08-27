@@ -215,10 +215,10 @@ export async function syncRSSNews() {
       console.warn(`[rss] Image backfill failed: ${e.message}`);
     }
 
-    // Prune articles older than 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const pruneInfo = await db.prepare("DELETE FROM articles WHERE created_at < ?").run(thirtyDaysAgo.toISOString());
+    // Prune articles older than 30 days — use SQLite's datetime() so the
+    // comparison format matches CURRENT_TIMESTAMP (YYYY-MM-DD HH:MM:SS UTC)
+    // on both better-sqlite3 and Turso/libSQL.
+    const pruneInfo = await db.prepare("DELETE FROM articles WHERE created_at < datetime('now', '-30 days')").run();
     if (pruneInfo.changes > 0) {
        console.log(`Pruned ${pruneInfo.changes} legacy articles.`);
     }

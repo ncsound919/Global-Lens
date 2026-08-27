@@ -87,9 +87,11 @@ export default function App() {
   }, [pageTitle]);
 
   const fetchInsights = useCallback(
-    async (v: ContentView, mode: 'initial' | 'refresh' = 'initial') => {
-      setInsightError('');
-      setInsightStatus(insightLoadedRef.current ? 'refreshing' : 'loading');
+    async (v: ContentView, mode: 'initial' | 'refresh' = 'initial', background = false) => {
+      if (!background) {
+        setInsightError('');
+        setInsightStatus(insightLoadedRef.current ? 'refreshing' : 'loading');
+      }
 
       const endpoint =
         v === 'papers' ? '/api/papers?limit=24' : v === 'trends' ? '/api/trends?limit=24' : v === 'discoveries' ? '/api/discoveries?limit=24' : '/api/papers?pillar=environment&limit=24';
@@ -104,12 +106,19 @@ export default function App() {
         if (v === 'papers') setPapers(Array.isArray(data?.papers) ? data.papers : []);
         if (v === 'trends') setTrends(Array.isArray(data?.trends) ? data.trends : []);
         if (v === 'discoveries') setDiscoveries(Array.isArray(data?.discoveries) ? data.discoveries : []);
-        insightLoadedRef.current = true;
-        setInsightStatus('success');
+        if (!background) {
+          insightLoadedRef.current = true;
+          setInsightStatus('success');
+        } else if (v === 'papers') {
+          // Background prefetch still marks loaded so the rail's loading state resolves
+          insightLoadedRef.current = true;
+        }
       } catch (err: any) {
         console.error(err);
-        setInsightStatus('error');
-        setInsightError('The research desk could not be reached right now.');
+        if (!background) {
+          setInsightStatus('error');
+          setInsightError('The research desk could not be reached right now.');
+        }
       }
     },
     []
@@ -122,10 +131,11 @@ export default function App() {
   }, [view, fetchInsights]);
 
   // Prefetch research content on mount so the front-page Research Desk rail has data.
+  // Background prefetches don't touch the global insightStatus to avoid races.
   useEffect(() => {
-    fetchInsights('papers');
-    fetchInsights('trends');
-    fetchInsights('discoveries');
+    fetchInsights('papers', 'initial', true);
+    fetchInsights('trends', 'initial', true);
+    fetchInsights('discoveries', 'initial', true);
   }, [fetchInsights]);
 
   const fetchNews = useCallback(

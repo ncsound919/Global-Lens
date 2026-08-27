@@ -8,7 +8,7 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.mjs",
     "start": "node dist/server.mjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rimraf dist",
     "lint": "tsc --noEmit",
     "test": "node --import tsx --import ./server/test-preload.js --test"
   },
@@ -57,6 +57,7 @@
     "esbuild": "^0.25.0",
     "lucide-react": "^1.21.0",
     "tailwindcss": "^4.1.14",
+    "rimraf": "^6.0.1",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"

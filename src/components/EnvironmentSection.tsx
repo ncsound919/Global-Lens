@@ -29,7 +29,7 @@ interface EnvironmentSectionProps {
 }
 
 export default function EnvironmentSection({ papers, status, error, onOpenPaper, onRefresh }: EnvironmentSectionProps) {
-  const bySector = (sector: string) => papers.filter((p) => p.id === `synthesis-${sector}` || String(p.id).startsWith(sector));
+  const bySector = (sector: string) => papers.filter((p) => String(p.id).includes(sector));
   const sectorsWithPapers = ENVIRONMENT_SECTORS.filter((s) => bySector(s.key).length > 0);
   const noSectors = sectorsWithPapers.length === 0;
 

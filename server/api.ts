@@ -125,12 +125,22 @@ apiRouter.get("/health", async (req, res) => {
   }
 });
 
-apiRouter.post("/sync", syncLimiter, (req, res) => {
-  syncRSSNews();
+apiRouter.post("/sync", syncLimiter, async (req, res) => {
   res.json({ success: true, message: "Sync started" });
+  // Run after response so the request returns immediately. On Vercel, background
+  // work after res.json is not guaranteed — use GET /api/cron/sync (awaited) for
+  // serverless cron instead. This route is for manual local triggers.
+  syncRSSNews().catch((e) => console.error("Manual sync failed:", e));
 });
 
 apiRouter.get("/feeds/health", async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  const authHeader = String(req.headers.authorization || "");
+  const hasCronSecret = secret && authHeader === `Bearer ${secret}`;
+  const hasSession = !!(req as any).cookies?.bgl_session;
+  if (!hasCronSecret && !hasSession) {
+    return res.status(401).json({ detail: "unauthorized" });
+  }
   res.json({ health: await getFeedHealth() });
 });
 

@@ -4,8 +4,10 @@ import { safe, relativeTime, tierBadgeClasses, formatConfidence } from '../lib/f
 
 export default function TrendCard({ trend, onOpen }: { trend: TrendProps; onOpen?: () => void }) {
   const dir = (trend.direction || 'flat').toLowerCase();
-  const DirectionIcon = dir === 'up' ? TrendingUp : dir === 'down' ? TrendingDown : Minus;
-  const dirColor = dir === 'up' ? 'text-emerald-400' : dir === 'down' ? 'text-red-400' : 'text-zinc-400';
+  const isUp = dir === 'up' || dir === 'rising' || dir === 'building' || dir === 'exploring';
+  const isDown = dir === 'down' || dir === 'falling';
+  const DirectionIcon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
+  const dirColor = isUp ? 'text-emerald-400' : isDown ? 'text-red-400' : 'text-zinc-400';
   const slope = typeof trend.slope === 'number' && !isNaN(trend.slope) ? trend.slope.toFixed(3) : null;
 
   return (
