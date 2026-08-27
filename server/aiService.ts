@@ -1,11 +1,11 @@
-import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
-import db from "./db";
+﻿import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+import db from "./db.js";
 import fs from "fs";
 import path from "path";
-import { ArticleProps } from "../src/types";
+import type { ArticleProps } from "../src/types";
 import PQueueMod from 'p-queue';
 import OpenAI from 'openai';
-import { loadEcosystemEnv } from './ecosystemEnv';
+import { loadEcosystemEnv } from './ecosystemEnv.js';
 loadEcosystemEnv();
 
 // Exponential backoff helper with random jitter
@@ -94,16 +94,20 @@ const PQueue = (PQueueMod as any).default || PQueueMod;
 const aiQueue = new PQueue({ concurrency: 1, intervalCap: 12, interval: 60000 });
 
 // ============================================================================
-// LLM lineup — mirrors the ecosystem's canonical provider chain
-// (Draymond-Orchestrator/src/lib/draymond/llm.ts). Free tier first, then paid
-// Go tier, then direct providers, then local Ollama. Global Lens uses the same
-// keys, endpoints, and fallback order as every other Overlay365 service.
+// LLM lineup â€” mirrors the ecosystem's canonical provider chain
+// (Draymond-Orchestrator/src/lib/draymond/llm.ts). Free tiers first (OpenCode
+// Zen free cycling the Keywire account pool + free-model catalog, then
+// OpenRouter free), then local Ollama, then the paid Go tier, direct providers.
+// DeepSeek direct is PAID now (no longer free) â€” last resort only. Global Lens
+// uses the same keys, endpoints, and fallback order as every other Overlay365
+// service.
 // ============================================================================
 
 type AIProvider =
   | 'opencode-free'
-  | 'opencode'
+  | 'openrouter'
   | 'deepseek'
+  | 'opencode'
   | 'gemini'
   | 'ollama'
   | 'openai'
@@ -111,9 +115,13 @@ type AIProvider =
   | 'qwen';
 
 const PROVIDER_URLS: Record<AIProvider, string> = {
+  // Primary â€” OpenCode Zen free tier. Data-driven model + account pool; muse
+  // is the bootstrap default until the catalog (model-routing.json) publishes
+  // otherwise. Paid Go tier (deepseek-v4-flash) stays as a fallback below.
   'opencode-free': 'https://opencode.ai/zen/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  deepseek: process.env.DEEPSEEK_URL || 'https://api.deepseek.com/v1/chat/completions',
   opencode: 'https://opencode.ai/zen/go/v1/chat/completions',
-  deepseek: 'https://api.deepseek.com/v1/chat/completions',
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models',
   ollama: 'http://localhost:11434/v1/chat/completions',
   openai: 'https://api.openai.com/v1/chat/completions',
@@ -121,15 +129,16 @@ const PROVIDER_URLS: Record<AIProvider, string> = {
   qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
 };
 
-/** OpenAI SDK base URL — the SDK appends `/chat/completions` itself. */
+/** OpenAI SDK base URL â€” the SDK appends `/chat/completions` itself. */
 function sdkBaseUrl(provider: AIProvider): string {
   return PROVIDER_URLS[provider].replace(/\/chat\/completions$/, '');
 }
 
 const PROVIDER_ENV: Record<AIProvider, string> = {
-  'opencode-free': 'OPENCODE_API_KEY',
-  opencode: 'OPENCODE_API_KEY',
+  'opencode-free': 'OPENCODE_API_KEY', // pool fallback; see opencodeFreeKeys()
+  openrouter: 'OPENROUTER_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
+  opencode: 'OPENCODE_API_KEY',
   gemini: 'GEMINI_API_KEY',
   ollama: 'OLLAMA_ENABLED',
   openai: 'OPENAI_API_KEY',
@@ -137,10 +146,19 @@ const PROVIDER_ENV: Record<AIProvider, string> = {
   qwen: 'QWEN_API_KEY',
 };
 
+/** Bootstrap default until the Keywire-maintained catalog publishes the list. */
+const DEFAULT_FREE_MODEL = 'muse-spark-1.2-contributor-free';
+const OPENROUTER_DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning:free';
+
 const DEFAULT_MODELS: Record<AIProvider, string> = {
-  'opencode-free': 'deepseek-v4-flash-free',
+  // Zen free tier â€” current catalog winner by default; callProvider() resolves
+  // the live model set from ASSIGNED_FREE_MODEL / FREE_MODEL_LIST.
+  'opencode-free': DEFAULT_FREE_MODEL,
+  openrouter: process.env.OPENROUTER_FREE_MODEL || OPENROUTER_DEFAULT_MODEL,
+  // Direct api.deepseek.com serves `deepseek-chat` â€” `deepseek-v4-flash` is an
+  // opencode-only model id and returns empty/errors here.
+  deepseek: 'deepseek-chat',
   opencode: 'deepseek-v4-flash',
-  deepseek: 'deepseek-v4-flash',
   gemini: 'gemini-3.5-flash',
   ollama: 'llama3.2:1b',
   openai: 'gpt-4o-mini',
@@ -148,20 +166,69 @@ const DEFAULT_MODELS: Record<AIProvider, string> = {
   qwen: 'qwen-plus',
 };
 
-/** Canonical fallback order used across the ecosystem. */
+/** Canonical fallback order used across the ecosystem. Free + local tiers first, paid last. */
 const FALLBACK_ORDER: AIProvider[] = [
   'opencode-free',
+  'openrouter',
+  'ollama',
   'opencode',
   'deepseek',
   'gemini',
-  'ollama',
   'openai',
   'anthropic',
   'qwen',
 ];
 
+// â”€â”€ OpenCode Zen free tier: account Ã— free-model cycling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Data-driven â€” never hard-married to one model id. In the fleet, ecosystemEnv
+// inherits the catalog (assignedFreeModel + freeModelList) and the Keywire
+// account key pool from Draymond; standalone deploys set them via env directly.
+// The runtime rotates the starting account/model per call and retries across
+// accounts then models on retryable statuses, so quota spreads over every
+// opencode account and survives a free model being rotated out upstream.
+
+const OPENCODE_KEY_NAMES = [
+  'OPENCODE_KEY_TAP919BEATS',
+  'OPENCODE_KEY_NCSOUND919',
+  'OPENCODE_KEY_TAP4500',
+  'OPENCODE_API_KEY',
+  'OPENCODE_KEY_JOHNREDD', // operator's personal account â€” last resort only
+];
+
+function opencodeFreeKeys(): string[] {
+  const names = (process.env.OPENCODE_KEY_POOL || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const pool = names.length ? names : OPENCODE_KEY_NAMES;
+  return pool
+    .map((n) => process.env[n])
+    .filter((v): v is string => !!v && v.trim() !== '');
+}
+
+function freeModelList(): string[] {
+  const assigned = process.env.ASSIGNED_FREE_MODEL || DEFAULT_FREE_MODEL;
+  const envList = (process.env.FREE_MODEL_LIST || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const list = envList.length ? envList : [assigned];
+  return [...new Set([assigned, ...list])];
+}
+
+let freeCursor = { value: 0 };
+let keyCursor = { value: 0 };
+
+function nextCursor(cursor: { value: number }, len: number): number {
+  if (len <= 0) return 0;
+  const i = cursor.value % len;
+  cursor.value = i + 1;
+  return i;
+}
+
 function providerConfigured(p: AIProvider): boolean {
   if (p === 'ollama') return !!process.env.OLLAMA_ENABLED;
+  if (p === 'opencode-free') return opencodeFreeKeys().length > 0;
   const key = process.env[PROVIDER_ENV[p]];
   return !!key && key.length > 10 && !key.includes('API_KEY');
 }
@@ -173,11 +240,19 @@ export const getAvailableProviders = (): AIProvider[] => {
 export const callAIQueued = (prompt: string) => aiQueue.add(() => callAIConfigured(prompt));
 
 // After opencode-free returns a rate-limit error once, skip it for subsequent
-// calls in this process — each retry otherwise wastes ~7s before the Go tier.
+// calls in this process â€” each retry otherwise wastes ~7s before the Go tier.
 let opencodeFreeRated = false;
+// Same treatment for the paid Go `opencode` tier: once it rate-limits, skip it
+// for the rest of the process and fall straight to deepseek/gemini. This keeps
+// the daily editorial/synthesis syncs fast when the opencode gateway throttles.
+let opencodeRated = false;
 
 /** Single-provider JSON-capable text call. Throws on failure so the chain retries. */
 async function callProvider(provider: AIProvider, prompt: string): Promise<string> {
+  // OpenCode Zen free tier is data-driven: it cycles the Keywire account pool
+  // and the free-model catalog instead of a single key/model.
+  if (provider === 'opencode-free') return callOpenCodeFree(prompt);
+
   const apiKey = process.env[PROVIDER_ENV[provider]] || '';
   const model = DEFAULT_MODELS[provider];
 
@@ -231,20 +306,24 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
   }
 
   // OpenAI-compatible providers (opencode-free, opencode, deepseek, ollama, openai, qwen).
-  // maxRetries: 0 — the OpenAI SDK's built-in retry can hang forever against the
+  // maxRetries: 0 â€” the OpenAI SDK's built-in retry can hang forever against the
   // opencode gateway on a 429. Our retryWithBackoff already handles retries.
   const client = new OpenAI({
     apiKey: provider === 'ollama' ? 'ollama' : apiKey,
     baseURL: sdkBaseUrl(provider),
     maxRetries: 0,
-    timeout: 60_000,
+    // OpenRouter free tier is slow/empty when quotas are tapped — cap it so a
+    // dead tier doesn't stall the chain; everything else keeps the full window.
+    timeout: provider === 'openrouter' ? 12_000 : 60_000,
   });
   const res = await retryWithBackoff(async () => {
     return await client.chat.completions.create({
       model,
       ...(provider === 'ollama'
         ? { format: 'json' as const }
-        : { response_format: { type: 'json_object' as const } }),
+        : provider === 'openrouter'
+          ? {}
+          : { response_format: { type: 'json_object' as const } }),
       temperature: 0.1,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -252,6 +331,79 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
   const content = res.choices?.[0]?.message?.content;
   if (!content) throw new Error(`Empty response from ${provider}`);
   return content;
+}
+
+// â”€â”€ OpenCode Zen free tier: account Ã— free-model cycling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Rotates the starting account/model round-robin per call and retries across
+// accounts then models on retryable statuses (429/401/404/5xx/network), so the
+// free quota spreads over every opencode account and survives a free model
+// being rotated out upstream. Only the assigned model is tried per account on
+// the first pass; remaining free models are reached after all accounts fail.
+
+function isRetryableFreeStatus(status: number | null): boolean {
+  if (status === null) return true;
+  return status === 429 || status === 401 || status === 404 || status >= 500;
+}
+
+// Per-process circuit breakers: a model that 500s/401s or a key that 401s is
+// dead for this process — skip it instantly instead of re-probing every call.
+// Free-tier quota exhaustion (429) also marks the model for the process.
+const deadFreeModels = new Set<string>();
+const deadFreeKeys = new Set<string>();
+
+async function callOpenCodeFree(prompt: string): Promise<string> {
+  const keys = opencodeFreeKeys().filter((k) => !deadFreeKeys.has(k));
+  if (!keys.length) throw new Error('No opencode free key configured');
+  const models = freeModelList().filter((m) => !deadFreeModels.has(m));
+  if (!models.length) throw new Error('No free model configured');
+
+  const startKey = nextCursor(keyCursor, keys.length);
+  const startModel = nextCursor(freeCursor, models.length);
+  let lastErr: unknown;
+  let allRateLimited = true;
+
+  for (let mi = 0; mi < models.length; mi++) {
+    const model = models[(startModel + mi) % models.length];
+    for (let ki = 0; ki < keys.length; ki++) {
+      const key = keys[(startKey + ki) % keys.length];
+      try {
+        const client = new OpenAI({
+          apiKey: key,
+          baseURL: 'https://opencode.ai/zen/v1',
+          maxRetries: 0,
+          timeout: 30_000,
+        });
+        // No retryWithBackoff and no response_format here: the free tier hangs
+        // on JSON-mode and quota-exhausted models stall if retried. One attempt
+        // per key×model with a short timeout keeps the cycle fast; the prompt
+        // already asks for JSON and callers extract it with a regex.
+        const res = await client.chat.completions.create({
+          model,
+          temperature: 0.1,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        const content = res.choices?.[0]?.message?.content;
+        if (!content) throw new Error(`Empty response from opencode-free (${model})`);
+        return content;
+      } catch (e: any) {
+        lastErr = e;
+        const status =
+          e?.status ??
+          (Number(/API error (\d+)/.exec(e?.message ?? '')?.[1] ?? 0) || null);
+        // Hard client errors (400/403/422) mean the payload is bad — don't rotate.
+        if (status !== null && !isRetryableFreeStatus(status)) throw e;
+        if (status === 401 || status === 404 || status === null || (status !== null && status >= 500)) {
+          deadFreeModels.add(model); // dead or hanging — stop re-probing it
+        }
+        if (status === 401 || status === null) deadFreeKeys.add(key); // invalid or hanging credential
+        if (status !== 429) allRateLimited = false;
+      }
+    }
+  }
+  // Every candidate was rate-limited: stop using the free tier for the process
+  // so the paid chain can serve without re-probing the exhausted free tier.
+  if (allRateLimited) opencodeFreeRated = true;
+  throw lastErr ?? new Error('All opencode free accounts/models failed');
 }
 
 export const callAIConfigured = async (prompt: string): Promise<string | null> => {
@@ -262,6 +414,7 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
 
   for (const provider of providers) {
     if (provider === 'opencode-free' && opencodeFreeRated) continue;
+    if (provider === 'opencode' && opencodeRated) continue;
     try {
       return await callProvider(provider, prompt);
     } catch (e: any) {
@@ -272,6 +425,7 @@ export const callAIConfigured = async (prompt: string): Promise<string | null> =
         e?.message?.includes('rate limit') || e?.message?.includes('Rate limit') ||
         e?.message?.includes('insufficient balance');
       if (provider === 'opencode-free' && isRateLimit) opencodeFreeRated = true;
+      if (provider === 'opencode' && isRateLimit) opencodeRated = true;
       console.warn(JSON.stringify({
         severity: 'WARNING',
         message: `AI provider ${provider} failed.`,
@@ -314,11 +468,11 @@ function getContext(lensFile: string) {
 }
 
 export async function processRawArticleForConfig(article: any, readingMode: string, lensIntensity: string) {
-  const existing = db.prepare('SELECT 1 FROM article_ai_cache WHERE url_hash = ? AND reading_mode = ? AND lens_intensity = ?').get(article.url_hash, readingMode, lensIntensity);
+  const existing = await db.prepare('SELECT 1 FROM article_ai_cache WHERE url_hash = ? AND reading_mode = ? AND lens_intensity = ?').get(article.url_hash, readingMode, lensIntensity);
   if (existing) return;
 
   if (readingMode === 'raw') {
-    db.prepare(`
+    await db.prepare(`
       INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data, article_body)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(article.url_hash, readingMode, lensIntensity, article.original_title, article.original_text_dump, "Raw dispatch. No AI analysis.", JSON.stringify([]), JSON.stringify([]), null, article.original_text_dump);
@@ -332,8 +486,6 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     // Split into sentences using a simple punctuation regex, keeping longer sentences.
     const sentences = content.split(/[.?!]\s+/).filter((s: string) => s.length > 20);
     const summary = sentences.slice(0, 2).join(". ") + (sentences.length > 0 ? "." : "");
-
-    const takeaways = sentences.slice(0, 3).map((s: string) => s + ".");
 
     let structuralAnalysis = "This article covers global events from a traditional news perspective.";
     let whatItMeans = ["This issue warrants further community observation."];
@@ -363,6 +515,9 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       ? content.slice(0, 1200).split(/\n{2,}/).filter(Boolean).slice(0, 3)
       : ["Details are developing."];
 
+    // Deterministic takeaways: up to 4 scannable sentences from the report.
+    const takeaways = sentences.slice(0, 4).map((s: string) => s + ".");
+
     return {
       reframed_headline: title,
       reframed_summary: summary || "Content analysis naturally derived from current reporting.",
@@ -374,10 +529,10 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
     };
   };
 
-  const insertDeterministicFallback = () => {
+  const insertDeterministicFallback = async () => {
      try {
        const fb = generateDeterministicFallback(article, readingMode, lensIntensity);
-       db.prepare(`
+       await db.prepare(`
          INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data, article_body)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        `).run(
@@ -411,7 +566,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
 
       const prompt = `
       You are the senior writer at Overlay Global Lens, a premium news publication owned by Overlay365.
-      You write clean, professional journalism that reads like a normal news outlet — NOT a fact sheet.
+      You write clean, professional journalism that reads like a normal news outlet â€” NOT a fact sheet.
 
       STYLE RULES:
       - The "lede" is one tight sentence that hooks the reader and states what happened.
@@ -420,6 +575,8 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
       - The "analysis" is ONE short paragraph that steps back and interprets the story under the assigned lens.
       - Every paragraph must be grounded in the supplied source text. Do NOT invent facts, names, or quotes.
       - Do not open with phrases like "In a world where". Write straight, factual journalism.
+      - "key_takeaways" must be 4 to 5 SHORT, scannable, distinct points (10-18 words each) that capture the
+        most important facts a reader should remember. Each must be a complete sentence. Do not number them.
 
       BACKGROUND CONTEXT:
       ${contextContent}
@@ -443,7 +600,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
          "reframed_summary": "The lede: one tight, hooking sentence.",
          "article_body": "Paragraph one.\n\nParagraph two.\n\nParagraph three.\n\nParagraph four.",
          "cultural_lens_analysis": "One short interpretation paragraph under the assigned lens.",
-         "key_takeaways": ["point 1", "point 2", "point 3"],
+         "key_takeaways": ["point 1", "point 2", "point 3", "point 4", "point 5"],
          "what_this_means_for_us": ["community point 1", "community point 2"],
          "is_safe": true,
          "verification_warning": null,
@@ -467,7 +624,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
 
         if (aiResponse.is_safe === false) {
            console.warn(`[Content Moderation] Article filtered out: ${article.url_hash}. Warning: ${aiResponse.verification_warning}`);
-           db.prepare('UPDATE articles SET is_moderated = 1 WHERE url_hash = ?').run(article.url_hash);
+           await db.prepare('UPDATE articles SET is_moderated = 1 WHERE url_hash = ?').run(article.url_hash);
            return;
         }
 
@@ -497,7 +654,7 @@ export async function processRawArticleForConfig(article: any, readingMode: stri
           : [];
         const articleBody = aiResponse.article_body || aiResponse.reframed_summary || article.original_text_dump?.substring(0, 600) || "";
 
-      db.prepare(`
+      await db.prepare(`
         INSERT OR REPLACE INTO article_ai_cache (url_hash, reading_mode, lens_intensity, reframed_headline, reframed_summary, cultural_lens_analysis, key_takeaways, what_this_means_for_us, statistical_data, article_body)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(

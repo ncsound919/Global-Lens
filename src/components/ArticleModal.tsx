@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, ImageIcon, AlertTriangle, X } from 'lucide-react';
+﻿import { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import MetaphorBox from './MetaphorBox';
 import { MetaphorPackage } from '../types';
 
@@ -23,6 +23,7 @@ export default function ArticleModal({
   simplifiedText, 
   headline,
   articleBody,
+  takeaways,
   initialScroll = 0,
   onScrollChange
 }: { 
@@ -31,26 +32,31 @@ export default function ArticleModal({
   simplifiedText: string, 
   headline: string,
   articleBody?: string,
+  takeaways?: string[],
   initialScroll?: number,
   onScrollChange?: (val: number) => void
 }) {
   const [backstory, setBackstory] = useState<BackstoryData | null>(null);
   const [loadingBackstory, setLoadingBackstory] = useState(false);
-  const [imageStyle, setImageStyle] = useState('photorealistic');
-  const [generatingImage, setGeneratingImage] = useState(false);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [generationError, setGenerationError] = useState<string | null>(null);
   const [metaphor, setMetaphor] = useState<MetaphorPackage | null>(null);
   const [loadingMetaphor, setLoadingMetaphor] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Focus and handle Escape key
+  // Focus the dialog, lock background scroll, and handle Escape key
   useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [onClose]);
 
   // Fetch the deep context asset only when the user opens the story view
@@ -109,108 +115,45 @@ export default function ArticleModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex justify-end z-50 animate-fade-in">
-      <div 
+      <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        role="dialog"
+        aria-modal="true"
+        aria-label={headline}
         className="w-full max-w-2xl bg-zinc-950/90 border-l border-zinc-800 h-full overflow-y-auto p-8 shadow-2xl flex flex-col justify-between"
       >
         
         <div>
-          <button onClick={onClose} className="text-xs uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors">
-            <span className="text-lg">←</span> Back to the story
+          <button
+            ref={closeButtonRef}
+            onClick={onClose}
+            className="text-xs uppercase font-bold tracking-[0.2em] text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <span className="text-lg">â†</span> Back to the story
           </button>
           
-          <h1 className="text-3xl font-serif text-white mb-6 leading-tight">{headline}</h1>
-          
-          <div className="mb-6 space-y-4">
-            <div className="flex items-center gap-4">
-              <button 
-                 onClick={async () => {
-                    setGeneratingImage(true);
-                    setGeneratedImageUrl(null);
-                    setGenerationError(null);
-                    try {
-                      const res = await fetch(`/api/news/${encodeURIComponent(articleId)}/generate-image`, { 
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ style: imageStyle })
-                      });
-                      const text = await res.text();
-                      let data;
-                      try {
-                        data = JSON.parse(text);
-                      } catch (parseErr) {
-                        throw new Error(text || "Failed to generate image (Invalid server response)");
-                      }
-                      if (res.ok && data?.imageUrl) {
-                         setGeneratedImageUrl(data.imageUrl);
-                      } else {
-                         setGenerationError(data?.error || "Failed to generate image");
-                      }
-                    } catch (err: any) {
-                      console.error("Image generation error:", err);
-                      setGenerationError(err?.message || "An error occurred while generating the image.");
-                    } finally {
-                      setGeneratingImage(false);
-                    }
-                 }}
-                 disabled={generatingImage}
-                 className="text-xs uppercase font-bold tracking-widest text-emerald-500 hover:text-emerald-300 disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                 {generatingImage ? (
-                   <>
-                     <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-500" />
-                     <span>Generating Image...</span>
-                   </>
-                 ) : (
-                   <>
-                     <span>✨ Generate {imageStyle} Image</span>
-                   </>
-                 )}
-              </button>
-              <select 
-                value={imageStyle}
-                onChange={(e) => setImageStyle(e.target.value)}
-                disabled={generatingImage}
-                className="bg-zinc-800 text-zinc-300 text-xs uppercase font-bold tracking-widest p-2 rounded cursor-pointer outline-none border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="photorealistic">Photorealistic</option>
-                <option value="cyberpunk">Cyberpunk</option>
-                <option value="artistic">Artistic</option>
-                <option value="minimalist">Minimalist</option>
-              </select>
+          <h1 className="text-3xl font-serif text-white mb-4 leading-tight sm:text-4xl">{headline}</h1>
+
+          {/* Key takeaways strip */}
+          {takeaways && takeaways.length > 0 && (
+            <div className="mb-6 rounded-sm border-l-2 border-amber-500/70 bg-zinc-900/60 p-4">
+              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-amber-500 block mb-3">Key Takeaways</span>
+              <ul className="space-y-2">
+                {takeaways.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-[13px] leading-relaxed text-zinc-300">
+                    <span className="mt-0.5 shrink-0 text-amber-500 font-mono text-[10px] font-bold">{idx + 1}.</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-
-            {generationError && (
-              <div className="bg-red-950/20 border border-red-900/30 text-red-400 text-xs p-3 rounded flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
-                <span>{generationError}</span>
-              </div>
-            )}
-
-            {generatedImageUrl && (
-              <div className="relative group bg-zinc-900 p-2 rounded-xl border border-zinc-800 overflow-hidden">
-                <img 
-                  src={generatedImageUrl} 
-                  alt="AI Generated Visualization" 
-                  referrerPolicy="no-referrer"
-                  className="w-full h-auto rounded-lg max-h-80 object-cover"
-                />
-                <button 
-                  onClick={() => setGeneratedImageUrl(null)} 
-                  className="absolute top-4 right-4 bg-black/80 hover:bg-black text-white p-1.5 rounded-full transition-colors"
-                  title="Dismiss image"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-
+          )}
+          
           {articleBody && (
-            <div className="mb-8 space-y-4">
+            <div className="article-prose mb-8">
               {articleBody.split(/\n{2,}/).map((p, i) => (
-                <p key={i} className="text-[15px] leading-[1.75] text-zinc-200">{p}</p>
+                <p key={i}>{p}</p>
               ))}
             </div>
           )}
@@ -242,13 +185,13 @@ export default function ArticleModal({
               <div className="space-y-8 text-sm">
                 <div>
                   <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">The Roots</h4>
-                  <p className="text-zinc-300 left-relaxed text-[15px]">{safe(backstory.the_past_roots)}</p>
+                  <p className="text-zinc-300 leading-relaxed text-[15px]">{safe(backstory.the_past_roots)}</p>
                 </div>
 
                 {backstory.ongoing_players && (
                   <div>
                     <h4 className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">Key Players</h4>
-                    <p className="text-zinc-300 left-relaxed text-[15px]">{safe(backstory.ongoing_players)}</p>
+                    <p className="text-zinc-300 leading-relaxed text-[15px]">{safe(backstory.ongoing_players)}</p>
                   </div>
                 )}
 

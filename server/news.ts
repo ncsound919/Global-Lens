@@ -1,11 +1,11 @@
-import express from "express";
+﻿import express from "express";
 import rateLimit from "express-rate-limit";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
-import db, { decrypt } from "./db";
-import { getAuthSession } from "./api";
-import { getAvailableProviders, callAIQueued, generateImage } from "./aiService";
-import { feeds } from "./feeds";
+import db from "./db.js";
+import { getAuthSession } from "./api.js";
+import { getAvailableProviders, callAIQueued } from "./aiService.js";
+import { feeds } from "./feeds.js";
 
 export const newsRouter = express.Router();
 
@@ -18,18 +18,18 @@ const backstoryLimiter = rateLimit({
 });
 
 const NewsQuerySchema = z.object({
-  category: z.enum(["all", "global", "politics", "diaspora", "finance", "culture", "health", "music", "sports"]).catch("all"),
+  category: z.enum(["all", "global", "politics", "diaspora", "finance", "culture", "health", "music", "sports", "oncology"]).catch("all"),
   limit: z.coerce.number().min(1).max(50).catch(20),
   offset: z.coerce.number().min(0).catch(0)
 });
 
-newsRouter.get("/:id/share", (req, res) => {
+newsRouter.get("/:id/share", async (req, res) => {
   const articleId = req.params.id;
   const isValidId = /^[a-zA-Z0-9\-_]{10,128}$/.test(articleId);
   if (!isValidId) {
     return res.status(400).send('Invalid article ID');
   }
-  const article = db.prepare(`
+  const article = await db.prepare(`
     SELECT a.original_url, a.image_url, a.source_name, a.pub_date,
            c.reframed_headline, c.cultural_lens_analysis
     FROM articles a
@@ -53,7 +53,7 @@ newsRouter.get("/:id/share", (req, res) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${headline} — Overlay Global Lens</title>
+  <title>${headline} â€” Overlay Global Lens</title>
 
   <!-- Open Graph -->
   <meta property="og:type" content="article" />
@@ -84,12 +84,12 @@ newsRouter.get("/:id/share", (req, res) => {
 </html>`);
 });
 
-newsRouter.get("/", (req, res) => {
-  const session = getAuthSession(req);
+newsRouter.get("/", async (req, res) => {
+  const session = await getAuthSession(req);
   let settings: any = null;
 
   if (session) {
-    settings = db.prepare('SELECT reading_mode, lens_intensity FROM user_settings WHERE owner_id = ?').get(session.user_id) as any;
+    settings = await db.prepare('SELECT reading_mode, lens_intensity FROM user_settings WHERE owner_id = ?').get(session.user_id) as any;
   } else {
     const cookieVal = req.cookies?.bgl_guest_settings;
     if (cookieVal) {
@@ -114,7 +114,7 @@ newsRouter.get("/", (req, res) => {
   
   let articlesRaw;
   if (category === 'all') {
-    articlesRaw = db.prepare(`
+    articlesRaw = await db.prepare(`
       SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis,
              c.key_takeaways, c.what_this_means_for_us, c.statistical_data, c.article_body
       FROM articles a
@@ -123,7 +123,7 @@ newsRouter.get("/", (req, res) => {
       ORDER BY COALESCE(a.pub_date, a.created_at) DESC LIMIT ? OFFSET ?
     `).all(settings.reading_mode, settings.lens_intensity, limit, offset);
   } else {
-    articlesRaw = db.prepare(`
+    articlesRaw = await db.prepare(`
       SELECT a.*, c.reframed_headline, c.reframed_summary, c.cultural_lens_analysis,
              c.key_takeaways, c.what_this_means_for_us, c.statistical_data, c.article_body
       FROM articles a
@@ -236,15 +236,19 @@ const ongoingBackstories = new Map<string, Promise<any>>();
 
 newsRouter.get("/:id/backstory", backstoryLimiter, async (req, res) => {
   const articleId = req.params.id;
-  const article = db.prepare('SELECT * FROM articles WHERE url_hash = ?').get(articleId) as any;
+  const article = await db.prepare('SELECT * FROM articles WHERE url_hash = ?').get(articleId) as any;
   
   if (!article) {
     return res.status(404).json({ detail: "Article not found" });
   }
 
-  const cache = db.prepare('SELECT historical_backstory FROM article_backstory_cache WHERE url_hash = ?').get(articleId) as any;
+  const cache = await db.prepare('SELECT historical_backstory FROM article_backstory_cache WHERE url_hash = ?').get(articleId) as any;
   if (cache && cache.historical_backstory) {
-    return res.json(JSON.parse(cache.historical_backstory));
+    try {
+      return res.json(JSON.parse(cache.historical_backstory));
+    } catch {
+      // Corrupt cache row — fall through to regeneration
+    }
   }
 
   // If there's already an active generation promise for this article, await it.
@@ -328,10 +332,18 @@ newsRouter.get("/:id/backstory", backstoryLimiter, async (req, res) => {
       };
       
     } catch(e) {
-      // parse error
+      // parse error — leave backstoryJson as {}
     }
 
-    db.prepare('INSERT OR REPLACE INTO article_backstory_cache (url_hash, historical_backstory) VALUES (?, ?)').run(
+    const hasContent = backstoryJson && (
+      (typeof backstoryJson.the_past_roots === 'string' && backstoryJson.the_past_roots.trim().length > 20) ||
+      (Array.isArray(backstoryJson.timeline) && backstoryJson.timeline.length > 0)
+    );
+    if (!hasContent) {
+      throw new Error('Empty backstory response');
+    }
+
+    await db.prepare('INSERT OR REPLACE INTO article_backstory_cache (url_hash, historical_backstory) VALUES (?, ?)').run(
        articleId, JSON.stringify(backstoryJson)
     );
     return backstoryJson;
@@ -361,38 +373,4 @@ newsRouter.get("/:id/backstory", backstoryLimiter, async (req, res) => {
   }
 });
 
-newsRouter.post("/:id/generate-image", async (req, res) => {
-  const articleId = req.params.id;
-  const allowedStyles = ['photorealistic', 'cyberpunk', 'artistic', 'minimalist'];
-  const style = allowedStyles.includes(req.body.style) ? req.body.style : 'photorealistic';
-  const article = db.prepare('SELECT original_title FROM articles WHERE url_hash = ?').get(articleId) as any;
-  if (!article) return res.status(404).json({ error: "Article not found" });
 
-  const session = getAuthSession(req);
-  let settings: any = null;
-
-  if (session) {
-    settings = db.prepare('SELECT gemini_api_key FROM user_settings WHERE owner_id = ?').get(session.user_id) as any;
-  } else {
-    const cookieVal = req.cookies?.bgl_guest_settings;
-    if (cookieVal) {
-      try {
-        const parsed = JSON.parse(cookieVal);
-        settings = {
-          gemini_api_key: parsed.encryptedGeminiApiKey
-        };
-      } catch (e) {
-        // Safe fallback
-      }
-    }
-  }
-  
-  try {
-    const decryptedKey = settings?.gemini_api_key ? (settings.gemini_api_key === "••••" || settings.gemini_api_key === "••••••••••••••••" ? undefined : decrypt(settings.gemini_api_key)) : undefined;
-    const imageUrl = await generateImage(article.original_title, style, decryptedKey || undefined);
-    res.json({ imageUrl });
-  } catch (e: any) {
-    console.error("Image generation error:", e);
-    res.status(500).json({ error: e.message || "Failed to generate image" });
-  }
-});

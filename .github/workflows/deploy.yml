@@ -1,13 +1,56 @@
-name: Deploy to Cloud Run
+name: Deploy Overlay Global Lens to Cloud Run
+
+# Deploys the public research/news outlet. Triggered on push to main, or
+# manually via the Actions tab (workflow_dispatch).
+#
+# Required GitHub secrets:
+#   GCP_PROJECT          — GCP project id (e.g. the-uplift-lab)
+#   GCP_CREDENTIALS      — service-account JSON with Cloud Run deploy + Artifact
+#                          Registry + Secret Manager access (roles below)
+#
+#   Create the deploy service account once:
+#     gcloud iam service-accounts create gl-deploy --project=$GCP_PROJECT
+#     gcloud projects add-iam-policy-binding $GCP_PROJECT \
+#       --member="serviceAccount:gl-deploy@$GCP_PROJECT.iam.gserviceaccount.com" \
+#       --role=roles/run.admin
+#     ... --role=roles/artifactregistry.writer
+#     ... --role=roles/secretmanager.secretAccessor
+#     ... --role=roles/iam.serviceAccountUser
+#     gcloud iam service-accounts keys create gl-deploy.json \
+#       --iam-account=gl-deploy@$GCP_PROJECT.iam.gserviceaccount.com
+#   Then add gl-deploy.json as the GCP_CREDENTIALS repo secret.
+#
+#   Create the Artifact Registry repository once:
+#     gcloud artifacts repositories create overlay-global-lens \
+#       --repository-format=docker --location=us-central1 --project=$GCP_PROJECT
+#
+# Required Secret Manager entries (name:latest), same names as below under
+# `secrets:`. Create each once via:
+#   printf "<value>" | gcloud secrets create <NAME> --data-file=- --project=$GCP_PROJECT
+#   GEMINI_API_KEY OPENCODE_API_KEY DEEPSEEK_API_KEY OPENAI_API_KEY
+#   ANTHROPIC_API_KEY QWEN_API_KEY SESSION_SECRET APP_URL GL_PUBLISH_KEY
+#   DRAPMOND_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET
+#   STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PRICE_DONATE_ONE_TIME
+#   STRIPE_PRICE_DONATE_RECURRING
+#   - APP_URL must be the final public URL (https://<service>-<hash>-uc.a.run.app).
+#     Deploy once first to learn the URL, then set APP_URL and redeploy.
+#   - GL_PUBLISH_KEY gates /api/publish; a long random string.
+#   - DRAPMOND_API_KEY only needed if the outlet syncs research from a deployed Draymond.
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-overlay-global-lens-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -21,25 +64,58 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Authorize Docker push
-        run: gcloud auth configure-docker
+      - name: Authorize Docker push (Artifact Registry)
+        run: gcloud auth configure-docker us-docker.pkg.dev --quiet
 
       - name: Build and Push Container
         run: |-
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT }}/black-global-lens:${{ github.sha }} .
-          docker push gcr.io/${{ secrets.GCP_PROJECT }}/black-global-lens:${{ github.sha }}
+          docker build -t us-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/overlay-global-lens/overlay-global-lens:${{ github.sha }} .
+          docker push us-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/overlay-global-lens/overlay-global-lens:${{ github.sha }}
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
-          service: black-global-lens
-          image: gcr.io/${{ secrets.GCP_PROJECT }}/black-global-lens:${{ github.sha }}
+          service: overlay-global-lens
+          image: us-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/overlay-global-lens/overlay-global-lens:${{ github.sha }}
           region: us-central1
+          allow_unauthenticated: true
           env_vars: |
             NODE_ENV=production
+            PORT=8080
+            DB_PATH=/data/app.sqlite
+            COMIC_ENGINE_URL=
+            DRAPMOND_URL=
+            ONCOLOGY_URL=
+            HEMPFORGE_URL=
+            OMNIRESEARCH_URL=
+            GLOBAL_LENS_MICRO_DISCOVERIES=
           secrets: |
             GEMINI_API_KEY=GEMINI_API_KEY:latest
-            OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest
-            MISTRAL_API_KEY=MISTRAL_API_KEY:latest
+            OPENCODE_API_KEY=OPENCODE_API_KEY:latest
+            DEEPSEEK_API_KEY=DEEPSEEK_API_KEY:latest
+            OPENAI_API_KEY=OPENAI_API_KEY:latest
+            ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest
+            QWEN_API_KEY=QWEN_API_KEY:latest
             SESSION_SECRET=SESSION_SECRET:latest
             APP_URL=APP_URL:latest
+            GL_PUBLISH_KEY=GL_PUBLISH_KEY:latest
+            DRAPMOND_API_KEY=DRAPMOND_API_KEY:latest
+            GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
+            GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest
+            STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest
+            STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest
+            STRIPE_PRICE_DONATE_ONE_TIME=STRIPE_PRICE_DONATE_ONE_TIME:latest
+            STRIPE_PRICE_DONATE_RECURRING=STRIPE_PRICE_DONATE_RECURRING:latest
+
+      # Persistent SQLite (settled donations must survive redeploys). The
+      # container already writes to /data via DB_PATH. Create the disk once and
+      # uncomment this block to mount it:
+      #   gcloud compute disks create overlay-lens-data --type=pd-ssd --size=10GB --zone=us-central1-a
+      # volumes: |
+      #   - name: data
+      #     persistent-disk:
+      #       pd-name: overlay-lens-data
+      #       device-name: overlay-lens-data
+      # volume_mounts: |
+      #   - mount-path: /data
+      #     name: data

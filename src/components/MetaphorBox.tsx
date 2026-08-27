@@ -1,5 +1,4 @@
-import React from 'react';
-import { VenetianMask } from 'lucide-react';
+﻿import { VenetianMask } from 'lucide-react';
 import { MetaphorPackage } from '../types';
 import { safe, formatConfidence } from '../lib/format';
 
@@ -38,7 +37,7 @@ export default function MetaphorBox({ metaphor, loading }: MetaphorBoxProps) {
   if (!metaphor || metaphor._unavailable || !metaphor.protocol_id) {
     return (
       <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/30 px-5 py-4">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400">
           STORYLINE NOT YET AVAILABLE
         </span>
       </div>
@@ -68,6 +67,20 @@ export default function MetaphorBox({ metaphor, loading }: MetaphorBoxProps) {
           </p>
         </div>
 
+        {metaphor.lesson && (
+          <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-3 py-3">
+            <span className="mb-1 block text-[9px] font-bold uppercase tracking-widest text-emerald-400">Business Lesson</span>
+            <p className="text-[12.5px] leading-relaxed text-emerald-100/90">{safe(metaphor.lesson)}</p>
+          </div>
+        )}
+
+        {metaphor.narrative && (
+          <div className="space-y-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">The Story</span>
+            <p className="text-[12.5px] leading-relaxed text-zinc-400 font-serif">{safe(metaphor.narrative)}</p>
+          </div>
+        )}
+
         {metaphor.mappings && metaphor.mappings.length > 0 && (
           <div className="space-y-2">
             <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Mappings</span>
@@ -78,7 +91,7 @@ export default function MetaphorBox({ metaphor, loading }: MetaphorBoxProps) {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[12px] text-zinc-300">{safe(m.real_world)}</span>
-                  <span className="text-[9px] font-mono text-fuchsia-400/70">→</span>
+                  <span className="text-[9px] font-mono text-fuchsia-400/70">â†’</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[12px] font-serif text-fuchsia-200">{safe(m.comic_analog)}</span>

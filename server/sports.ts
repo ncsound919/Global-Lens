@@ -1,4 +1,4 @@
-import db from "./db";
+﻿import db from "./db.js";
 
 export async function syncSportsAPI() {
   const apiKey = process.env.SPORTS_API_KEY;
@@ -27,7 +27,7 @@ export async function syncSportsAPI() {
     
     let ingested = 0;
     
-    const stmt = db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const stmt = await db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
 
     // Slice to top 25 to avoid flooding
     const matches = data.response.slice(0, 25);
@@ -50,7 +50,7 @@ ${score}.
       const imageUrl = league.logo || teams.home.logo || null;
       let pubDate = new Date(fixture.date).toISOString();
 
-      const info = stmt.run(
+      const info = await stmt.run(
         url_hash, 'sports', 'Live Match', title, original_url, imageUrl, textDump, pubDate
       );
       

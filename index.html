@@ -3,22 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Overlay Global Lens</title>
-    
-    <!-- Base Open Graph tags -->
-    <meta property="og:title" content="Overlay Global Lens" />
-    <meta property="og:description" content="Overlay365 News & Research Intelligence" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Overlay Global Lens" />
-    
+    <title>Overlay Global Lens — Overlay365 News & Research</title>
+
+    <meta
+      name="description"
+      content="Overlay Global Lens is the Overlay365 publication: global news, evidence-tiered research papers, trends, and discoveries, explained through an editorial lens."
+    />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/og-default.jpg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Fonts: preconnect so the CSS @import resolves fast -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Open Graph / social share — absolute URLs so crawlers unfurl without JS -->
+    <meta property="og:title" content="Overlay Global Lens" />
+    <meta property="og:description" content="Overlay365 News & Research Intelligence — global news, research papers, trends, and discoveries." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Overlay Global Lens" />
+    <meta property="og:image" content="https://overlay-global-lens.vercel.app/og-default.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://overlay-global-lens.vercel.app/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Overlay Global Lens" />
+    <meta name="twitter:description" content="Overlay365 News & Research Intelligence" />
+    <meta name="twitter:image" content="https://overlay-global-lens.vercel.app/og-default.jpg" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -1,9 +1,9 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import db from "./db";
+import db from "./db.js";
 
-// Overlay Global Lens — trends & discoveries ingestion.
+// Overlay Global Lens â€” trends & discoveries ingestion.
 // Sources (file-first, HTTP fallback):
 //   1. Benchmark Olympics discovery loop  -> .discovery-loop/state.json
 //   2. Draymond research hypotheses       -> .draymond/hypotheses.json
@@ -12,10 +12,10 @@ import db from "./db";
 // PUBLIC-OUTLET RULE: this module is the boundary where internal ecosystem
 // signals become public research content. Internal identifiers (candidate
 // names, patch ids, hypothesis ids, weakness/predicted-gain scores and
-// "apply patch" instructions) are NEVER written here — the outlet only ever
+// "apply patch" instructions) are NEVER written here â€” the outlet only ever
 // carries the public-facing signal (domain, direction, slope, confidence,
 // evidence tier) framed as editorial research. Records carry evidence tiers
-// (E1–E4) so the outlet never presents speculation as fact — determinism &
+// (E1â€“E4) so the outlet never presents speculation as fact â€” determinism &
 // auditability are preserved.
 
 function ingestDir(): string {
@@ -53,7 +53,7 @@ function slug(input: string): string {
   return crypto.createHash("sha256").update(input).digest("hex").slice(0, 24);
 }
 
-const upsertTrend = db.prepare(`
+const upsertTrend = await db.prepare(`
   INSERT INTO trends (id, title, summary, direction, slope, confidence, evidence_tier, recommended_action, source, category, payload, pub_date)
   VALUES (@id, @title, @summary, @direction, @slope, @confidence, @evidence_tier, @recommended_action, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -63,7 +63,7 @@ const upsertTrend = db.prepare(`
     category = excluded.category, payload = excluded.payload, pub_date = excluded.pub_date
 `);
 
-const upsertDiscovery = db.prepare(`
+const upsertDiscovery = await db.prepare(`
   INSERT INTO discoveries (id, title, insight, evidence_tier, hypothesis_id, linked_patch_id, source, category, payload, pub_date)
   VALUES (@id, @title, @insight, @evidence_tier, @hypothesis_id, @linked_patch_id, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -78,8 +78,8 @@ const upsertDiscovery = db.prepare(`
 
 function publicTitle(candidateName: string | undefined, upgradeKind: string | undefined, category: string, evidenceTier: string): string {
   const domain = category && category !== "research" ? category : "Research";
-  if (upgradeKind === "monitor") return `${domain} — watch item (Evidence ${evidenceTier})`;
-  return `${domain} — research signal (Evidence ${evidenceTier})`;
+  if (upgradeKind === "monitor") return `${domain} â€” watch item (Evidence ${evidenceTier})`;
+  return `${domain} â€” research signal (Evidence ${evidenceTier})`;
 }
 
 function publicInsight(ins: any, category: string, evidenceTier: string): string {
@@ -131,7 +131,7 @@ function publicTrendTitle(ins: any, category: string, evidenceTier: string): str
   const direction = ins.trendDirection || "stable";
   const directionText =
     direction === "rising" ? "rising" : direction === "falling" ? "falling" : "holding steady";
-  return `${domain} — ${directionText} trend (Evidence ${evidenceTier})`;
+  return `${domain} â€” ${directionText} trend (Evidence ${evidenceTier})`;
 }
 
 function publicTrendSummary(ins: any, category: string, evidenceTier: string): string {
@@ -145,7 +145,7 @@ function publicTrendSummary(ins: any, category: string, evidenceTier: string): s
   return `An ${evidenceTier} evidence-tier signal in ${domain} is ${directionText}${slope}${confidence}.`;
 }
 
-export function syncTrendsAndDiscoveries(): { trends: number; discoveries: number; source: string | null } {
+export async function syncTrendsAndDiscoveries(): Promise<{ trends: number; discoveries: number; source: string | null }> {
   let trends = 0;
   let discoveries = 0;
   let source: string | null = null;
@@ -185,7 +185,7 @@ export function syncTrendsAndDiscoveries(): { trends: number; discoveries: numbe
         const pubDate = ins.createdAt || nowIso;
 
         // A quick-upgrade insight is surfaced as a discovery (public signal),
-        // framed with editorial copy — never the raw internal fields.
+        // framed with editorial copy â€” never the raw internal fields.
         upsertDiscovery.run({
           id: `discovery-${category}-${evidenceTier}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
           title: publicTitle(ins.candidateName, ins.upgradeKind, category, evidenceTier),
@@ -279,12 +279,12 @@ export function syncTrendsAndDiscoveries(): { trends: number; discoveries: numbe
   // signals) so the outlet only ever carries current public content.
   if (writtenDiscoveryIds.length) {
     const placeholders = writtenDiscoveryIds.map(() => "?").join(",");
-    db.prepare(`DELETE FROM discoveries WHERE source IN (?,?) AND id NOT IN (${placeholders})`)
+    await db.prepare(`DELETE FROM discoveries WHERE source IN (?,?) AND id NOT IN (${placeholders})`)
       .run("Overlay Research Engine", "Overlay Research", ...writtenDiscoveryIds);
   }
   if (writtenTrendIds.length) {
     const placeholders = writtenTrendIds.map(() => "?").join(",");
-    db.prepare(`DELETE FROM trends WHERE source IN (?,?) AND id NOT IN (${placeholders})`)
+    await db.prepare(`DELETE FROM trends WHERE source IN (?,?) AND id NOT IN (${placeholders})`)
       .run("Overlay Research Engine", "Overlay Research", ...writtenTrendIds);
   }
 

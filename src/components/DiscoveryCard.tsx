@@ -1,5 +1,4 @@
-import React from 'react';
-import { Lightbulb } from 'lucide-react';
+﻿import { Lightbulb } from 'lucide-react';
 import { DiscoveryProps } from '../types';
 import { safe, relativeTime, tierBadgeClasses } from '../lib/format';
 
@@ -10,9 +9,9 @@ export default function DiscoveryCard({ discovery, onOpen }: { discovery: Discov
       role={onOpen ? 'button' : undefined}
       tabIndex={onOpen ? 0 : undefined}
       onKeyDown={onOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } } : undefined}
-      className={`group flex flex-col overflow-hidden rounded-sm border border-zinc-900 bg-[#0c0c0c] transition-all duration-500 hover:border-zinc-700 ${onOpen ? 'cursor-pointer' : ''}`}
+      className={`group flex flex-col overflow-hidden rounded-sm border border-zinc-900 bg-ink-900 transition-all duration-500 hover:border-zinc-700 ${onOpen ? 'cursor-pointer' : ''}`}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-900 bg-[#080808] px-5 py-3">
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-900 bg-ink-750 px-5 py-3">
         <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-cyan-500">
           {safe(discovery.category || 'Discovery')}
         </span>
@@ -32,9 +31,9 @@ export default function DiscoveryCard({ discovery, onOpen }: { discovery: Discov
         )}
 
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-zinc-900 pt-4">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">{safe(discovery.source || 'insight')}</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{safe(discovery.source || 'insight')}</span>
           <div className="flex items-center gap-3">
-            <span className="text-[10px] uppercase tracking-widest text-zinc-600">{relativeTime(discovery.pub_date)}</span>
+            <span className="text-[10px] uppercase tracking-widest text-zinc-400">{relativeTime(discovery.pub_date)}</span>
           </div>
         </div>
       </div>

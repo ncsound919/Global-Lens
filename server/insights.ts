@@ -1,11 +1,14 @@
-import express from "express";
+﻿import express from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import db from "./db";
-import { syncResearchPapers } from "./research";
-import { syncTrendsAndDiscoveries } from "./trends";
-import { syncDomainResearchWithEditorial } from "./domainResearch";
-import { generateMetaphorForArticle, generateMetaphorForTopic } from "./metaphors";
+import db from "./db.js";
+import { syncResearchPapers } from "./research.js";
+import { syncTrendsAndDiscoveries } from "./trends.js";
+import { syncDomainResearchWithEditorial } from "./domainResearch.js";
+import { scienceValidationFindings } from "./scienceIngest.js";
+import { synthesizeResearchPapers } from "./researchSynthesis.js";
+import { syncCrossDomainSignals } from "./crossDomain.js";
+import { generateMetaphorForArticle, generateMetaphorForTopic } from "./metaphors.js";
 
 export const insightsRouter = express.Router();
 
@@ -44,22 +47,27 @@ const DiscoveriesQuerySchema = z.object({
   offset: z.coerce.number().min(0).catch(0),
 });
 
-insightsRouter.get("/papers", (req, res) => {
+insightsRouter.get("/papers", async (req, res) => {
   const q = PapersQuerySchema.parse(req.query);
   const clauses: string[] = [];
   const params: any[] = [];
   if (q.category) { clauses.push("category = ?"); params.push(q.category); }
   if (q.pillar) { clauses.push("pillar = ?"); params.push(q.pillar); }
+  // Public surface: only real research. Hide leaked prompts that were stored as
+  // paper titles (deterministic fallback is internal), and the reference pool
+  // lives in `reference_papers` and is never surfaced here.
+  clauses.push("title NOT LIKE 'Ingest and process%'");
+  clauses.push("title NOT LIKE 'Return as JSON%'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
-  const papers = db.prepare(`
+  const papers = await db.prepare(`
     SELECT * FROM research_papers
     ${where}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ? OFFSET ?
   `).all(...params) as any[];
 
-  const total = (db.prepare(`SELECT COUNT(*) as c FROM research_papers ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
+  const total = (await db.prepare(`SELECT COUNT(*) as c FROM research_papers ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
 
   const out = papers.map((p) => ({
     id: p.id,
@@ -73,7 +81,6 @@ insightsRouter.get("/papers", (req, res) => {
     category: p.category,
     pillar: p.pillar,
     evidence_tier: p.evidence_tier,
-    payload: safeParse(p.payload, null),
     pub_date: p.pub_date,
   }));
 
@@ -95,22 +102,26 @@ function summarize(p: any): string {
   return title.slice(0, 200);
 }
 
-insightsRouter.get("/trends", (req, res) => {
+insightsRouter.get("/trends", async (req, res) => {
   const q = TrendsQuerySchema.parse(req.query);
   const clauses: string[] = [];
   const params: any[] = [];
   if (q.direction) { clauses.push("direction = ?"); params.push(q.direction); }
   if (q.evidence_tier) { clauses.push("evidence_tier = ?"); params.push(q.evidence_tier); }
+  // Public surface: only research-based trends. Internal Cross-Domain Desk
+  // operational signals (domain-risk, bridge internals, coupling with ops)
+  // are not published — they are the ecosystem's inner workings.
+  clauses.push("source LIKE 'Overlay Research%'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
-  const trends = db.prepare(`
+  const trends = await db.prepare(`
     SELECT * FROM trends
     ${where}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ? OFFSET ?
   `).all(...params) as any[];
 
-  const total = (db.prepare(`SELECT COUNT(*) as c FROM trends ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
+  const total = (await db.prepare(`SELECT COUNT(*) as c FROM trends ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
 
   res.json({
     trends: trends.map((t) => ({
@@ -130,22 +141,27 @@ insightsRouter.get("/trends", (req, res) => {
   });
 });
 
-insightsRouter.get("/discoveries", (req, res) => {
+insightsRouter.get("/discoveries", async (req, res) => {
   const q = DiscoveriesQuerySchema.parse(req.query);
   const clauses: string[] = [];
   const params: any[] = [];
   if (q.evidence_tier) { clauses.push("evidence_tier = ?"); params.push(q.evidence_tier); }
   if (q.source) { clauses.push("source = ?"); params.push(q.source); }
+  // Public surface: only research-based discoveries. Internal hypotheses
+  // (inner-workings) and all Cross-Domain Desk operational signals are hidden.
+  // The ecosystem's inner workings stay internal.
+  clauses.push("source LIKE 'Overlay Research%'");
+  clauses.push("title NOT LIKE 'Research hypothesis:%'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
-  const discoveries = db.prepare(`
+  const discoveries = await db.prepare(`
     SELECT * FROM discoveries
     ${where}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ? OFFSET ?
   `).all(...params) as any[];
 
-  const total = (db.prepare(`SELECT COUNT(*) as c FROM discoveries ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
+  const total = (await db.prepare(`SELECT COUNT(*) as c FROM discoveries ${where}`).get(...params.slice(0, -2)) as any)?.c || 0;
 
   res.json({
     discoveries: discoveries.map((d) => ({
@@ -161,22 +177,30 @@ insightsRouter.get("/discoveries", (req, res) => {
   });
 });
 
-insightsRouter.get("/insights/feed", (req, res) => {
+insightsRouter.get("/insights/feed", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100);
 
-  const papers = db.prepare(`
+  // Public feed: only research-based content. Operational Cross-Domain Desk
+  // signals and internal hypotheses are not published.
+  const papers = await db.prepare(`
     SELECT 'paper' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, pillar as item_group, url as link, evidence_tier
-    FROM research_papers ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
+    FROM research_papers
+    WHERE title NOT LIKE 'Ingest and process%' AND title NOT LIKE 'Return as JSON%'
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
-  const trends = db.prepare(`
+  const trends = await db.prepare(`
     SELECT 'trend' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
-    FROM trends ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
+    FROM trends
+    WHERE source LIKE 'Overlay Research%'
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
-  const discoveries = db.prepare(`
+  const discoveries = await db.prepare(`
     SELECT 'discovery' as type, id, title, insight as summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
-    FROM discoveries ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
+    FROM discoveries
+    WHERE source LIKE 'Overlay Research%'
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
   const items = [...papers, ...trends, ...discoveries]
@@ -203,13 +227,13 @@ insightsRouter.post("/metaphors/topic", metaphorLimiter, async (req, res) => {
   res.json({ metaphor, cached });
 });
 
-insightsRouter.post("/sync/research", syncLimiter, (req, res) => {
-  const result = syncResearchPapers();
+insightsRouter.post("/sync/research", syncLimiter, async (req, res) => {
+  const result = await syncResearchPapers();
   res.json({ success: true, ...result });
 });
 
-insightsRouter.post("/sync/trends", syncLimiter, (req, res) => {
-  const result = syncTrendsAndDiscoveries();
+insightsRouter.post("/sync/trends", syncLimiter, async (req, res) => {
+  const result = await syncTrendsAndDiscoveries();
   res.json({ success: true, ...result });
 });
 
@@ -217,6 +241,50 @@ insightsRouter.post("/sync/domain", syncLimiter, async (req, res) => {
   try {
     const { sync, editorial } = await syncDomainResearchWithEditorial();
     res.json({ success: true, ...sync, editorial_articles: editorial });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Ingest just the science validation findings (validation ledger, gap-domain
+// scan, golf onco correlations) into the outlet's discoveries/trends/papers.
+// Runs as part of the full domain sync; exposed separately so operators can
+// verify the ingest surface independently.
+insightsRouter.post("/sync/science", syncLimiter, async (req, res) => {
+  try {
+    const findings = await scienceValidationFindings();
+    res.json({ success: true, findings: findings.length, sample: findings.slice(0, 3).map((f) => ({ title: f.title, category: f.category, pillar: f.pillar })) });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Bundle the science research programs into definitive papers: cluster the
+// data, re-run it through the Overlay Science engines, and synthesize one full
+// paper per cluster from our own measured outputs.
+insightsRouter.post("/sync/synthesis", syncLimiter, async (req, res) => {
+  try {
+    const result = await synthesizeResearchPapers();
+    res.json({ success: true, ...result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Detect cross-domain signals across the whole ecosystem (all pillars): domain
+// state, translation bridges, coupled domains and operational cross-impact.
+// Restricted to operators — requires CRON_SECRET bearer or an authenticated session.
+insightsRouter.post("/sync/cross-domain", syncLimiter, async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = String(req.headers.authorization || "");
+  const hasCronSecret = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  const hasSession = !!(req as any).cookies?.bgl_session;
+  if (!hasCronSecret && !hasSession) {
+    return res.status(401).json({ detail: "unauthorized" });
+  }
+  try {
+    const result = await syncCrossDomainSignals();
+    res.json({ success: true, ...result });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message });
   }

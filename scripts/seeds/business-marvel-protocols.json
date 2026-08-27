@@ -1,0 +1,308 @@
+{
+  "$schema": "comic-metaphor-protocol-seed.v1",
+  "description": "Seed data for the Comic Metaphor Engine — 20 business-relevant Marvel storylines. Load into the engine index so /api/map can select these protocols for article topics.",
+  "generated": "2026-08-17",
+  "domains": ["leadership", "strategy", "operations", "culture", "innovation", "governance", "risk", "talent"],
+  "protocols": [
+    {
+      "protocol_id": "armor_wars",
+      "name": "Armor Wars",
+      "series": "Iron Man",
+      "era": "1987–1988",
+      "domains": ["strategy", "innovation", "risk"],
+      "core_tension": "What happens when the proprietary technology that powers your advantage leaks into the open market?",
+      "lesson": "Protect and audit your core IP. Once proprietary tech escapes into the wild, your competitive moat is gone — containment and recall are expensive, and rivals weaponize your own designs against you.",
+      "narrative": "Tony Stark discovers his armor technology has been stolen and reverse-engineered by villains and rivals alike. The tech he built to protect the world is now the world's biggest liability, forcing him to dismantle his own legacy to contain the damage.",
+      "beat_structure": ["Discovery of leakage", "Denial and stalling", "Escalation of exposure", "Containment operation", "Rebuild under scrutiny"],
+      "mappings": [
+        { "real_world": "A startup discovers ex-employees or partners leaked its core algorithm to competitors", "comic_analog": "Stark discovers his armor schematics are in hostile hands", "explanation": "Both face the same choice: protect the asset or protect the market, knowing secrecy is already broken", "confidence": 0.92 },
+        { "real_world": "A platform's proprietary workflow becomes commoditized by forks and clones", "comic_analog": "Rivals mass-produce knockoff armors", "explanation": "Commoditization of proprietary advantage erodes pricing power and trust", "confidence": 0.87 }
+      ]
+    },
+    {
+      "protocol_id": "demon_in_a_bottle",
+      "name": "Demon in a Bottle",
+      "series": "Iron Man",
+      "era": "1979",
+      "domains": ["leadership", "culture", "talent"],
+      "core_tension": "How does an organization function when its most important leader is privately failing?",
+      "lesson": "Unaddressed leadership crises leak into every decision. Executive accountability means creating a system where a leader can disclose a problem without destroying the company — secrecy around a founder's collapse costs more than the recovery does.",
+      "narrative": "Tony Stark's alcoholism spirals while he runs Stark Industries. His judgment erodes, decisions go bad, and the company pays for his private crisis until an intervention forces him to confront it publicly.",
+      "beat_structure": ["Private slippage", "Performance degradation", "Near-catastrophic error", "Intervention", "Public recovery and accountability"],
+      "mappings": [
+        { "real_world": "A founder's unaddressed burnout or substance issue degrades company decisions", "comic_analog": "Stark's alcoholism undermines his heroics", "explanation": "Leadership capacity is a shared resource; its failure is an organizational risk", "confidence": 0.9 },
+        { "real_world": "A company covers up an executive crisis until it becomes a liability", "comic_analog": "The board hides Stark's problem until it nearly kills the company", "explanation": "Secrecy extends the damage; structured intervention shortens it", "confidence": 0.85 }
+      ]
+    },
+    {
+      "protocol_id": "house_of_m",
+      "name": "House of M",
+      "series": "X-Men / Avengers",
+      "era": "2005",
+      "domains": ["leadership", "culture", "strategy"],
+      "core_tension": "What happens when a leader's unchecked desire rewrites the reality everyone else lives in?",
+      "lesson": "A leader's unchecked assumptions can warp the entire strategy. Reality-distortion in organizations happens when power centralizes around one worldview and nobody dares to challenge it — the resulting 'perfect world' is built on everyone else's silence.",
+      "narrative": "Scarlet Witch, grieving and powerful, reshapes reality into a world where mutants rule and she gets her family back. The X-Men and Avengers wake into a paradise built on a lie, discovering the cost of letting one person's pain dictate the shape of the world.",
+      "beat_structure": ["Grief and unchecked power", "Reality rewritten", "Comfortable falsehood", "Truth intrudes", "Collapse and reckoning"],
+      "mappings": [
+        { "real_world": "A charismatic founder builds a culture where their worldview is never questioned", "comic_analog": "Scarlet Witch rewrites reality to match her wishes", "explanation": "Echo chambers are reality distortion; dissent is the only ground truth", "confidence": 0.88 },
+        { "real_world": "A strategy built on optimistic assumptions ignores contradicting evidence", "comic_analog": "The 'perfect' House of M world is fragile and false", "explanation": "Strategy must survive contact with uncomfortable data", "confidence": 0.84 }
+      ]
+    },
+    {
+      "protocol_id": "planet_hulk",
+      "name": "Planet Hulk",
+      "series": "Incredible Hulk",
+      "era": "2006",
+      "domains": ["talent", "strategy", "risk"],
+      "core_tension": "What happens when you exile your most powerful asset instead of managing it?",
+      "lesson": "Exiling high performers — or shipping your best talent out of the org — creates a direct competitor. Capability doesn't disappear when you fire it; it lands somewhere it can be turned against you.",
+      "narrative": "The Illuminati decide the Hulk is too dangerous and shoot him into space. He lands on a brutal alien world, becomes a champion, builds an army, and returns to Earth with a war fleet — the threat they feared, made real by their own decision.",
+      "beat_structure": ["Judged too dangerous", "Forced exile", "Survival on hostile ground", "Rise to power", "Return as a threat"],
+      "mappings": [
+        { "real_world": "An organization fires or sidelines a top performer who joins a competitor", "comic_analog": "The Hulk is exiled and becomes a champion elsewhere", "explanation": "Exiled capability reinvests itself in opposition", "confidence": 0.9 },
+        { "real_world": "A company treats a risky asset as a disposal problem rather than a management problem", "comic_analog": "The Illuminati rocket Hulk into space instead of addressing him", "explanation": "Offshoring risk rarely removes it; it relocates it", "confidence": 0.83 }
+      ]
+    },
+    {
+      "protocol_id": "world_war_hulk",
+      "name": "World War Hulk",
+      "series": "Incredible Hulk",
+      "era": "2007",
+      "domains": ["talent", "culture", "risk"],
+      "core_tension": "What happens when the people who feel betrayed by leadership decide to fight back at scale?",
+      "lesson": "Retaliation risk is real. When stakeholders believe they've been mistreated, betrayal compounds: the leader who 'fixed' the problem by force becomes the target of the blowback. Process your relationship damage before it becomes a war.",
+      "narrative": "The Hulk returns from exile with an army, seeking vengeance against the Illuminati who banished him. The secret cabal's rational decision looks like betrayal from the other side, and the entire superhero community pays the price.",
+      "beat_structure": ["Return of the exiled", "Demands and ultimatums", "War across the city", "Revelation of the betrayal", "Exhaustion and aftermath"],
+      "mappings": [
+        { "real_world": "Employees or partners retaliate after a heavy-handed restructuring", "comic_analog": "Hulk returns with an army seeking vengeance", "explanation": "Perceived betrayal converts into organized opposition", "confidence": 0.86 },
+        { "real_world": "Leadership discovers 'rational' decisions look abusive from the floor", "comic_analog": "The Illuminati's exile looks like betrayal to Hulk", "explanation": "Procedural fairness matters as much as the decision itself", "confidence": 0.82 }
+      ]
+    },
+    {
+      "protocol_id": "the_ultimates",
+      "name": "The Ultimates",
+      "series": "The Ultimates",
+      "era": "2002",
+      "domains": ["leadership", "culture", "talent"],
+      "core_tension": "How do you build a world-class team from giant egos without letting the egos eat the mission?",
+      "lesson": "Elite teams need a mission bigger than any member. Managing star performers means giving them real stakes in the outcome, not just compensation — culture is what holds a room of superhumans together.",
+      "narrative": "Nick Fury assembles Earth's mightiest heroes into a paramilitary team. Every member is a walking weapons system with a personality to match, and the team only works when a shared existential mission outweighs individual agendas.",
+      "beat_structure": ["Assembly of giants", "Ego collisions", "First coordinated action", "Trust building", "Mission over self"],
+      "mappings": [
+        { "real_world": "A company hires several rockstar engineers who refuse to cooperate", "comic_analog": "Fury assembles a team of volatile superhumans", "explanation": "Brilliance without alignment is organizational drag", "confidence": 0.84 },
+        { "real_world": "A leadership team needs a mission to align strong personalities", "comic_analog": "The Ultimates unify around an existential threat", "explanation": "Purpose is the strongest coordination mechanism", "confidence": 0.88 }
+      ]
+    },
+    {
+      "protocol_id": "hawkeye_fraction",
+      "name": "Hawkeye (Fraction run)",
+      "series": "Hawkeye",
+      "era": "2012",
+      "domains": ["operations", "leadership", "culture"],
+      "core_tension": "How do you lead when you have almost no resources, no backup, and the problem is on your block?",
+      "lesson": "Ground-level leadership is where real problems live. The best operators work with what's on hand, build community relationships before they need them, and solve small, concrete problems instead of grand abstractions.",
+      "narrative": "Clint Barton fights to protect his Brooklyn neighborhood, broke, out of uniform, and always a step behind. The mundane beats — rent, a dog, a tracksuit mob — matter as much as the archery.",
+      "beat_structure": ["Routine under pressure", "Local crisis", "Improvise with limited tools", "Community steps up", "Small wins compound"],
+      "mappings": [
+        { "real_world": "A team lead delivers results with a minimal budget and no headcount", "comic_analog": "Hawkeye defends a neighborhood with a bow and a dog", "explanation": "Resource constraints force clarity about what actually matters", "confidence": 0.85 },
+        { "real_world": "Community and stakeholder relationships de-risked before a crisis", "comic_analog": "Hawkeye's neighbors help him because he helped them", "explanation": "Social capital is an operating asset, not a soft skill", "confidence": 0.83 }
+      ]
+    },
+    {
+      "protocol_id": "ms_marvel_kamala",
+      "name": "Ms. Marvel (Kamala Khan)",
+      "series": "Ms. Marvel",
+      "era": "2014",
+      "domains": ["culture", "innovation", "leadership"],
+      "core_tension": "How do you stay authentic to your identity while the world demands you become something it recognizes?",
+      "lesson": "Brand authenticity survives only when the people behind it stay connected to their roots. Rapid growth pulls you toward what's familiar to everyone else; the edge is staying true to the mission that made you matter.",
+      "narrative": "Kamala Khan, a Pakistani-American teenager, gains stretchy powers and becomes a hero in her own image — not a carbon copy of her idol. She navigates family, faith, community, and the pressure to be what other heroes expect.",
+      "beat_structure": ["Becoming", "Impostor pressure", "Identity collision", "Owning the difference", "Community embraces the real self"],
+      "mappings": [
+        { "real_world": "A growing startup faces pressure to abandon its niche voice for mass appeal", "comic_analog": "Kamala is pressured to be another generic hero", "explanation": "The authentic position is the defensible one", "confidence": 0.87 },
+        { "real_world": "Founders navigate rapid growth while keeping their community's values", "comic_analog": "Kamala balances family, faith, and heroism", "explanation": "Multi-identity leadership is a strength, not a compromise", "confidence": 0.84 }
+      ]
+    },
+    {
+      "protocol_id": "winter_soldier",
+      "name": "Winter Soldier",
+      "series": "Captain America",
+      "era": "2005–2006",
+      "domains": ["strategy", "governance", "risk"],
+      "core_tension": "What if the enemy has been inside your own systems the whole time — and your best operative is their weapon?",
+      "lesson": "Legacy systems carry hidden threats. The institutional infrastructure you trust was built by people whose assumptions may be obsolete or compromised — audits and adversarial review are how you find the Winter Soldier hiding in your org chart.",
+      "narrative": "Captain America's partner Bucky, presumed dead, was recovered by the enemy and brainwashed into a sleeper assassin. Decades later he surfaces, and the institutions that should protect America are revealed to have been turned against it.",
+      "beat_structure": ["Trusted infrastructure", "Hidden weapon surfaces", "Old assumptions fail", "Conspiracy revealed", "Rebuilding from partial truth"],
+      "mappings": [
+        { "real_world": "A legacy system or trusted vendor is discovered to have been compromised for years", "comic_analog": "Bucky, presumed dead, is found alive and turned", "explanation": "Long-trusted components are the highest-risk attack surface", "confidence": 0.9 },
+        { "real_world": "Security based on 'it's always been fine' fails under adversarial review", "comic_analog": "The institutions America trusted were infiltrated", "explanation": "Complacency about legacy assumptions is a standing vulnerability", "confidence": 0.86 }
+      ]
+    },
+    {
+      "protocol_id": "born_again",
+      "name": "Daredevil: Born Again",
+      "series": "Daredevil",
+      "era": "1986",
+      "domains": ["leadership", "culture", "operations"],
+      "core_tension": "What do you do when everything you built is deliberately taken from you — and the taker is still inside the walls?",
+      "lesson": "Organizations can be dismantled from within by someone who knows the blueprint. Rebuilding from zero requires resilience, a clean information boundary, and accepting that the old structure is gone before you can build the next one.",
+      "narrative": "Kingpin learns Daredevil's secret identity and systematically destroys his life: his law career, his reputation, his home, his sanity — one legal and social blow at a time. Matt Murdock loses everything and has to rebuild from nothing.",
+      "beat_structure": ["Total takedown", "Loss of everything", "Hitting zero", "Refusing to quit", "Rebuild from nothing"],
+      "mappings": [
+        { "real_world": "A company is dismantled by a competitor who knows its internal weaknesses", "comic_analog": "Kingpin dismantles Murdock's life using his secrets", "explanation": "Insider knowledge is the sharpest competitive weapon", "confidence": 0.88 },
+        { "real_world": "Founders rebuild a business after a hostile takeover or collapse", "comic_analog": "Murdock rebuilds his identity from nothing", "explanation": "Resilience is the ability to restart on bad information", "confidence": 0.85 }
+      ]
+    },
+    {
+      "protocol_id": "xfactor_investigations",
+      "name": "X-Factor Investigations",
+      "series": "X-Factor",
+      "era": "2005–2013",
+      "domains": ["operations", "leadership", "culture"],
+      "core_tension": "How does a tiny, unconventional team outcompete the establishment by being more human?",
+      "lesson": "Small, unconventional teams win by staying close to the client and the truth. Boutique service firms thrive on judgment, speed, and a culture where the weirdest person in the room is often the one who cracks the case.",
+      "narrative": "Mutant detective Jamie Madrox runs a small agency out of a cramped office, hiring people nobody else would touch. They solve cases the big institutions won't, because they operate on trust, diversity, and personal stakes.",
+      "beat_structure": ["Small team, big case", "Unconventional hires", "Client trust as weapon", "Outsider insight wins", "Reputation compounds"],
+      "mappings": [
+        { "real_world": "A boutique consultancy out-executes enterprise firms on niche problems", "comic_analog": "X-Factor Investigations out-solves the establishment", "explanation": "Small teams move faster and care more", "confidence": 0.86 },
+        { "real_world": "Diverse, unconventional hires bring insights homogenous teams miss", "comic_analog": "Madrox hires outsiders nobody else would", "explanation": "Cognitive diversity is a competitive advantage", "confidence": 0.84 }
+      ]
+    },
+    {
+      "protocol_id": "superior_spider_man",
+      "name": "Superior Spider-Man",
+      "series": "Amazing Spider-Man",
+      "era": "2013",
+      "domains": ["operations", "leadership", "culture"],
+      "core_tension": "What happens when ruthless efficiency takes over a hero's mission?",
+      "lesson": "Optimization without ethics is a productivity trap. A leader who replaces judgment with raw efficiency gets short-term throughput and long-term destruction — process optimization must never outrank the values it serves.",
+      "narrative": "Doctor Octopus, in Peter Parker's body, runs his hero life like a ruthless executive: quotas for patrols, drones for coverage, zero tolerance for sentiment. He's more 'efficient' than Spider-Man ever was — and colder, more violent, more feared.",
+      "beat_structure": ["Efficiency takeover", "Metrics improve", "Trust evaporates", "Ethical line crossed", "Humanity restored at cost"],
+      "mappings": [
+        { "real_world": "A manager optimizes output while destroying morale and trust", "comic_analog": "Octopus runs heroics with quotas and drones", "explanation": "Metrics can measure output while ignoring harm", "confidence": 0.9 },
+        { "real_world": "A company's productivity culture crosses ethical lines for throughput", "comic_analog": "Superior Spider-Man is efficient but monstrous", "explanation": "Efficiency is a tool, not a mission", "confidence": 0.87 }
+      ]
+    },
+    {
+      "protocol_id": "immortal_hulk",
+      "name": "Immortal Hulk",
+      "series": "Immortal Hulk",
+      "era": "2018",
+      "domains": ["culture", "governance", "talent"],
+      "core_tension": "What surfaces when the things an organization suppresses finally force their way out?",
+      "lesson": "Suppressed problems don't disappear — they compound into trauma and erupt. Transparent handling of issues early is cheap; burying them makes the eventual resurfacing catastrophic and turns victims into threats.",
+      "narrative": "Banner's rage, long suppressed and rationalized away, returns as something ancient and immortal. The Hulk becomes an avenging force that surfaces every buried wrong — the horror is that the anger was always real and always deserved.",
+      "beat_structure": ["Buried trauma", "Suppression holds", "First eruption", "Every suppressed wrong returns", "Reckoning with the past"],
+      "mappings": [
+        { "real_world": "A company's unresolved internal grievances erupt as scandals", "comic_analog": "The Hulk's suppressed rage becomes an avenging force", "explanation": "Unprocessed problems accumulate power until they surface", "confidence": 0.88 },
+        { "real_world": "Ignoring employee harm leads to whistleblowing and reputational blowback", "comic_analog": "The Hulk surfaces every buried wrong", "explanation": "Suppression converts problems into explosions", "confidence": 0.85 }
+      ]
+    },
+    {
+      "protocol_id": "nation_under_our_feet",
+      "name": "Black Panther: A Nation Under Our Feet",
+      "series": "Black Panther",
+      "era": "2016",
+      "domains": ["governance", "culture", "leadership"],
+      "core_tension": "How do you govern a nation when its people no longer trust the institutions meant to protect them?",
+      "lesson": "Governance fails when the ruler and the ruled lose connection. Political stability is rebuilt through legitimacy, listening, and adapting tradition to the moment — innovation can't be imposed on people who don't believe the system serves them.",
+      "narrative": "Wakanda is shaken by revolution as its people question the monarchy's legitimacy. T'Challa must decide whether to defend the throne or earn the nation, balancing ancient tradition against the demand for a new covenant with his people.",
+      "beat_structure": ["Institutional distrust", "Revolution ignites", "Tradition vs. change", "Earning legitimacy", "New covenant"],
+      "mappings": [
+        { "real_world": "An organization faces internal revolt over leadership legitimacy", "comic_analog": "Wakanda's people rise against the throne", "explanation": "Power must be re-earned, not re-asserted", "confidence": 0.87 },
+        { "real_world": "A company must balance heritage processes with demanded innovation", "comic_analog": "T'Challa balances tradition with a new nation", "explanation": "Change works when the people own the direction", "confidence": 0.84 }
+      ]
+    },
+    {
+      "protocol_id": "galactus_trilogy",
+      "name": "Fantastic Four: The Galactus Trilogy",
+      "series": "Fantastic Four",
+      "era": "1966",
+      "domains": ["risk", "strategy", "innovation"],
+      "core_tension": "How do you prepare for a threat so large it consumes the very thing you're defending?",
+      "lesson": "Existential risks need early warning and pre-committed plans. The organizations that survive cosmic-scale threats are the ones that saw the pattern early, had a decision protocol, and were willing to make impossible trade-offs before the crisis forced them.",
+      "narrative": "Galactus, a cosmic devourer, arrives to consume Earth. The Fantastic Four cannot fight him — they must outthink him, and Reed Richards is forced to consider the unthinkable: bargaining with a world-devourer to save the world.",
+      "beat_structure": ["Pattern detected", "Threat assessed as existential", "Conventional response fails", "Impossible trade-off", "Survival through strategy"],
+      "mappings": [
+        { "real_world": "A company recognizes an industry-disrupting threat early and plans for it", "comic_analog": "The Four detect Galactus before arrival", "explanation": "Early warning turns panic into strategy", "confidence": 0.86 },
+        { "real_world": "Preparing for risks too large for conventional mitigation", "comic_analog": "Fighting Galactus is impossible; outthinking him is required", "explanation": "Some risks require a playbook, not a counterattack", "confidence": 0.84 }
+      ]
+    },
+    {
+      "protocol_id": "runaways",
+      "name": "Runaways",
+      "series": "Runaways",
+      "era": "2003",
+      "domains": ["innovation", "governance", "culture"],
+      "core_tension": "What do you do when you discover your organization's legacy is built on something toxic?",
+      "lesson": "Young teams can break inherited toxic structures precisely because they don't carry the legacy's loyalties. Challenging legacy leadership requires evidence, courage, and the willingness to walk away from what made you — before it makes you complicit.",
+      "narrative": "Six teenagers discover their parents are a secret supervillain cabal. They can't reform the adults who raised them — so they run, taking only what they need and building a new family on their own terms.",
+      "beat_structure": ["Legacy revealed as toxic", "Reform impossible", "Break from inheritance", "Building a new structure", "The new family decides its own rules"],
+      "mappings": [
+        { "real_world": "Founders discover the business they inherited is built on exploitation", "comic_analog": "The kids learn their parents are villains", "explanation": "Inherited structure can be ethically unreformable", "confidence": 0.87 },
+        { "real_world": "A young team starts a clean organization rather than fix a corrupt one", "comic_analog": "The Runaways flee and build their own family", "explanation": "Sometimes innovation means leaving, not fixing", "confidence": 0.84 }
+      ]
+    },
+    {
+      "protocol_id": "illuminati",
+      "name": "New Avengers: Illuminati",
+      "series": "New Avengers / Illuminati",
+      "era": "2005",
+      "domains": ["governance", "risk", "leadership"],
+      "core_tension": "What are the risks of a small group of powerful people making decisions for everyone?",
+      "lesson": "Shadow governance looks decisive until it fails, and then it has no legitimacy to fall back on. Centralized secret decision-making trades accountability for speed — and the moment the secret leaks, every decision it ever made is retroactively illegitimate.",
+      "narrative": "The most powerful heroes form a secret committee to make world-shaping decisions no one asked them to make. They act 'for the greater good,' but their secrecy, arrogance, and unaccountability sow the conflicts that later tear the superhero community apart.",
+      "beat_structure": ["Secret convening", "World-shaping decisions", "Accountability deferred", "The secret leaks", "Legitimacy collapses"],
+      "mappings": [
+        { "real_world": "A small leadership cabal makes decisions without transparency or consent", "comic_analog": "The Illuminati decide for all heroes in secret", "explanation": "Speed without legitimacy builds future conflict", "confidence": 0.9 },
+        { "real_world": "Executive committees whose decisions become retroactively delegitimized when exposed", "comic_analog": "The Illuminati's secret acts become a scandal", "explanation": "Trust is spent, not just risked", "confidence": 0.86 }
+      ]
+    },
+    {
+      "protocol_id": "spider_man_big_time",
+      "name": "Spider-Man: Big Time",
+      "series": "Amazing Spider-Man",
+      "era": "2010",
+      "domains": ["innovation", "strategy", "operations"],
+      "core_tension": "How do you reinvent yourself when your old model is exhausted?",
+      "lesson": "Strategic pivots work when they build new products on existing strengths. Reinvention isn't abandoning who you are — it's finding the next application for your core capability before the market forces you to.",
+      "narrative": "Peter Parker gets a job at Horizon Labs, a new role that gives him money, resources, and a lab. He pivots from struggling freelancer to working inventor, applying his genius to new products while keeping his mission intact.",
+      "beat_structure": ["Old model exhausted", "New opportunity appears", "Capability reapplied", "New products succeed", "Mission preserved through reinvention"],
+      "mappings": [
+        { "real_world": "A company pivots from a declining model to new product lines", "comic_analog": "Parker moves from freelancer to Horizon inventor", "explanation": "Pivots compound existing strengths into new markets", "confidence": 0.86 },
+        { "real_world": "R&D investment converts core capability into new offerings", "comic_analog": "Parker's science genius finds new product applications", "explanation": "Core capability is the seed of every pivot", "confidence": 0.84 }
+      ]
+    },
+    {
+      "protocol_id": "captain_marvel_deconnick",
+      "name": "Captain Marvel (DeConnick run)",
+      "series": "Captain Marvel",
+      "era": "2012",
+      "domains": ["leadership", "culture", "talent"],
+      "core_tension": "How do you claim leadership when the institution doesn't recognize you as a leader?",
+      "lesson": "Institutional resistance to new leadership is a phase, not a verdict. Claiming a leadership identity means acting like the leader you intend to be — even before the org chart agrees — and building a track record that makes resistance untenable.",
+      "narrative": "Carol Danvers takes up the Captain Marvel mantle and has to prove she belongs in the front rank. The institution that expects the old Captain doesn't accept the new one easily, and she earns the title by leading, not by waiting for permission.",
+      "beat_structure": ["Claiming the mantle", "Institutional resistance", "Leading anyway", "Track record builds", "Identity cemented"],
+      "mappings": [
+        { "real_world": "A new leader faces skepticism from an institution expecting the old model", "comic_analog": "Carol claims the Captain Marvel mantle", "explanation": "New leadership must be earned through action, not titles", "confidence": 0.85 },
+        { "real_world": "Empowerment programs that fail because the culture resists the empowered", "comic_analog": "The institution resists Carol's ascent", "explanation": "Cultural resistance, not capability, is the real barrier", "confidence": 0.83 }
+      ]
+    },
+    {
+      "protocol_id": "moon_knight_ellis",
+      "name": "Moon Knight (Ellis run)",
+      "series": "Moon Knight",
+      "era": "2014",
+      "domains": ["leadership", "operations", "culture"],
+      "core_tension": "What does it take to lead when every operational environment demands a different version of you?",
+      "lesson": "Adaptive leadership is switching personas to fit the environment while keeping the mission constant. Multi-modal leaders — brutal, analytical, charismatic — succeed by treating each environment as a distinct operating mode, not by diluting into one style.",
+      "narrative": "Moon Knight's identities give him different tools for different fights: the billionaire operator, the street vigilante, the cabbie who hears everything. Each episode is a different environment solved with a different persona, all serving one mission.",
+      "beat_structure": ["Environment assessed", "Persona selected", "Mission executed", "Cost of the mode", "Identity held together"],
+      "mappings": [
+        { "real_world": "Leaders who shift communication and approach by context while holding values constant", "comic_analog": "Moon Knight switches personas per environment", "explanation": "Style adaptation is not value compromise", "confidence": 0.83 },
+        { "real_world": "Teams that maintain a single mission across very different operating environments", "comic_analog": "All personas serve one mission", "explanation": "Flexibility at the surface, consistency at the core", "confidence": 0.85 }
+      ]
+    }
+  ]
+}

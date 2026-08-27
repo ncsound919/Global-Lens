@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, X } from 'lucide-react';
+import { useModalA11y } from '../lib/useModalA11y';
 
 interface SettingsDashboardProps {
   onClose: () => void;
 }
 
 export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
+  const panelRef = useModalA11y(onClose);
   const [readingMode, setReadingMode] = useState('simplified');
   const [lensIntensity, setLensIntensity] = useState('balanced');
   const [regions, setRegions] = useState({ us: true, westAfrica: false, caribbean: true });
@@ -54,9 +56,17 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex justify-center items-start z-50 overflow-y-auto pt-10 pb-10">
-      <div className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-2xl p-8 shadow-2xl relative mt-10">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Dashboard settings"
+        tabIndex={-1}
+        className="w-full max-w-4xl bg-zinc-950 border border-zinc-800 rounded-xl p-8 shadow-2xl relative mt-10"
+      >
         <button 
           onClick={onClose}
+          aria-label="Close settings"
           className="absolute top-6 right-6 p-2 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-full transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
@@ -156,7 +166,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
                  const timeLabel = minsAgo !== null ? (minsAgo === 0 ? 'just now' : `${minsAgo}m ago`) : 'Never';
                  const isDead = status.fails >= 3;
                  return (
-                   <div key={url} className="flex flex-col p-3 bg-[#0a0a0a] border border-zinc-800/60 rounded">
+                   <div key={url} className="flex flex-col p-3 bg-ink-950 border border-zinc-800/60 rounded">
                      <span className="text-xs font-mono text-zinc-300 truncate">{host}</span>
                      <div className="flex items-center justify-between mt-2">
                         <span className={`text-[9.5px] uppercase tracking-widest flex items-center gap-1.5 font-bold ${isDead ? 'text-red-500' : 'text-emerald-500'}`}>
@@ -192,7 +202,7 @@ export default function SettingsDashboard({ onClose }: SettingsDashboardProps) {
                     href="https://cash.app/$helptools" 
                     target="_blank" 
                     rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold tracking-widest text-[11px] uppercase hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold tracking-[0.2em] text-[11px] uppercase hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all cursor-pointer"
                  >
                     CashApp: $helptools
                  </a>

@@ -1,20 +1,21 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import db from "./db";
-import { callAIQueued } from "./aiService";
+import db from "./db.js";
+import { callAIQueued } from "./aiService.js";
+import { scienceValidationFindings } from "./scienceIngest.js";
 
 // ============================================================================
-// Overlay Global Lens — Domain Research Engine
+// Overlay Global Lens â€” Domain Research Engine
 //
 // Takes OUR research (sports science metrics, biotech/scientific research, hemp
 // research) and cross-analyzes it against ESTABLISHED datasets and science
 // papers (OpenAlex/PubMed literature already mirrored into research_papers).
-// The engine then produces public research items for the outlet — findings,
-// trends, and generated research papers — so Overlay Global Lens accumulates an
+// The engine then produces public research items for the outlet â€” findings,
+// trends, and generated research papers â€” so Overlay Global Lens accumulates an
 // original, evidence-tiered research database of its own.
 //
-// PUBLIC-OUTLET RULE: same as trends.ts — only public-facing signal is written.
+// PUBLIC-OUTLET RULE: same as trends.ts â€” only public-facing signal is written.
 // Internal agent names, patch ids and repair instructions never appear here.
 // ============================================================================
 
@@ -63,9 +64,9 @@ interface EstablishedPaper {
   category: string;
 }
 
-function loadEstablishedPapers(): EstablishedPaper[] {
-  const rows = db.prepare(
-    "SELECT title, url, category FROM research_papers WHERE title IS NOT NULL"
+async function loadEstablishedPapers(): Promise<EstablishedPaper[]> {
+  const rows = await db.prepare(
+    "SELECT title, url, category FROM reference_papers WHERE title IS NOT NULL"
   ).all() as any[];
   return rows.map((r) => ({ title: r.title, url: r.url || "", category: r.category || "" }));
 }
@@ -107,7 +108,7 @@ function evidenceTierFor(isMeasured: boolean, supportScore: number): string {
 
 // ---- Writes ----------------------------------------------------------------
 
-const upsertDiscovery = db.prepare(`
+const upsertDiscovery = await db.prepare(`
   INSERT INTO discoveries (id, title, insight, evidence_tier, hypothesis_id, linked_patch_id, source, category, payload, pub_date)
   VALUES (@id, @title, @insight, @evidence_tier, @hypothesis_id, @linked_patch_id, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -116,7 +117,7 @@ const upsertDiscovery = db.prepare(`
     pub_date = excluded.pub_date
 `);
 
-const upsertTrend = db.prepare(`
+const upsertTrend = await db.prepare(`
   INSERT INTO trends (id, title, summary, direction, slope, confidence, evidence_tier, recommended_action, source, category, payload, pub_date)
   VALUES (@id, @title, @summary, @direction, @slope, @confidence, @evidence_tier, @recommended_action, @source, @category, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -126,7 +127,7 @@ const upsertTrend = db.prepare(`
     category = excluded.category, payload = excluded.payload, pub_date = excluded.pub_date
 `);
 
-const upsertPaper = db.prepare(`
+const upsertPaper = await db.prepare(`
   INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
   VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
   ON CONFLICT(id) DO UPDATE SET
@@ -147,6 +148,9 @@ interface SportsFinding {
   slope?: number;
   confidence?: number;
   measured: boolean;
+  /** Always persist as a discovery even when micro-discoveries are disabled
+   *  (reserved for a small set of high-value, calibration-backed findings). */
+  alwaysPersist?: boolean;
 }
 
 function loadSportsMetrics(dir: string): any[] {
@@ -222,7 +226,7 @@ function sportsScienceFindings(papers: EstablishedPaper[]): SportsFinding[] {
         const flattening = typeof s.nba_era_flattening_score === "number" ? s.nba_era_flattening_score : null;
         findings.push({
           title: `Era-adjusted NBA efficiency has been ${direction} across decades`,
-          insight: `Era-adjusted efficiency across ${decades.length} decades (${decades[0][0]}–${decades[decades.length - 1][0]}) moved from ${first.toFixed(2)} to ${last.toFixed(2)}${flattening !== null ? `, with a ${flattening.toFixed(2)} flattening score` : ""} once three-point inflation is removed. This is an original time-series finding against NBA season data.`,
+          insight: `Era-adjusted efficiency across ${decades.length} decades (${decades[0][0]}â€“${decades[decades.length - 1][0]}) moved from ${first.toFixed(2)} to ${last.toFixed(2)}${flattening !== null ? `, with a ${flattening.toFixed(2)} flattening score` : ""} once three-point inflation is removed. This is an original time-series finding against NBA season data.`,
           category: "Sports Science",
           pillar: "sport",
           direction,
@@ -234,12 +238,14 @@ function sportsScienceFindings(papers: EstablishedPaper[]): SportsFinding[] {
     }
 
     // Kaggle established-dataset comparison.
-    if (s.kaggle) {
+    const kaggle = s.kaggle || s.kaggle_counts;
+    if (kaggle) {
       const parts: string[] = [];
-      const k = s.kaggle;
+      const k = kaggle;
       for (const ds of Object.keys(k)) {
-        const m = k[ds]?.median;
-        if (typeof m === "number") parts.push(`${ds} median ${m.toFixed(2)}`);
+        const v = k[ds];
+        if (typeof v === "number") parts.push(`${ds} ${v.toLocaleString()} records`);
+        else if (v && typeof v.median === "number") parts.push(`${ds} median ${v.median.toFixed(2)}`);
       }
       if (parts.length) {
         findings.push({
@@ -280,6 +286,116 @@ function sportsScienceFindings(papers: EstablishedPaper[]): SportsFinding[] {
       pillar: "sport",
       measured: true,
       confidence: 0.9,
+    });
+  }
+
+  return findings;
+}
+
+// ---- NBA Codex / CureMind onco layer ingestion ---------------------------------
+
+function loadCodexOnco(): { summary: any | null; players: any[]; comparison: any | null } {
+  const researchBase = sportsResearchDir();
+  const summaryFiles = walk(researchBase, "codex_onco_summary.json");
+  const playerFiles = walk(researchBase, "codex_player_onco.json");
+  const comparisonFiles = walk(researchBase, "codex_pipeline_comparison.json");
+  return {
+    summary: summaryFiles.length ? readJson(summaryFiles[0]) : null,
+    players: playerFiles.length ? (readJson(playerFiles[0]) || []) : [],
+    comparison: comparisonFiles.length ? readJson(comparisonFiles[0]) : null,
+  };
+}
+
+function codexOncoFindings(): SportsFinding[] {
+  const findings: SportsFinding[] = [];
+  const { summary, players, comparison } = loadCodexOnco();
+
+  if (summary && typeof summary.profiles_total === "number") {
+    const tiers = summary.risk_tier_counts || {};
+    const malign = summary.malignancy_counts || {};
+    const thresholdNote =
+      typeof summary.tier_thresholds?.p70 === "number" && typeof summary.tier_thresholds?.p90 === "number"
+        ? ` (cohort-relative recurrence-risk bands at p70=${(summary.tier_thresholds.p70 * 100).toFixed(1)}%, p90=${(summary.tier_thresholds.p90 * 100).toFixed(1)}%)`
+        : "";
+    findings.push({
+      title: `NBA player efficiency classified via CureMind onco layer: ${summary.profiles_total.toLocaleString()} player-seasons`,
+      insight: `Every NBA player-season in the codex database was translated through the CureMind oncology layer${thresholdNote}. Risk tiers: ${JSON.stringify(tiers)}; malignancy classes: ${JSON.stringify(malign)}. This is an original cross-domain translation of oncology risk methodology onto athlete-performance data.`,
+      category: "Oncology Translation",
+      pillar: "science",
+      measured: true,
+      confidence: 0.92,
+    });
+
+    if (typeof summary.high_risk_cohort_size === "number") {
+      const topNames = (Array.isArray(summary.high_risk_top) ? summary.high_risk_top.slice(0, 5) : [])
+        .map((t: any) => `${t.player} (${t.season})`)
+        .join(", ");
+      findings.push({
+        title: `${summary.high_risk_cohort_size.toLocaleString()} NBA player-seasons flagged in the HIGH onco-risk cohort`,
+        insight: `Applying the CureMind recurrence-risk thresholds flags ${summary.high_risk_cohort_size.toLocaleString()} of ${summary.profiles_total.toLocaleString()} player-seasons as HIGH risk. Highest-risk examples: ${topNames}. The full ranking is computed deterministically from era-adjusted efficiency.`,
+        category: "Oncology Translation",
+        pillar: "science",
+        measured: true,
+        confidence: 0.9,
+      });
+    }
+  }
+
+  if (comparison) {
+    const shared = Array.isArray(comparison.shared_findings) ? comparison.shared_findings : [];
+    const diffs = Array.isArray(comparison.key_differences) ? comparison.key_differences : [];
+    if (shared.length) {
+      findings.push({
+        title: "Pipeline audit: codex and research engines agree on era-adjusted TER as the fair cross-era ranking",
+        insight: shared
+          .slice(0, 3)
+          .map((s: any) => (typeof s === "string" ? s : JSON.stringify(s)))
+          .join(" "),
+        category: "Pipeline Audit",
+        pillar: "research",
+        measured: true,
+        confidence: 0.95,
+      });
+    }
+    if (diffs.length) {
+      findings.push({
+        title: "Pipeline audit: same stat name, different formulas â€” TER scales differ across engines",
+        insight: diffs
+          .slice(0, 3)
+          .map((d: any) => (typeof d === "string" ? d : JSON.stringify(d)))
+          .join(" "),
+        category: "Pipeline Audit",
+        pillar: "research",
+        measured: true,
+        confidence: 0.95,
+      });
+    }
+  }
+
+  if (Array.isArray(players) && players.length) {
+    const byClass = new Map<string, { count: number; high: number }>();
+    for (const p of players) {
+      const cls = String(p.classification || "UNKNOWN");
+      const tier = p.onco?.risk_tier || "";
+      const cur = byClass.get(cls) || { count: 0, high: 0 };
+      cur.count++;
+      if (tier === "HIGH") cur.high++;
+      byClass.set(cls, cur);
+    }
+    const sorted = [...byClass.entries()].sort((a, b) => b[1].count - a[1].count);
+    const lines = sorted
+      .map(([cls, v]) => `${cls}: ${v.count} seasons, ${v.high} HIGH risk (${((v.high / v.count) * 100).toFixed(1)}%)`)
+      .join("; ");
+    const topShare = [...byClass.entries()].sort(
+      (a, b) => b[1].high / b[1].count - a[1].high / a[1].count
+    )[0];
+    findings.push({
+      title: `Player-level onco risk by NBA role: ${topShare ? topShare[0] : "n/a"} carries the highest share of HIGH-risk seasons`,
+      insight: `Of ${players.length.toLocaleString()} classified player-seasons: ${lines}. HIGH-risk share varies sharply by on-court role, which the onco translation exposes as a measurable pattern.`,
+      category: "Oncology Translation",
+      pillar: "science",
+      measured: true,
+      confidence: 0.88,
     });
   }
 
@@ -382,26 +498,115 @@ function hempResearchFindings(hemp: { trends: HempTrend[]; insights: HempInsight
   return findings;
 }
 
+// ---- Oncology calibration ingestion (Overlay Oncology subdomain) -------------
+//
+// Overlay Oncology (`oncology.overlay365.com`) exposes real, cited calibration
+// state via GET {ONCOLOGY_URL}/api/calibration/state â€” calibrated potency (CCLE
+// IC50) and survival (TCGA Weibull) fits with provenance. The outlet surfaces
+// these as evidence-tiered findings. PUBLIC-OUTLET RULE applies: no internal
+// ids/agent names; sources map to public labels. Degrades gracefully when the
+// app is not yet configured/deployed.
+
+interface OncologyCalibration {
+  updatedAtIso?: string | null;
+  potency?: {
+    medianIc50?: number | null;
+    ciLow?: number | null;
+    ciHigh?: number | null;
+    n?: number | null;
+    provenance?: { source?: string; sourceUrl?: string; mode?: string; rowCount?: number } | null;
+  } | null;
+  survival?: {
+    lambdaPerMonth?: number | null;
+    shape?: number | null;
+    scaleMonths?: number | null;
+    medianSurvivalMonths?: number | null;
+    kmModelRmse?: number | null;
+    n?: number | null;
+    provenance?: { source?: string; sourceUrl?: string; mode?: string; rowCount?: number } | null;
+  } | null;
+}
+
+async function loadOncologyCalibrationHttp(): Promise<OncologyCalibration | null> {
+  const base = process.env.ONCOLOGY_URL;
+  if (!base) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`${base.replace(/\/+$/, "")}/api/calibration/state`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as OncologyCalibration;
+  } catch (e: any) {
+    console.warn(`[domain] Oncology calibration source unavailable: ${e.message}`);
+    return null;
+  }
+}
+
+function oncologyFindings(cal: OncologyCalibration | null, papers: EstablishedPaper[]): SportsFinding[] {
+  if (!cal) return [];
+  const findings: SportsFinding[] = [];
+  const sourceLabel = "Overlay Oncology";
+
+  const potency = cal.potency;
+  if (potency?.medianIc50 && typeof potency.medianIc50 === "number") {
+    const ref = crossReference("cancer cell line drug sensitivity IC50 pharmacogenomics", papers);
+    const dataset = potency.provenance?.source || "CCLE drug-treatment IC50";
+    findings.push({
+      title: `Oncology potency calibration: median IC50 ${potency.medianIc50.toFixed(2)} ÂµM across ${potency.n ?? "n/a"} cell lines`,
+      insight: `The Overlay Oncology simulator is calibrated to real pharmacogenomic data (${dataset}${potency.provenance?.rowCount ? `, ${potency.provenance.rowCount} measurements` : ""}) with median IC50 ${potency.medianIc50.toFixed(2)} ÂµM and 95% CI [${(potency.ciLow ?? 0).toFixed(2)}, ${(potency.ciHigh ?? 0).toFixed(2)}]. Cross-referenced against ${ref.matched.length} established cancer-sensitivity studies.`,
+      category: "Oncology",
+      pillar: "science",
+      measured: true,
+      confidence: 0.93,
+      alwaysPersist: true,
+    });
+  }
+
+  const survival = cal.survival;
+  if (survival?.medianSurvivalMonths && typeof survival.medianSurvivalMonths === "number") {
+    const ref = crossReference("cancer patient survival model hazard weibull", papers);
+    const dataset = survival.provenance?.source || "TCGA survival";
+    findings.push({
+      title: `Oncology survival calibration: median OS ${survival.medianSurvivalMonths.toFixed(1)} months (${survival.n ?? "n/a"} patients)`,
+      insight: `The Overlay Oncology survival model is calibrated to real patient data (${dataset}${survival.provenance?.rowCount ? `, ${survival.provenance.rowCount} patients` : ""}) with median overall survival ${survival.medianSurvivalMonths.toFixed(1)} months and Weibull shape ${(survival.shape ?? 0).toFixed(2)}. Cross-referenced against ${ref.matched.length} established survival studies.`,
+      category: "Oncology",
+      pillar: "science",
+      measured: true,
+      confidence: 0.93,
+      alwaysPersist: true,
+    });
+  }
+
+  return findings;
+}
+
 // ---- Research paper generation -----------------------------------------------
 
 function generateResearchPaper(findings: SportsFinding[]): void {
   if (!findings.length) return;
   const top = findings.slice(0, 8);
-  const title = "Overlay Research Digest — Sports Science & Hemp Research Findings";
+  const title = "Overlay Research Digest â€” Sports Science & Hemp Research Findings";
   const nowIso = new Date().toISOString();
   const dateKey = nowIso.slice(0, 10);
-  const abstractLines = top.map((f) => `• ${f.title}`);
+  const abstractLines = top.map((f) => `â€¢ ${f.title}`);
   const evidence = top.every((f) => f.measured) ? "E1" : top.some((f) => f.measured) ? "E2" : "E3";
 
   upsertPaper.run({
-    id: `overlay-research-digest-${dateKey}`,
+    // Stable ID (no date) so the daily digest updates ONE canonical row each
+    // day instead of inserting a new paper â€” the digest accumulates findings
+    // in place and never floods the publication with near-identical rows.
+    id: `overlay-research-digest`,
     source: "Overlay Research Desk",
     title,
     url: "",
     year: new Date().getFullYear(),
     authors: "Overlay Global Lens Research Desk",
     abstract: "",
-    summary: `A daily digest of ${top.length} original research findings from the Overlay Global Lens domain engine:\n\n${abstractLines.join("\n")}`,
+    summary: `A daily digest of ${top.length} original research findings from the Overlay Global Lens domain engine (updated ${dateKey}):\n\n${abstractLines.join("\n")}`,
     category: "research",
     pillar: "research",
     evidence_tier: evidence,
@@ -410,44 +615,81 @@ function generateResearchPaper(findings: SportsFinding[]): void {
   });
 }
 
+// NBA Codex open-source integration research (plan + findings from 2026-08-16).
+// Surfaced as a public paper so the toolchain roadmap is traceable on the outlet.
+function generateCodexOpenSourcePaper(): void {
+  const nowIso = new Date().toISOString();
+  const dateKey = nowIso.slice(0, 10);
+  upsertPaper.run({
+    // Stable ID (no date) â€” one canonical toolchain paper, updated in place.
+    id: `codex-open-source-integration`,
+    source: "Overlay Research Desk",
+    title: "NBA Codex Open-Source Toolchain Integration Research",
+    url: "",
+    year: new Date().getFullYear(),
+    authors: "Overlay Global Lens Research Desk",
+    abstract: "",
+    summary: `Open-source toolchain research for the NBA Codex pipeline: nba_api (live 2025-26 NBA.com ingest), full FiveThirtyEight RAPTOR/WAR (replacing the sparse Kaggle mirror), Cognee (vector + knowledge-graph memory) and floodlight (spatial/tracking events). Findings: codex season keys are end-year strings ("2026") vs nba_api "2025-26"; NBA.com IDs must be joined to codex profiles by name; 2 of 10 codex hypotheses predict 2026 (Haliburton, Horton-Tucker), 8 predict 2027 and are unresolvable until the 2026-27 season. (Updated ${dateKey})`,
+    category: "research",
+    pillar: "research",
+    evidence_tier: "E2",
+    payload: JSON.stringify({ dateKey, topic: "nba-codex-open-source-integration" }),
+    pub_date: nowIso,
+  });
+}
+
 // ---- Main sync ----------------------------------------------------------------
 
-export function syncDomainResearch(): {
+export async function syncDomainResearch(): Promise<{
   discoveries: number;
   trends: number;
   papers: number;
   source: string | null;
-} {
-  const papers = loadEstablishedPapers();
+}> {
+  const papers = await loadEstablishedPapers();
+  const oncologyCal = await loadOncologyCalibrationHttp();
   const findings = [
     ...sportsScienceFindings(papers),
+    ...codexOncoFindings(),
+    ...oncologyFindings(oncologyCal, papers),
     ...hempResearchFindings(loadHempResearch(), papers),
+    ...(await scienceValidationFindings()),
   ];
 
   let discoveries = 0;
   let trends = 0;
   const nowIso = new Date().toISOString();
 
+  // Per-finding micro-discoveries are now bundled into the definitive research
+  // papers produced by the synthesis engine (researchSynthesis.ts). They are
+  // disabled by default so the outlet stops flooding with near-identical rows;
+  // set GLOBAL_LENS_MICRO_DISCOVERIES=1 to restore the old behaviour. The
+  // findings still drive the trends & insights engine and the daily digest.
+  const microEnabled = process.env.GLOBAL_LENS_MICRO_DISCOVERIES === "1";
+
   for (const f of findings) {
     const id = `domain-${slug(f.title)}`;
     const tier = evidenceTierFor(f.measured, crossReference(f.title + " " + f.insight, papers).score);
     const ref = crossReference(f.title + " " + f.insight, papers);
-    upsertDiscovery.run({
-      id,
-      title: f.title,
-      insight: f.insight,
-      evidence_tier: tier,
-      hypothesis_id: null,
-      linked_patch_id: null,
-      source: "Overlay Research Desk",
-      category: f.category,
-      payload: JSON.stringify({
-        pillar: f.pillar,
-        related_papers: ref.matched.map((m) => ({ title: m.title, url: m.url })),
-      }),
-      pub_date: nowIso,
-    });
-    discoveries++;
+
+    if (microEnabled || (f as any).alwaysPersist) {
+      upsertDiscovery.run({
+        id,
+        title: f.title,
+        insight: f.insight,
+        evidence_tier: tier,
+        hypothesis_id: null,
+        linked_patch_id: null,
+        source: "Overlay Research Desk",
+        category: f.category,
+        payload: JSON.stringify({
+          pillar: f.pillar,
+          related_papers: ref.matched.map((m) => ({ title: m.title, url: m.url })),
+        }),
+        pub_date: nowIso,
+      });
+      discoveries++;
+    }
 
     if (f.direction || typeof f.slope === "number") {
       upsertTrend.run({
@@ -469,6 +711,7 @@ export function syncDomainResearch(): {
   }
 
   generateResearchPaper(findings);
+  generateCodexOpenSourcePaper();
 
   return { discoveries, trends, papers: findings.length ? 1 : 0, source: "overlay-research" };
 }
@@ -476,7 +719,7 @@ export function syncDomainResearch(): {
 // ---- Editorial article generation (best-effort, LLM lineup) --------------------
 
 export async function generateEditorialArticles(findings?: SportsFinding[]): Promise<{ published: number }> {
-  const f = findings || sportsScienceFindings(loadEstablishedPapers());
+  const f = findings || sportsScienceFindings(await loadEstablishedPapers());
   if (!f.length) return { published: 0 };
   const top = f.slice(0, 3);
   let published = 0;
@@ -510,7 +753,7 @@ Output strictly valid JSON with no markdown fences:
         .update(`Overlay Research:${finding.title}`)
         .digest("hex");
       const pubDate = new Date().toISOString();
-      db.prepare(
+      await db.prepare(
         "INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       ).run(
         urlHash,
@@ -531,10 +774,10 @@ Output strictly valid JSON with no markdown fences:
 }
 
 export async function syncDomainResearchWithEditorial(): Promise<{
-  sync: ReturnType<typeof syncDomainResearch>;
+  sync: Awaited<ReturnType<typeof syncDomainResearch>>;
   editorial: number;
 }> {
-  const sync = syncDomainResearch();
+  const sync = await syncDomainResearch();
   const editorial = await generateEditorialArticles();
   return { sync, editorial: editorial.published };
 }

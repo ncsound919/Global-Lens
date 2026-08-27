@@ -1,5 +1,4 @@
-import React from 'react';
-import { RefreshCw, Settings as SettingsIcon } from 'lucide-react';
+﻿import { RefreshCw, Settings as SettingsIcon } from 'lucide-react';
 
 interface MastheadProps {
   isOnline: boolean;
@@ -29,8 +28,8 @@ export default function Masthead({ isOnline, isRefreshing, isLoading, insightRef
               An Overlay365 Publication
             </span>
           </div>
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-            Research · News · Intelligence
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+            Research Â· News Â· Intelligence
           </p>
         </div>
 
@@ -40,7 +39,7 @@ export default function Masthead({ isOnline, isRefreshing, isLoading, insightRef
               onClick={onRefresh}
               disabled={busy}
               aria-label="Refresh content"
-              className="inline-flex h-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 px-5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 px-5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline sm:ml-2">Refresh</span>
@@ -58,8 +57,8 @@ export default function Masthead({ isOnline, isRefreshing, isLoading, insightRef
               <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isOnline ? 'bg-amber-500' : 'bg-red-500'}`} />
               <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-amber-500' : 'bg-red-500'}`} />
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-              {today} · Global Edition
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+              {today} Â· Global Edition
             </span>
           </div>
         </div>

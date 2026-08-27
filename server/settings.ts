@@ -1,7 +1,7 @@
-import express from "express";
+﻿import express from "express";
 import { z } from "zod";
-import db, { encrypt, decrypt } from "./db";
-import { getAuthSession } from "./api";
+import db, { encrypt, decrypt } from "./db.js";
+import { getAuthSession } from "./api.js";
 
 export const settingsRouter = express.Router();
 
@@ -13,13 +13,13 @@ export const SettingsSchema = z.object({
   geminiApiKey: z.string().max(250).optional()
 });
 
-settingsRouter.get("/settings", (req, res) => {
-  const session = getAuthSession(req);
+settingsRouter.get("/settings", async (req, res) => {
+  const session = await getAuthSession(req);
   
   if (session) {
     // Authenticated path: Retrieve settings from the secure relational database
     const userId = session.user_id;
-    let settings = db.prepare('SELECT * FROM user_settings WHERE owner_id = ?').get(userId) as any;
+    let settings = await db.prepare('SELECT * FROM user_settings WHERE owner_id = ?').get(userId) as any;
     
     if (!settings) {
        settings = {
@@ -30,7 +30,7 @@ settingsRouter.get("/settings", (req, res) => {
          regions: '{"us":true,"westAfrica":false,"caribbean":true}',
          gemini_api_key: ""
        };
-       db.prepare(`
+       await db.prepare(`
          INSERT OR IGNORE INTO user_settings (owner_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key) 
          VALUES (?, ?, ?, ?, ?, ?)
        `).run(
@@ -51,7 +51,7 @@ settingsRouter.get("/settings", (req, res) => {
       lens_intensity: settings.lens_intensity,
       odds_format: settings.odds_format,
       regions: parsedRegions,
-      gemini_api_key: isKeySet ? "••••" : ""
+      gemini_api_key: isKeySet ? "â€¢â€¢â€¢â€¢" : ""
     });
   } else {
     // Anonymous/Guest path: Use secure cookie-based preference isolation
@@ -72,7 +72,7 @@ settingsRouter.get("/settings", (req, res) => {
           lens_intensity: parsed.lensIntensity || "balanced",
           odds_format: parsed.oddsFormat || "american",
           regions: parsed.regions || { us: true, westAfrica: false, caribbean: true },
-          gemini_api_key: parsed.encryptedGeminiApiKey ? "••••" : ""
+          gemini_api_key: parsed.encryptedGeminiApiKey ? "â€¢â€¢â€¢â€¢" : ""
         };
       } catch (e) {
         // Fallback to defaults on corrupt cookie
@@ -89,27 +89,27 @@ settingsRouter.get("/settings", (req, res) => {
   }
 });
 
-settingsRouter.put("/settings", (req, res) => {
+settingsRouter.put("/settings", async (req, res) => {
   const parsed = SettingsSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid parameters" });
   }
   const body = parsed.data;
-  const session = getAuthSession(req);
+  const session = await getAuthSession(req);
 
   if (session) {
     // Authenticated path: Update the persistent relational database record
     const userId = session.user_id;
     let finalEncryptedKey = "";
     
-    if (body.geminiApiKey === "••••" || body.geminiApiKey === "••••••••••••••••") {
-      const existing = db.prepare('SELECT gemini_api_key FROM user_settings WHERE owner_id = ?').get(userId) as any;
+    if (body.geminiApiKey === "â€¢â€¢â€¢â€¢" || body.geminiApiKey === "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢") {
+      const existing = await db.prepare('SELECT gemini_api_key FROM user_settings WHERE owner_id = ?').get(userId) as any;
       finalEncryptedKey = existing?.gemini_api_key || "";
     } else if (body.geminiApiKey) {
       finalEncryptedKey = encrypt(body.geminiApiKey);
     }
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO user_settings (owner_id, reading_mode, lens_intensity, odds_format, regions, gemini_api_key) 
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(owner_id) DO UPDATE SET 
@@ -148,7 +148,7 @@ settingsRouter.put("/settings", (req, res) => {
     }
 
     let finalEncryptedKey = "";
-    if (body.geminiApiKey === "••••" || body.geminiApiKey === "••••••••••••••••") {
+    if (body.geminiApiKey === "â€¢â€¢â€¢â€¢" || body.geminiApiKey === "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢") {
       finalEncryptedKey = existingEncryptedKey;
     } else if (body.geminiApiKey) {
       finalEncryptedKey = encrypt(body.geminiApiKey);

@@ -1,11 +1,14 @@
-import express from "express";
+﻿import express from "express";
 import rateLimit from "express-rate-limit";
-import db from "./db";
-import { syncRSSNews, getFeedHealth } from "./rss";
-import { authRouter } from "./auth";
-import { settingsRouter } from "./settings";
-import { newsRouter } from "./news";
-import { insightsRouter } from "./insights";
+import crypto from "crypto";
+import db from "./db.js";
+import { syncRSSNews, getFeedHealth } from "./rss.js";
+import { authRouter } from "./auth.js";
+import { settingsRouter } from "./settings.js";
+import { newsRouter } from "./news.js";
+import { insightsRouter } from "./insights.js";
+import { getFindingOfDay, getFindings, upsertFinding, setFindingOfDay } from "./oncology.js";
+import { donateRouter, getSettledDonationStats } from "./donations.js";
 
 const standardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -27,12 +30,12 @@ apiRouter.use(standardLimiter);
  * Validates session against database to return authenticated details.
  * Strictly uses the secure HTTP-only bgl_session cookie for session identification.
  */
-export function getAuthSession(req: express.Request) {
+export async function getAuthSession(req: express.Request) {
   const sessionId = req.cookies?.bgl_session as string | undefined;
   if (!sessionId) return null;
   
   try {
-    const session = db.prepare(`
+    const session = await db.prepare(`
       SELECT s.session_id, s.user_id, u.email 
       FROM sessions s 
       JOIN users u ON s.user_id = u.id 
@@ -52,8 +55,34 @@ export function getAuthSession(req: express.Request) {
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/user", settingsRouter);
 apiRouter.use("/news", newsRouter);
-// Overlay Global Lens — ecosystem content (papers/trends/discoveries/metaphors)
+// Overlay Global Lens â€” ecosystem content (papers/trends/discoveries/metaphors)
 apiRouter.use("/", insightsRouter);
+
+// Overlay Oncology â€” verified research findings + transparent donations.
+apiRouter.use("/donate", donateRouter);
+
+apiRouter.get("/oncology/overview", async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const fod = await getFindingOfDay(today);
+  const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
+  const findings = await getFindings({ kind });
+  const papers = await db.prepare(`
+    SELECT * FROM research_papers
+    WHERE category = 'cancer-research'
+    ORDER BY COALESCE(pub_date, created_at) DESC LIMIT 50
+  `).all() as any[];
+  res.json({
+    finding_of_day: fod,
+    findings: findings.findings,
+    papers: papers.map((p) => ({
+      id: p.id, source: p.source, title: p.title, url: p.url, year: p.year,
+      authors: p.authors, abstract: p.abstract, summary: p.summary,
+      category: p.category, pillar: p.pillar, evidence_tier: p.evidence_tier,
+      pub_date: p.pub_date,
+    })),
+    donations: await getSettledDonationStats(),
+  });
+});
 
 // Service utility endpoints
 // Health counts are memoized briefly (TTL) so liveness checks stay cheap even
@@ -62,12 +91,12 @@ apiRouter.use("/", insightsRouter);
 const countCache = new Map<string, { value: number; at: number }>();
 const COUNT_TTL_MS = 5_000;
 
-function countRows(sql: string, key: string): number {
+async function countRows(sql: string, key: string): Promise<number> {
   const hit = countCache.get(key);
   if (hit && Date.now() - hit.at < COUNT_TTL_MS) return hit.value;
   let value = 0;
   try {
-    value = (db.prepare(sql).get() as any)?.c ?? 0;
+    value = (await db.prepare(sql).get() as any)?.c ?? 0;
   } catch {
     value = 0;
   }
@@ -75,19 +104,20 @@ function countRows(sql: string, key: string): number {
   return value;
 }
 
-apiRouter.get("/health", (req, res) => {
+apiRouter.get("/health", async (req, res) => {
   try {
-    const isDbAlive = db.prepare("SELECT 1").get();
+    const isDbAlive = await db.prepare("SELECT 1").get();
     if (!isDbAlive) throw new Error("DB unreachable");
     res.json({ 
        status: "ok", 
        timestamp: new Date().toISOString(),
        db: "connected",
-       feeds: countRows("SELECT COUNT(*) as c FROM rss_feeds", "feeds"),
-       research_papers: countRows("SELECT COUNT(*) as c FROM research_papers", "papers"),
-       trends: countRows("SELECT COUNT(*) as c FROM trends", "trends"),
-       discoveries: countRows("SELECT COUNT(*) as c FROM discoveries", "discoveries"),
-       metaphors: countRows("SELECT COUNT(*) as c FROM metaphors", "metaphors")
+       feeds: await countRows("SELECT COUNT(*) as c FROM rss_feeds", "feeds"),
+       research_papers: await countRows("SELECT COUNT(*) as c FROM research_papers", "papers"),
+       reference_papers: await countRows("SELECT COUNT(*) as c FROM reference_papers", "refs"),
+       trends: await countRows("SELECT COUNT(*) as c FROM trends", "trends"),
+       discoveries: await countRows("SELECT COUNT(*) as c FROM discoveries", "discoveries"),
+       metaphors: await countRows("SELECT COUNT(*) as c FROM metaphors", "metaphors")
     });
   } catch (err: any) {
     console.error("Health check failed:", err.message);
@@ -95,33 +125,48 @@ apiRouter.get("/health", (req, res) => {
   }
 });
 
-apiRouter.post("/sync", syncLimiter, (req, res) => {
-  syncRSSNews();
+apiRouter.post("/sync", syncLimiter, async (req, res) => {
   res.json({ success: true, message: "Sync started" });
+  // Run after response so the request returns immediately. On Vercel, background
+  // work after res.json is not guaranteed — use GET /api/cron/sync (awaited) for
+  // serverless cron instead. This route is for manual local triggers.
+  syncRSSNews().catch((e) => console.error("Manual sync failed:", e));
 });
 
-apiRouter.get("/feeds/health", (req, res) => {
-  res.json({ health: getFeedHealth() });
+apiRouter.get("/feeds/health", async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  const authHeader = String(req.headers.authorization || "");
+  const hasCronSecret = secret && authHeader === `Bearer ${secret}`;
+  const hasSession = !!(req as any).cookies?.bgl_session;
+  if (!hasCronSecret && !hasSession) {
+    return res.status(401).json({ detail: "unauthorized" });
+  }
+  res.json({ health: await getFeedHealth() });
 });
 
 /**
- * POST /api/publish — fleet ingest point.
+ * POST /api/publish â€” fleet ingest point.
  * Overlay365 agents (e.g. the Hemp Research & News digest) publish finished
  * articles/insights here so they flow through the Global Lens AI pipeline
  * (reframing, takeaways, backstory) like any RSS article.
  *
  * Body: { title, body, category?, source_name?, url?, image_url? }
- * Auth: Bearer <GL_PUBLISH_KEY> when set; unauthenticated allowed otherwise
- * (local/dev). Deterministic: a stable sha256 hash over source+title+body
+ * Auth: Bearer <GL_PUBLISH_KEY> REQUIRED â€” fail-closed when unset so an
+ * unconfigured deployment can never accept forged "verified research".
+ * Deterministic: a stable sha256 hash over source+title+body
  * makes re-publishes idempotent (INSERT OR IGNORE).
  */
-apiRouter.post("/publish", (req, res) => {
+apiRouter.post("/publish", async (req, res) => {
   const key = process.env.GL_PUBLISH_KEY;
-  if (key) {
-    const auth = String(req.headers.authorization || "");
-    if (auth !== `Bearer ${key}`) {
-      return res.status(401).json({ detail: "unauthorized" });
-    }
+  if (!key) {
+    return res.status(503).json({ detail: "publish disabled: GL_PUBLISH_KEY not configured" });
+  }
+  const auth = String(req.headers.authorization || "");
+  const expected = `Bearer ${key}`;
+  const authBuf = Buffer.from(auth);
+  const expBuf = Buffer.from(expected);
+  if (authBuf.length !== expBuf.length || !crypto.timingSafeEqual(authBuf, expBuf)) {
+    return res.status(401).json({ detail: "unauthorized" });
   }
 
   const { title, body, category = "global", source_name = "Overlay365", url = "", image_url = "", insights, digest, trends } = (req.body || {}) as {
@@ -149,24 +194,33 @@ apiRouter.post("/publish", (req, res) => {
     finalBody = sections.join("\n\n") || "No content.";
   }
 
-  const crypto = require("crypto");
   const urlHash = crypto.createHash("sha256").update(`${source_name}:${title}:${finalBody.slice(0, 50)}`).digest("hex");
   const pubDate = new Date().toISOString();
 
-  const info = db.prepare(
+  const info = await db.prepare(
     "INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(urlHash, category, source_name, title.slice(0, 500), url || `global-lens://${urlHash}`, image_url, finalBody, pubDate);
 
   // Optional paper attachment: upsert into research_papers so the published
   // article can be linked to its source paper (idempotent on paper.id).
   const { paper } = (req.body || {}) as any;
-  if (paper && paper.id && paper.title) {
-    const paperInfo = db.prepare(`
+  let paperId: string | undefined;
+  if (paper && paper.title) {
+    // Defense-in-depth against duplicate papers: if the publisher sends a
+    // time-scoped id (e.g. "brain-{build_id}" regenerated every run), fall back
+    // to a stable hash of source+title so re-publishes upsert ONE row instead
+    // of inserting a duplicate. Publisher-supplied ids are used only when they
+    // look stable (already a hash of content, or explicitly flagged).
+    const stableId = paper.id && !/brain-[a-f0-9]{12}/i.test(String(paper.id))
+      ? String(paper.id)
+      : `paper-${crypto.createHash("sha256").update(`${paper.source || 'CureMind'}:${paper.title}`).digest("hex").slice(0, 24)}`;
+    paperId = stableId;
+    const paperInfo = await db.prepare(`
       INSERT INTO research_papers (id, source, title, url, year, authors, abstract, summary, category, pillar, evidence_tier, payload, pub_date)
       VALUES (@id, @source, @title, @url, @year, @authors, @abstract, @summary, @category, @pillar, @evidence_tier, @payload, @pub_date)
       ON CONFLICT(id) DO UPDATE SET title=excluded.title, url=excluded.url, summary=excluded.summary, evidence_tier=excluded.evidence_tier, payload=excluded.payload
     `).run({
-      id: paper.id,
+      id: stableId,
       source: 'CureMind',
       title: paper.title,
       url: paper.url || '',
@@ -180,7 +234,45 @@ apiRouter.post("/publish", (req, res) => {
       payload: JSON.stringify(paper.payload || {}),
       pub_date: new Date().toISOString(),
     });
-    if (paperInfo.changes > 0) console.log(`[publish] attached paper ${paper.id}`);
+    if (paperInfo.changes > 0) console.log(`[publish] attached paper ${stableId}`);
+  }
+
+  // Oncology findings + finding-of-day (verified, signed results).
+  const { findings = [], finding_of_day = [] } = (req.body || {}) as {
+    findings?: any[]; finding_of_day?: { day: string; finding_id: string }[];
+  };
+
+  if (Array.isArray(findings)) {
+    for (const f of findings) {
+      if (!f || typeof f.headline !== "string" || !f.headline.trim()) continue; // per-row fail-soft
+      const stableId = f.id && /^[a-zA-Z0-9][a-zA-Z0-9\-_]{3,127}$/.test(String(f.id))
+        ? String(f.id)
+        : `finding-${crypto.createHash("sha256").update(`${f.headline}:${f.metric || ""}:${f.value || ""}`).digest("hex").slice(0, 24)}`;
+      await upsertFinding({
+        id: stableId,
+        paper_id: f.paper_id || paperId,
+        headline: String(f.headline),
+        kind: String(f.kind || "discovery"),
+        metric: f.metric,
+        value: f.value,
+        unit: f.unit,
+        reference_claim: f.reference_claim,
+        evidence_tier: f.evidence_tier,
+        manifest_hash: f.manifest_hash,
+        audit_signature: f.audit_signature,
+        dataset: f.dataset,
+        sample_size: f.sample_size,
+        pub_date: f.pub_date,
+        payload: f.payload,
+      });
+    }
+  }
+
+  if (Array.isArray(finding_of_day)) {
+    for (const fod of finding_of_day) {
+      if (!fod || typeof fod.day !== "string" || typeof fod.finding_id !== "string") continue;
+      await setFindingOfDay(fod.day, fod.finding_id);
+    }
   }
 
   res.status(info.changes > 0 ? 201 : 200).json({

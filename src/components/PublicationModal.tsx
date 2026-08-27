@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { X, ExternalLink, ArrowUpRight } from 'lucide-react';
 import { PaperProps, TrendProps, DiscoveryProps, MetaphorPackage } from '../types';
 import { safe, tierBadgeClasses, formatConfidence, pillarLabel } from '../lib/format';
+import { useModalA11y } from '../lib/useModalA11y';
 import Byline from './Byline';
 import EvidenceLegend from './EvidenceLegend';
 import MetaphorBox from './MetaphorBox';
@@ -19,8 +20,8 @@ interface PublicationModalProps {
 function MetaStat({ label, value }: { label: string; value?: string }) {
   return (
     <div>
-      <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">{label}</div>
-      <div className="mt-0.5 text-[13px] text-zinc-300">{value || '—'}</div>
+      <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{label}</div>
+      <div className="mt-0.5 text-[13px] text-zinc-300">{value || 'â€”'}</div>
     </div>
   );
 }
@@ -55,13 +56,7 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
       });
   }, [type, paper?.title]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  const panelRef = useModalA11y(onClose);
 
   const title = safe(paper?.title || trend?.title || discovery?.title);
   const standfirst = safe(paper?.summary || paper?.abstract || trend?.summary || discovery?.insight);
@@ -72,12 +67,17 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
   return (
     <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-sm flex justify-end animate-fade-in" onClick={onClose}>
       <div
+        ref={panelRef}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         className="w-full max-w-2xl h-full overflow-y-auto bg-zinc-950/95 border-l border-zinc-800 p-8 shadow-2xl"
       >
         <button
           onClick={onClose}
-          className="text-xs uppercase font-bold tracking-widest text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
+          className="text-xs uppercase font-bold tracking-[0.2em] text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
         >
           <X className="h-4 w-4" /> Close
         </button>
@@ -104,23 +104,23 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
 
         {/* Paper specifics */}
         {paper && (
-          <div className="mb-6 grid grid-cols-2 gap-4 rounded-sm border border-zinc-900 bg-[#0c0c0c] p-5 sm:grid-cols-4">
+          <div className="mb-6 grid grid-cols-2 gap-4 rounded-sm border border-zinc-900 bg-ink-900 p-5 sm:grid-cols-4">
             <MetaStat label="Authors" value={safe(paper.authors).slice(0, 90)} />
-            <MetaStat label="Year" value={paper.year ? String(paper.year) : '—'} />
+            <MetaStat label="Year" value={paper.year ? String(paper.year) : 'â€”'} />
             <MetaStat label="Pillar" value={pillarLabel(paper.pillar)} />
-            <MetaStat label="DOI" value={paper.payload?.doi ? `doi.org/${paper.payload.doi}` : '—'} />
+            <MetaStat label="DOI" value={paper.payload?.doi ? `doi.org/${paper.payload.doi}` : 'â€”'} />
           </div>
         )}
 
         {/* Trend specifics */}
         {trend && (
-          <div className="mb-6 grid grid-cols-3 gap-4 rounded-sm border border-zinc-900 bg-[#0c0c0c] p-5">
+          <div className="mb-6 grid grid-cols-3 gap-4 rounded-sm border border-zinc-900 bg-ink-900 p-5">
             <MetaStat label="Direction" value={safe(trend.direction)} />
-            <MetaStat label="Slope" value={typeof trend.slope === 'number' ? trend.slope.toFixed(3) : '—'} />
+            <MetaStat label="Slope" value={typeof trend.slope === 'number' ? trend.slope.toFixed(3) : 'â€”'} />
             <MetaStat label="Confidence" value={formatConfidence(trend.confidence)} />
             {trend.recommended_action && (
               <div className="col-span-3 border-t border-zinc-900 pt-4">
-                <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">Recommended Action</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">Recommended Action</div>
                 <p className="mt-1 text-[13px] leading-relaxed text-zinc-300">{safe(trend.recommended_action)}</p>
               </div>
             )}
@@ -129,7 +129,7 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
 
         {/* Discovery specifics */}
         {discovery && (
-          <div className="mb-6 grid grid-cols-1 gap-4 rounded-sm border border-zinc-900 bg-[#0c0c0c] p-5 sm:grid-cols-2">
+          <div className="mb-6 grid grid-cols-1 gap-4 rounded-sm border border-zinc-900 bg-ink-900 p-5 sm:grid-cols-2">
             <MetaStat label="Source" value={safe(discovery.source)} />
             <MetaStat label="Category" value={safe(discovery.category)} />
           </div>
@@ -140,7 +140,7 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
             href={sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-8 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-[11px] font-bold uppercase tracking-widest text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
           >
             <ExternalLink className="h-4 w-4" />
             Read the source
@@ -164,7 +164,7 @@ export default function PublicationModal({ data, onClose }: PublicationModalProp
 
         <button
           onClick={onClose}
-          className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-300 transition-colors"
         >
           Back to the edition <ArrowUpRight className="h-3.5 w-3.5" />
         </button>
