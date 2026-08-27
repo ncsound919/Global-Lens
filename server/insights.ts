@@ -152,6 +152,7 @@ insightsRouter.get("/discoveries", async (req, res) => {
   // (inner-workings) and all Cross-Domain Desk operational signals are hidden.
   // The ecosystem's inner workings stay internal.
   clauses.push("source LIKE 'Overlay Research%'");
+  clauses.push("title NOT LIKE 'Research hypothesis:%'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
