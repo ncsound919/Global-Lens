@@ -371,7 +371,7 @@ async function callOpenCodeFree(prompt: string): Promise<string> {
           apiKey: key,
           baseURL: 'https://opencode.ai/zen/v1',
           maxRetries: 0,
-          timeout: 10_000,
+          timeout: 30_000,
         });
         // No retryWithBackoff and no response_format here: the free tier hangs
         // on JSON-mode and quota-exhausted models stall if retried. One attempt
