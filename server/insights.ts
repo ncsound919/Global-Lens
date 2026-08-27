@@ -109,12 +109,10 @@ insightsRouter.get("/trends", async (req, res) => {
   const params: any[] = [];
   if (q.direction) { clauses.push("direction = ?"); params.push(q.direction); }
   if (q.evidence_tier) { clauses.push("evidence_tier = ?"); params.push(q.evidence_tier); }
-  // Public surface: hide internal operational monitoring (Cross-Domain Desk
-  // domain-risk / domain-state with from_domain=ops, stale heartbeats, job
-  // failures). Research is the Sports Science / Hemp / Biotech findings.
-  clauses.push("title NOT LIKE '%operational risk%'");
-  clauses.push("title NOT LIKE '%hypotheses, 0 validated%'");
-  clauses.push("(payload IS NULL OR payload NOT LIKE '%\"from_domain\":\"ops\"%')");
+  // Public surface: only research-based trends. Internal Cross-Domain Desk
+  // operational signals (domain-risk, bridge internals, coupling with ops)
+  // are not published — they are the ecosystem's inner workings.
+  clauses.push("source LIKE 'Overlay Research%'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
@@ -150,12 +148,10 @@ insightsRouter.get("/discoveries", async (req, res) => {
   const params: any[] = [];
   if (q.evidence_tier) { clauses.push("evidence_tier = ?"); params.push(q.evidence_tier); }
   if (q.source) { clauses.push("source = ?"); params.push(q.source); }
-  // Public surface: hide internal hypotheses (inner-workings) and operational
-  // Cross-Domain Desk signals. Only measured research discoveries are public.
-  clauses.push("title NOT LIKE 'Research hypothesis:%'");
-  clauses.push("title NOT LIKE '%operational risk%'");
-  clauses.push("title NOT LIKE '%hypotheses, 0 validated%'");
-  clauses.push("(payload IS NULL OR payload NOT LIKE '%\"from_domain\":\"ops\"%')");
+  // Public surface: only research-based discoveries. Internal hypotheses
+  // (inner-workings) and all Cross-Domain Desk operational signals are hidden.
+  // The ecosystem's inner workings stay internal.
+  clauses.push("source LIKE 'Overlay Research%'");
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
@@ -184,8 +180,8 @@ insightsRouter.get("/discoveries", async (req, res) => {
 insightsRouter.get("/insights/feed", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100);
 
-  // Public feed: research_papers are Overlay's own research; operational
-  // Cross-Domain Desk signals and internal hypotheses are filtered out.
+  // Public feed: only research-based content. Operational Cross-Domain Desk
+  // signals and internal hypotheses are not published.
   const papers = await db.prepare(`
     SELECT 'paper' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, pillar as item_group, url as link, evidence_tier
     FROM research_papers
@@ -196,14 +192,14 @@ insightsRouter.get("/insights/feed", async (req, res) => {
   const trends = await db.prepare(`
     SELECT 'trend' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
     FROM trends
-    WHERE title NOT LIKE '%operational risk%' AND title NOT LIKE '%hypotheses, 0 validated%' AND (payload IS NULL OR payload NOT LIKE '%"from_domain":"ops"%')
+    WHERE source LIKE 'Overlay Research%'
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
   const discoveries = await db.prepare(`
     SELECT 'discovery' as type, id, title, insight as summary, COALESCE(pub_date, created_at) as pub_date, category as item_group, NULL as link, evidence_tier
     FROM discoveries
-    WHERE title NOT LIKE 'Research hypothesis:%' AND title NOT LIKE '%operational risk%' AND title NOT LIKE '%hypotheses, 0 validated%' AND (payload IS NULL OR payload NOT LIKE '%"from_domain":"ops"%')
+    WHERE source LIKE 'Overlay Research%'
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 
