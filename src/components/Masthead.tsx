@@ -22,7 +22,12 @@ export default function Masthead({ isOnline, isRefreshing, isLoading, insightRef
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-6 pb-5 pt-8 sm:px-8 lg:px-12">
       <div className="flex flex-col-reverse gap-5 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <img
+              src="/overlay-global-lens-logo.png"
+              alt="Overlay Global Lens logo"
+              className="h-12 w-auto rounded-lg object-cover"
+            />
             <h1 className="text-3xl font-serif tracking-tight text-white lg:text-4xl">Overlay Global Lens</h1>
             <span className="hidden text-[10px] font-bold uppercase tracking-[0.25em] text-amber-500 lg:inline">
               An Overlay365 Publication
