@@ -225,7 +225,7 @@ newsRouter.get("/", async (req, res) => {
 
     // Repair feed-sourced mojibake (UTF-8 bytes mis-decoded as Windows-1252)
     // so headers and body render with proper characters on the outlet.
-    for (const field of ['reframed_headline', 'original_title', 'reframed_summary', 'cultural_lens_analysis', 'article_body', 'source_name'] as const) {
+    for (const field of ['reframed_headline', 'original_title', 'reframed_summary', 'cultural_lens_analysis', 'article_body', 'original_text_dump', 'source_name'] as const) {
       if (typeof articleOut[field] === 'string') articleOut[field] = repairMojibake(articleOut[field]);
     }
     for (const field of ['key_takeaways', 'what_this_means_for_us'] as const) {
