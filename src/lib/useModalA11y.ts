@@ -29,16 +29,20 @@ export function useModalA11y(onClose: () => void) {
         const panel = panelRef.current;
         if (!panel) return;
         const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
-        if (focusable.length === 0) return;
+        if (focusable.length === 0) {
+          e.preventDefault();
+          panel.focus();
+          return;
+        }
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
         if (e.shiftKey) {
-          if (document.activeElement === first) {
+          if (document.activeElement === first || document.activeElement === panel) {
             e.preventDefault();
             last.focus();
           }
         } else {
-          if (document.activeElement === last) {
+          if (document.activeElement === last || document.activeElement === panel) {
             e.preventDefault();
             first.focus();
           }
