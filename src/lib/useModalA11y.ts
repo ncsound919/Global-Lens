@@ -28,7 +28,9 @@ export function useModalA11y(onClose: () => void) {
       if (e.key === 'Tab') {
         const panel = panelRef.current;
         if (!panel) return;
-        const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+        const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+          (element) => element.getClientRects().length > 0,
+        );
         if (focusable.length === 0) {
           e.preventDefault();
           panel.focus();
