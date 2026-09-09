@@ -14,6 +14,7 @@ import { synthesizeResearchPapers } from "./server/researchSynthesis.js";
 import { syncCrossDomainSignals } from "./server/crossDomain.js";
 import { apiRouter } from "./server/api.js";
 import db from "./server/db.js";
+import { repairMojibake } from "./server/encoding.js";
 import cookieParser from "cookie-parser";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
@@ -356,8 +357,8 @@ async function createApp() {
         `).get(articleId, articleId) as any;
 
         if (article) {
-          const headline = escapeHtml(article.reframed_headline || 'Global Lens Story');
-          const description = escapeHtml((article.cultural_lens_analysis || '').slice(0, 200));
+          const headline = escapeHtml(repairMojibake(article.reframed_headline || 'Global Lens Story'));
+          const description = escapeHtml(repairMojibake((article.cultural_lens_analysis || '').slice(0, 200)));
           const image = escapeHtml(article.image_url || `${baseUrl}/og-default.jpg`);
           const canonicalUrl = `${baseUrl}/?article=${escapeHtml(articleId)}`;
 
@@ -370,7 +371,7 @@ async function createApp() {
             <meta name="twitter:card" content="summary_large_image" />
           `;
           
-          const titleTag = `<title>${headline} â€” Overlay Global Lens</title>`;
+          const titleTag = `<title>${headline} — Overlay Global Lens</title>`;
           finalHtml = finalHtml
             .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
             .replace('</head>', `    <link rel="canonical" href="${canonicalUrl}" />\n    ${ogTags}\n  </head>`);

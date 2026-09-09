@@ -1,4 +1,4 @@
-﻿import { VenetianMask } from 'lucide-react';
+import { VenetianMask } from 'lucide-react';
 import { MetaphorPackage } from '../types';
 import { safe, formatConfidence } from '../lib/format';
 
@@ -91,7 +91,7 @@ export default function MetaphorBox({ metaphor, loading }: MetaphorBoxProps) {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[12px] text-zinc-300">{safe(m.real_world)}</span>
-                  <span className="text-[9px] font-mono text-fuchsia-400/70">â†’</span>
+                  <span className="text-[9px] font-mono text-fuchsia-400/70">→</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[12px] font-serif text-fuchsia-200">{safe(m.comic_analog)}</span>

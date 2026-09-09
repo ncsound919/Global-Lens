@@ -1,4 +1,4 @@
-﻿
+
 interface TakeawayProps {
   takeaways: string[];
 }
@@ -39,7 +39,7 @@ export default function CommunityTakeawaysWidget({ takeaways }: TakeawayProps) {
           {items.map((point, index) => (
             <li key={index} className="flex items-start gap-3.5 text-zinc-300">
               <span className="mt-[3px] shrink-0 flex h-5 w-5 items-center justify-center rounded-sm bg-amber-500/10 text-amber-500">
-                <span className="text-[9px] font-black">â€º</span>
+                <span className="text-[9px] font-black">›</span>
               </span>
               <span className="text-[14px] font-sans leading-relaxed">{safe(point)}</span>
             </li>

@@ -1,4 +1,4 @@
-﻿import { PaperProps } from '../types';
+import { PaperProps } from '../types';
 import { safe, relativeTime, tierBadgeClasses, pillarLabel } from '../lib/format';
 
 export default function PaperCard({ paper, onOpen }: { paper: PaperProps; onOpen?: () => void }) {
@@ -54,7 +54,7 @@ export default function PaperCard({ paper, onOpen }: { paper: PaperProps; onOpen
                 onClick={(e) => e.stopPropagation()}
                 className="rounded-full border border-zinc-800 bg-zinc-950 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 transition-all hover:bg-white hover:text-black hover:border-white"
               >
-                Read paper â†’
+                Read paper →
               </a>
             )}
           </div>

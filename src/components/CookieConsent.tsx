@@ -6,9 +6,17 @@ export default function CookieConsent() {
 
   useEffect(() => {
     const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (!consent) {
-      setShow(true);
+    if (consent) {
+      return;
     }
+    const LEGACY_CONSENT_KEY = 'bgl_cookie_consent';
+    const legacy = localStorage.getItem(LEGACY_CONSENT_KEY);
+    if (legacy) {
+      localStorage.setItem(COOKIE_CONSENT_KEY, legacy);
+      localStorage.removeItem(LEGACY_CONSENT_KEY);
+      return;
+    }
+    setShow(true);
   }, []);
 
   const accept = () => {

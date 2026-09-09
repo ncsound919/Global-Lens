@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import MetaphorBox from './MetaphorBox';
 import { MetaphorPackage } from '../types';
@@ -42,10 +42,12 @@ export default function ArticleModal({
   const [loadingMetaphor, setLoadingMetaphor] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
 
   // Focus the dialog, lock background scroll, and handle Escape key
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
+    previousActiveElement.current = document.activeElement as HTMLElement;
     document.body.style.overflow = 'hidden';
     closeButtonRef.current?.focus();
 
@@ -56,6 +58,7 @@ export default function ArticleModal({
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement.current?.focus();
     };
   }, [onClose]);
 
@@ -130,7 +133,7 @@ export default function ArticleModal({
             onClick={onClose}
             className="text-xs uppercase font-bold tracking-[0.2em] text-zinc-500 hover:text-zinc-300 mb-6 flex items-center gap-2 cursor-pointer transition-colors"
           >
-            <span className="text-lg">â†</span> Back to the story
+            <span className="text-lg">←</span> Back to the story
           </button>
           
           <h1 className="text-3xl font-serif text-white mb-4 leading-tight sm:text-4xl">{headline}</h1>

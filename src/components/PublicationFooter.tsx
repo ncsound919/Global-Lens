@@ -1,4 +1,4 @@
-﻿
+
 interface PublicationFooterProps {
   onOpenPrivacy: () => void;
   onOpenTerms: () => void;
@@ -19,7 +19,7 @@ export default function PublicationFooter({ onOpenPrivacy, onOpenTerms, onSelect
               An Overlay365 Publication
             </p>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-500">
-              Global reporting, research papers, trends, and discoveries â€” every item evidence-tiered and traced to
+              Global reporting, research papers, trends, and discoveries — every item evidence-tiered and traced to
               source. One Digital Platform. Three Life Systems. Infinite Possibilities.
             </p>
           </div>
@@ -54,7 +54,7 @@ export default function PublicationFooter({ onOpenPrivacy, onOpenTerms, onSelect
           <div className="md:col-span-2">
             <h3 className="mb-4 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-300">Standards</h3>
             <p className="text-xs leading-relaxed text-zinc-500">
-              Evidence tiers E1â€“E4 mark every research item. Findings are measured, never fabricated. Original content is
+              Evidence tiers E1–E4 mark every research item. Findings are measured, never fabricated. Original content is
               linked and sourced under fair use.
             </p>
           </div>
@@ -62,7 +62,7 @@ export default function PublicationFooter({ onOpenPrivacy, onOpenTerms, onSelect
 
         <div className="mt-10 flex flex-col items-start justify-between gap-4 border-t border-zinc-900 pt-6 sm:flex-row sm:items-center">
           <span className="text-xs text-zinc-500">
-            Â© {new Date().getFullYear()} Overlay365. All rights reserved.
+            © {new Date().getFullYear()} Overlay365. All rights reserved.
           </span>
           <div className="flex gap-4">
             <button onClick={onOpenPrivacy} className="text-xs text-zinc-500 transition-colors hover:text-zinc-300">

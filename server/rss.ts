@@ -2,6 +2,7 @@
 import db from "./db.js";
 import { processRawArticleForConfig } from "./aiService.js";
 import { feeds } from "./feeds.js";
+import { repairMojibake } from "./encoding.js";
 import crypto from "crypto";
 
 const parser = new Parser({
@@ -143,7 +144,8 @@ export async function syncRSSNews() {
 
       try {
         for (const item of parsed.items) {
-           const textDump = `${item.title || ""}\n\n${item.contentSnippet || item.content || ""}`.trim();
+           const title = repairMojibake(item.title || "Untitled");
+           const textDump = `${title}\n\n${repairMojibake(item.contentSnippet || item.content || "")}`.trim();
            
            // Robust dedupe fallback
            let rawUrl = item.link || item.guid;
@@ -192,7 +194,7 @@ export async function syncRSSNews() {
            
            const stmt = await db.prepare('INSERT OR IGNORE INTO articles (url_hash, category, source_name, original_title, original_url, image_url, original_text_dump, pub_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
            const info = await stmt.run(
-             urlHash, feed.category, feed.source_name, item.title || "Untitled", item.link || "#", imageUrl, textDump, pubDate
+             urlHash, feed.category, feed.source_name, title, item.link || "#", imageUrl, textDump, pubDate
            );
            
            if (info.changes > 0) {

@@ -48,6 +48,7 @@ export default function App() {
 
   const [view, setView] = useState<ContentView>('news');
   const [papers, setPapers] = useState<PaperProps[]>([]);
+  const [envPapers, setEnvPapers] = useState<PaperProps[]>([]);
   const [trends, setTrends] = useState<TrendProps[]>([]);
   const [discoveries, setDiscoveries] = useState<DiscoveryProps[]>([]);
   const [insightStatus, setInsightStatus] = useState<FetchStatus>('idle');
@@ -104,6 +105,7 @@ export default function App() {
         }
         const data = await res.json();
         if (v === 'papers') setPapers(Array.isArray(data?.papers) ? data.papers : []);
+        if (v === 'environment') setEnvPapers(Array.isArray(data?.papers) ? data.papers : []);
         if (v === 'trends') setTrends(Array.isArray(data?.trends) ? data.trends : []);
         if (v === 'discoveries') setDiscoveries(Array.isArray(data?.discoveries) ? data.discoveries : []);
         if (!background) {
@@ -373,7 +375,7 @@ export default function App() {
           renderInsightView()
         ) : view === 'environment' ? (
           <EnvironmentSection
-            papers={papers}
+            papers={envPapers}
             status={insightStatus}
             error={insightError}
             onOpenPaper={(p) => setPubModal({ type: 'paper', item: p })}
