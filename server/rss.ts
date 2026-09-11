@@ -145,35 +145,13 @@ export async function syncRSSNews() {
       try {
         for (const item of parsed.items) {
            const title = repairMojibake(item.title || "Untitled");
-           const textDump = `${title}\n\n${repairMojibake(item.contentSnippet || item.content || "")}`.trim();
-           
-           // Robust dedupe fallback
-           let rawUrl = item.link || item.guid;
-           let urlHash = rawUrl;
-           if (rawUrl && typeof rawUrl === 'string') {
-             try {
-               const parsedUrl = new URL(rawUrl);
-               // Remove tracking params
-               parsedUrl.searchParams.delete('utm_source');
-               parsedUrl.searchParams.delete('utm_medium');
-               parsedUrl.searchParams.delete('utm_campaign');
-               parsedUrl.searchParams.delete('utm_term');
-               parsedUrl.searchParams.delete('utm_content');
-               parsedUrl.searchParams.delete('traffic_source');
-               let cleanUrl = parsedUrl.toString();
-               // Remove trailing slash
-               if (cleanUrl.endsWith('/')) {
-                 cleanUrl = cleanUrl.slice(0, -1);
-               }
-               urlHash = cleanUrl;
-             } catch (e) {
-               // Fallback if not a valid URL
-               if (urlHash.endsWith('/')) urlHash = urlHash.slice(0, -1);
-             }
-           }
-           if (!urlHash) {
-             urlHash = generateStableHash(feed.source_name, item.title || "", textDump);
-           }
+            const textDump = `${title}\n\n${repairMojibake(item.contentSnippet || item.content || "")}`.trim();
+
+            // Stable hash is the canonical article id used by sitemap/share/
+            // deeplink routes (which validate /^[a-zA-Z0-9\-_]{10,128}$/).
+            // The full URL is preserved separately in original_url — storing a
+            // URL in url_hash breaks every sitemap/share deep-link.
+            const urlHash = generateStableHash(feed.source_name, item.title || "", textDump);
 
            let imageUrl = null;
            if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {

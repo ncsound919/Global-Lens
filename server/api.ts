@@ -9,6 +9,7 @@ import { newsRouter } from "./news.js";
 import { insightsRouter } from "./insights.js";
 import { getFindingOfDay, getFindings, upsertFinding, setFindingOfDay } from "./oncology.js";
 import { donateRouter, getSettledDonationStats } from "./donations.js";
+import { PUBLIC_PAPER_GATE_SQL, ONCOLOGY_DISCLAIMER } from "./contentGate.js";
 
 const standardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -55,6 +56,55 @@ export async function getAuthSession(req: express.Request) {
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/user", settingsRouter);
 apiRouter.use("/news", newsRouter);
+
+// ── Article Forge (editorial tier) ─────────────────────────────────────────
+// Forges public-facing articles from real research (Comic Metaphor Engine
+// narrative spine + marketing-team writing craft via the AI chain). Honest:
+// controversy = the finding's real tension; no invented stats.
+apiRouter.post("/editorial/forge", async (req, res) => {
+  try {
+    const { forgeArticle, publishForgedArticle } = await import('./articleForge.js');
+    const body = req.body || {};
+    const finding = {
+      title: String(body.title || body.paper_title || '').slice(0, 500),
+      claim: String(body.claim || body.abstract || '').slice(0, 4000),
+      category: String(body.category || 'research').slice(0, 60),
+      pillar: String(body.pillar || 'science').slice(0, 40),
+      evidenceTier: body.evidence_tier ? String(body.evidence_tier) : undefined,
+      source: body.source ? String(body.source) : undefined,
+    };
+    if (!finding.title || !finding.claim) {
+      res.status(422).json({ success: false, error: 'title and claim are required' });
+      return;
+    }
+    const forged = await forgeArticle(finding);
+    if (!forged.ok || !forged.article) {
+      res.status(502).json({ success: false, error: forged.error ?? 'forge failed', metaphor: forged.metaphor });
+      return;
+    }
+    const pub = await publishForgedArticle(forged.article, finding.category);
+    res.json({
+      success: true,
+      article: forged.article,
+      metaphor: forged.metaphor,
+      published: pub.ok,
+      inserted: pub.inserted,
+      urlHash: pub.urlHash,
+      honestNote: 'Article facts trace to the supplied finding; metaphor is a narrative lens, not a claim; caveats are disclosed.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message ?? String(err) });
+  }
+});
+
+apiRouter.get("/editorial/forge/status", async (_req, res) => {
+  try {
+    const { metaphorPythonBin, metaphorRunnerPath } = await import('./metaphorBridge.js');
+    res.json({ success: true, python: metaphorPythonBin(), runner: metaphorRunnerPath() });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message ?? String(err) });
+  }
+});
 // Overlay Global Lens â€” ecosystem content (papers/trends/discoveries/metaphors)
 apiRouter.use("/", insightsRouter);
 
@@ -68,18 +118,25 @@ apiRouter.get("/oncology/overview", async (req, res) => {
   const findings = await getFindings({ kind });
   const papers = await db.prepare(`
     SELECT * FROM research_papers
-    WHERE category = 'cancer-research'
+    WHERE category = 'cancer-research' AND ${PUBLIC_PAPER_GATE_SQL}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT 50
   `).all() as any[];
   res.json({
     finding_of_day: fod,
     findings: findings.findings,
+    // Honest empty-state: only surface verified findings (those carrying a real
+    // ResultSig manifest_hash + audit_signature). If none exist, the UI renders
+    // "no verified findings yet" instead of raw pipeline dumps.
+    verified_findings_available: (findings.findings ?? []).some(
+      (f: any) => f?.manifest_hash && f?.audit_signature
+    ),
     papers: papers.map((p) => ({
       id: p.id, source: p.source, title: p.title, url: p.url, year: p.year,
       authors: p.authors, abstract: p.abstract, summary: p.summary,
       category: p.category, pillar: p.pillar, evidence_tier: p.evidence_tier,
       pub_date: p.pub_date,
     })),
+    disclaimer: ONCOLOGY_DISCLAIMER,
     donations: await getSettledDonationStats(),
   });
 });
@@ -221,11 +278,13 @@ apiRouter.post("/publish", async (req, res) => {
       ON CONFLICT(id) DO UPDATE SET title=excluded.title, url=excluded.url, summary=excluded.summary, evidence_tier=excluded.evidence_tier, payload=excluded.payload
     `).run({
       id: stableId,
-      source: 'CureMind',
+      // Label the paper by the REAL publishing source (article source_name),
+      // falling back to the paper's own source, then the legacy label.
+      source: paper.source || source_name || 'CureMind',
       title: paper.title,
       url: paper.url || '',
       year: new Date().getFullYear(),
-      authors: paper.authors || 'CureMind',
+      authors: paper.authors || paper.source || source_name || 'CureMind',
       abstract: paper.abstract || '',
       summary: paper.summary || '',
       category: paper.category || 'cancer-research',

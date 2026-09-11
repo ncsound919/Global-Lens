@@ -56,6 +56,12 @@ export default function OncologyLanding() {
         </div>
       </div>
 
+      {data.disclaimer && (
+        <div className="mb-6 rounded-sm border border-amber-500/30 bg-amber-500/5 p-4 text-xs leading-relaxed text-amber-200/90">
+          {data.disclaimer}
+        </div>
+      )}
+
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         {data.finding_of_day?.finding ? (
         <FindingOfTheDay finding={data.finding_of_day.finding} day={data.finding_of_day.day} />
@@ -81,7 +87,13 @@ export default function OncologyLanding() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {data.findings.map((f) => <FindingCard key={f.id} finding={f} />)}
+        {data.findings.length > 0 ? (
+          data.findings.map((f) => <FindingCard key={f.id} finding={f} />)
+        ) : (
+          <p className="col-span-full text-sm text-zinc-400">
+            No verified findings yet. Research is still in progress — nothing on this page is claimed as a confirmed result.
+          </p>
+        )}
       </div>
 
       <h3 className="mb-4 mt-10 border-t border-zinc-900 pt-6 text-lg font-serif text-white">Research Papers</h3>

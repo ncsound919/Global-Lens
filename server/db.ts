@@ -260,6 +260,16 @@ export function decrypt(text: string): string {
 // â”€â”€ migrations (async) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function runMigrations() {
+  // Single-flight guard: concurrent callers (server boot + test boot + sync
+  // workers) share ONE migration run instead of racing the _migrations table.
+  if (migrationsInFlight) return migrationsInFlight;
+  migrationsInFlight = doRunMigrations().finally(() => { migrationsInFlight = null; });
+  return migrationsInFlight;
+}
+
+let migrationsInFlight: Promise<void> | null = null;
+
+async function doRunMigrations() {
   const d = await getRawDb();
   await d.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (

@@ -9,6 +9,8 @@ import { scienceValidationFindings } from "./scienceIngest.js";
 import { synthesizeResearchPapers } from "./researchSynthesis.js";
 import { syncCrossDomainSignals } from "./crossDomain.js";
 import { generateMetaphorForArticle, generateMetaphorForTopic } from "./metaphors.js";
+import { PUBLIC_PAPER_GATE_SQL, ONCOLOGY_DISCLAIMER } from "./contentGate.js";
+import { repairMojibake } from "./encoding.js";
 
 export const insightsRouter = express.Router();
 
@@ -53,11 +55,11 @@ insightsRouter.get("/papers", async (req, res) => {
   const params: any[] = [];
   if (q.category) { clauses.push("category = ?"); params.push(q.category); }
   if (q.pillar) { clauses.push("pillar = ?"); params.push(q.pillar); }
-  // Public surface: only real research. Hide leaked prompts that were stored as
-  // paper titles (deterministic fallback is internal), and the reference pool
-  // lives in `reference_papers` and is never surfaced here.
-  clauses.push("title NOT LIKE 'Ingest and process%'");
-  clauses.push("title NOT LIKE 'Return as JSON%'");
+  // Public surface: only real research. The content gate blocks internal
+  // pipeline artifacts (CureMind sandbox sims, prompt-as-title dumps,
+  // repair-loop "brain-*" titles) and the reference pool lives in
+  // `reference_papers` and is never surfaced here.
+  clauses.push(PUBLIC_PAPER_GATE_SQL);
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(q.limit, q.offset);
 
@@ -72,12 +74,12 @@ insightsRouter.get("/papers", async (req, res) => {
   const out = papers.map((p) => ({
     id: p.id,
     source: p.source,
-    title: p.title,
+    title: repairMojibake(p.title),
     url: p.url,
     year: p.year,
     authors: p.authors,
-    abstract: p.abstract,
-    summary: summarize(p),
+    abstract: repairMojibake(p.abstract),
+    summary: repairMojibake(summarize(p)),
     category: p.category,
     pillar: p.pillar,
     evidence_tier: p.evidence_tier,
@@ -126,13 +128,13 @@ insightsRouter.get("/trends", async (req, res) => {
   res.json({
     trends: trends.map((t) => ({
       id: t.id,
-      title: t.title,
-      summary: t.summary,
+      title: repairMojibake(t.title),
+      summary: repairMojibake(t.summary),
       direction: t.direction,
       slope: t.slope,
       confidence: t.confidence,
       evidence_tier: t.evidence_tier,
-      recommended_action: t.recommended_action,
+      recommended_action: repairMojibake(t.recommended_action),
       source: t.source,
       category: t.category,
       pub_date: t.pub_date,
@@ -166,8 +168,8 @@ insightsRouter.get("/discoveries", async (req, res) => {
   res.json({
     discoveries: discoveries.map((d) => ({
       id: d.id,
-      title: d.title,
-      insight: d.insight,
+      title: repairMojibake(d.title),
+      insight: repairMojibake(d.insight),
       evidence_tier: d.evidence_tier,
       source: d.source,
       category: d.category,
@@ -185,7 +187,7 @@ insightsRouter.get("/insights/feed", async (req, res) => {
   const papers = await db.prepare(`
     SELECT 'paper' as type, id, title, summary, COALESCE(pub_date, created_at) as pub_date, pillar as item_group, url as link, evidence_tier
     FROM research_papers
-    WHERE title NOT LIKE 'Ingest and process%' AND title NOT LIKE 'Return as JSON%'
+    WHERE ${PUBLIC_PAPER_GATE_SQL}
     ORDER BY COALESCE(pub_date, created_at) DESC LIMIT ?
   `).all(limit) as any[];
 

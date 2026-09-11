@@ -1,4 +1,5 @@
 ﻿import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+import crypto from 'node:crypto';
 import db from "./db.js";
 import fs from "fs";
 import path from "path";
@@ -108,6 +109,7 @@ type AIProvider =
   | 'openrouter'
   | 'deepseek'
   | 'opencode'
+  | 'phoenix'
   | 'gemini'
   | 'ollama'
   | 'openai'
@@ -115,13 +117,16 @@ type AIProvider =
   | 'qwen';
 
 const PROVIDER_URLS: Record<AIProvider, string> = {
-  // Primary â€” OpenCode Zen free tier. Data-driven model + account pool; muse
+  // Primary — OpenCode Zen free tier. Data-driven model + account pool; muse
   // is the bootstrap default until the catalog (model-routing.json) publishes
   // otherwise. Paid Go tier (deepseek-v4-flash) stays as a fallback below.
   'opencode-free': 'https://opencode.ai/zen/v1/chat/completions',
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   deepseek: process.env.DEEPSEEK_URL || 'https://api.deepseek.com/v1/chat/completions',
   opencode: 'https://opencode.ai/zen/go/v1/chat/completions',
+  // Phoenix (PGS Grove) — direct OpenAI-compatible provider with a valid
+  // Keywire-stored key. Serves deepseek-v4-flash-0731 / glm-5.3-flash.
+  phoenix: `${process.env.PHOENIX_BASE_URL || 'https://api.pgsgrove.com/v1'}/chat/completions`,
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models',
   ollama: 'http://localhost:11434/v1/chat/completions',
   openai: 'https://api.openai.com/v1/chat/completions',
@@ -138,7 +143,8 @@ const PROVIDER_ENV: Record<AIProvider, string> = {
   'opencode-free': 'OPENCODE_API_KEY', // pool fallback; see opencodeFreeKeys()
   openrouter: 'OPENROUTER_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
-  opencode: 'OPENCODE_API_KEY',
+  opencode: 'OPENCODE_API_KEY', // Go tier shares the base key (fleet canonical)
+  phoenix: 'PHOENIX_API_KEY',
   gemini: 'GEMINI_API_KEY',
   ollama: 'OLLAMA_ENABLED',
   openai: 'OPENAI_API_KEY',
@@ -147,7 +153,7 @@ const PROVIDER_ENV: Record<AIProvider, string> = {
 };
 
 /** Bootstrap default until the Keywire-maintained catalog publishes the list. */
-const DEFAULT_FREE_MODEL = 'muse-spark-1.2-contributor-free';
+const DEFAULT_FREE_MODEL = 'muse-spark-1.3-contributor-free';
 const OPENROUTER_DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning:free';
 
 const DEFAULT_MODELS: Record<AIProvider, string> = {
@@ -159,6 +165,7 @@ const DEFAULT_MODELS: Record<AIProvider, string> = {
   // opencode-only model id and returns empty/errors here.
   deepseek: 'deepseek-chat',
   opencode: 'deepseek-v4-flash',
+  phoenix: process.env.PHOENIX_DEFAULT_MODEL || 'deepseek-v4-flash-0731',
   gemini: 'gemini-3.5-flash',
   ollama: 'llama3.2:1b',
   openai: 'gpt-4o-mini',
@@ -172,6 +179,7 @@ const FALLBACK_ORDER: AIProvider[] = [
   'openrouter',
   'ollama',
   'opencode',
+  'phoenix',
   'deepseek',
   'gemini',
   'openai',
@@ -188,11 +196,13 @@ const FALLBACK_ORDER: AIProvider[] = [
 // opencode account and survives a free model being rotated out upstream.
 
 const OPENCODE_KEY_NAMES = [
-  'OPENCODE_KEY_TAP919BEATS',
-  'OPENCODE_KEY_NCSOUND919',
+  // Working accounts first (operator-verified) — dead/hanging keys burn one
+  // short timeout each before the circuit breaker marks them dead.
   'OPENCODE_KEY_TAP4500',
+  'OPENCODE_KEY_NCSOUND919',
   'OPENCODE_API_KEY',
-  'OPENCODE_KEY_JOHNREDD', // operator's personal account â€” last resort only
+  'OPENCODE_KEY_TAP919BEATS',
+  'OPENCODE_KEY_JOHNREDD', // operator's personal account — last resort only
 ];
 
 function opencodeFreeKeys(): string[] {
@@ -312,9 +322,18 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
     apiKey: provider === 'ollama' ? 'ollama' : apiKey,
     baseURL: sdkBaseUrl(provider),
     maxRetries: 0,
-    // OpenRouter free tier is slow/empty when quotas are tapped — cap it so a
-    // dead tier doesn't stall the chain; everything else keeps the full window.
-    timeout: provider === 'openrouter' ? 12_000 : 60_000,
+    // Slow/dead tiers are capped so a dead tier doesn't stall the chain:
+    // OpenRouter free 12s, opencode Go 15s (dead gateway), everything else full.
+    timeout: provider === 'openrouter' ? 12_000 : provider === 'opencode' ? 15_000 : 60_000,
+    // The opencode Go gateway requires the session + coding-agent User-Agent
+    // headers (opencode.ai/docs/go). Raise the Go timeout — with valid keys it
+    // answers in <2s; 15s still caps a dead gateway.
+    ...(provider === 'opencode'
+      ? {
+          defaultHeaders: { 'x-opencode-session': OPENCODE_SESSION, 'User-Agent': OPENCODE_UA },
+          timeout: 30_000,
+        }
+      : {}),
   });
   const res = await retryWithBackoff(async () => {
     return await client.chat.completions.create({
@@ -351,6 +370,18 @@ function isRetryableFreeStatus(status: number | null): boolean {
 const deadFreeModels = new Set<string>();
 const deadFreeKeys = new Set<string>();
 
+// OpenCode gateway (Zen free + Go) REQUIRES a stable `x-opencode-session`
+// header + a coding-agent User-Agent on every request — without them the
+// gateway rejects the call (MissingSessionID / "can only be used in OpenCode").
+// One stable session id per process satisfies routing + prompt caching.
+const OPENCODE_SESSION = `sess-gl-${crypto.randomBytes(6).toString('hex')}`;
+const OPENCODE_UA = 'overlay-global-lens/1.0 (coding agent)';
+
+/** Muse Spark models are served by the Responses API, not chat/completions. */
+function isResponsesModel(model: string): boolean {
+  return /^muse-spark/.test(model);
+}
+
 async function callOpenCodeFree(prompt: string): Promise<string> {
   const keys = opencodeFreeKeys().filter((k) => !deadFreeKeys.has(k));
   if (!keys.length) throw new Error('No opencode free key configured');
@@ -369,21 +400,44 @@ async function callOpenCodeFree(prompt: string): Promise<string> {
       try {
         const client = new OpenAI({
           apiKey: key,
+          // The OpenAI SDK appends `/responses` to baseURL for responses.create,
+          // so the base must be the host root (NOT end in /responses).
           baseURL: 'https://opencode.ai/zen/v1',
           maxRetries: 0,
-          timeout: 30_000,
+          // 10s per attempt: a hanging/dead key costs at most 10s before the
+          // circuit breaker marks it dead (was 30s — 5 dead keys stalled the
+          // whole chain 150s+ per call).
+          timeout: isResponsesModel(model) ? 45_000 : 10_000,
+          defaultHeaders: {
+            'x-opencode-session': OPENCODE_SESSION,
+            'User-Agent': OPENCODE_UA,
+          },
         });
         // No retryWithBackoff and no response_format here: the free tier hangs
         // on JSON-mode and quota-exhausted models stall if retried. One attempt
         // per key×model with a short timeout keeps the cycle fast; the prompt
         // already asks for JSON and callers extract it with a regex.
-        const res = await client.chat.completions.create({
-          model,
-          temperature: 0.1,
-          messages: [{ role: 'user', content: prompt }],
-        });
-        const content = res.choices?.[0]?.message?.content;
-        if (!content) throw new Error(`Empty response from opencode-free (${model})`);
+        const content = isResponsesModel(model)
+          ? await (async () => {
+              const r = await client.responses.create({
+                model,
+                input: [{ role: 'user', content: prompt }],
+                max_output_tokens: 1500,
+              });
+              const out = r.output_text || (Array.isArray(r.output) ? r.output.map((o: any) => o.content?.[0]?.text || o.text || '').filter(Boolean).join('') : '');
+              if (!out) throw new Error(`Empty response from opencode-free (${model})`);
+              return out;
+            })()
+          : await (async () => {
+              const res = await client.chat.completions.create({
+                model,
+                temperature: 0.1,
+                messages: [{ role: 'user', content: prompt }],
+              });
+              const c = res.choices?.[0]?.message?.content;
+              if (!c) throw new Error(`Empty response from opencode-free (${model})`);
+              return c;
+            })();
         return content;
       } catch (e: any) {
         lastErr = e;
