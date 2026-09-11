@@ -116,8 +116,10 @@ export interface DonationStats {
 }
 
 export interface OncologyOverview {
-  finding_of_day: { day: string; finding: FindingProps | null };
-  findings: FindingProps[];
-  papers: PaperProps[];
-  donations: DonationStats;
-}
+    finding_of_day: { day: string; finding: FindingProps | null };
+    findings: FindingProps[];
+    papers: PaperProps[];
+    donations: DonationStats;
+    verified_findings_available?: boolean;
+    disclaimer?: string;
+  }

@@ -7,6 +7,7 @@ import { getAuthSession } from "./api.js";
 import { getAvailableProviders, callAIQueued } from "./aiService.js";
 import { feeds } from "./feeds.js";
 import { repairMojibake } from "./encoding.js";
+import { PUBLIC_NEWS_SOURCE_GATE_SQL } from "./contentGate.js";
 
 export const newsRouter = express.Router();
 
@@ -120,7 +121,7 @@ newsRouter.get("/", async (req, res) => {
              c.key_takeaways, c.what_this_means_for_us, c.statistical_data, c.article_body
       FROM articles a
       LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
-      WHERE a.is_moderated = 0
+      WHERE (${PUBLIC_NEWS_SOURCE_GATE_SQL})
       ORDER BY COALESCE(a.pub_date, a.created_at) DESC LIMIT ? OFFSET ?
     `).all(settings.reading_mode, settings.lens_intensity, limit, offset);
   } else {
@@ -129,7 +130,7 @@ newsRouter.get("/", async (req, res) => {
              c.key_takeaways, c.what_this_means_for_us, c.statistical_data, c.article_body
       FROM articles a
       LEFT JOIN article_ai_cache c ON a.url_hash = c.url_hash AND c.reading_mode = ? AND c.lens_intensity = ?
-      WHERE a.category = ? AND a.is_moderated = 0
+      WHERE a.category = ? AND (${PUBLIC_NEWS_SOURCE_GATE_SQL})
       ORDER BY COALESCE(a.pub_date, a.created_at) DESC LIMIT ? OFFSET ?
     `).all(settings.reading_mode, settings.lens_intensity, category, limit, offset);
   }
