@@ -297,3 +297,100 @@ authRouter.get("/google/callback", async (req, res) => {
     `);
   }
 });
+
+// ── Ecosystem shared auth (Supabase, auth-only) ─────────────────────────────
+// Additive: the legacy direct-Google routes above are untouched. The frontend
+// (AuthModal) now signs in via the shared Supabase project and POSTs the
+// Supabase access token here; the server verifies it with the shared project
+// and links/creates the local user row by verified email, issuing the same
+// bgl_session cookie as every other login path (sessions table + all other
+// routes intact). When ECOSYSTEM_SUPABASE_ANON_KEY is unset these endpoints
+// degrade honestly and local email/password login is unaffected.
+
+const ECOSYSTEM_SUPABASE_URL_DEFAULT =
+  "https://hjjgsbejhkwiyghncobe.supabase.co";
+
+function getEcosystemSupabaseUrl(): string {
+  return (
+    process.env.ECOSYSTEM_SUPABASE_URL || ECOSYSTEM_SUPABASE_URL_DEFAULT
+  );
+}
+
+function isEcosystemAuthConfigured(): boolean {
+  return !!process.env.ECOSYSTEM_SUPABASE_ANON_KEY;
+}
+
+authRouter.get("/ecosystem/status", (_req, res) => {
+  res.json({ configured: isEcosystemAuthConfigured() });
+});
+
+const EcosystemSessionSchema = z.object({
+  access_token: z.string().min(10)
+});
+
+authRouter.post("/ecosystem/session", authLimiter, async (req, res) => {
+  try {
+    if (!isEcosystemAuthConfigured()) {
+      return res.status(503).json({ error: "Shared ecosystem auth is not configured on the server." });
+    }
+    const parsed = EcosystemSessionSchema.parse(req.body);
+    const baseUrl = getEcosystemSupabaseUrl().replace(/\/$/, "");
+    const anonKey = process.env.ECOSYSTEM_SUPABASE_ANON_KEY as string;
+
+    // Verify the access token directly with the shared Supabase project (8s
+    // timeout so a hung IdP can never stall sign-in indefinitely).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let userResp: Response;
+    try {
+      userResp = await fetch(`${baseUrl}/auth/v1/user`, {
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${parsed.access_token}`
+        },
+        signal: controller.signal
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      return res.status(502).json({ error: "Shared sign-in provider unreachable. Please try again." });
+    }
+    clearTimeout(timer);
+    if (!userResp.ok) {
+      return res.status(401).json({ error: "Invalid or expired shared sign-in token." });
+    }
+    const supaUser = await userResp.json() as any;
+    const email: string | undefined = supaUser?.email;
+    const confirmed: boolean = !!(supaUser?.confirmed_at || supaUser?.email_confirmed_at);
+    if (!email) {
+      return res.status(401).json({ error: "Shared account has no email address." });
+    }
+    if (!confirmed) {
+      return res.status(401).json({ error: "Shared account email is not verified." });
+    }
+
+    // Link or create the local user row by verified email (same as legacy Google flow).
+    let user = await db.prepare('SELECT id, email FROM users WHERE email = ?').get(email) as any;
+
+    if (!user) {
+      const id = uuidv4();
+      await db.prepare('INSERT INTO users (id, email, password_hash) VALUES (?, ?, NULL)').run(id, email);
+      user = { id, email };
+    }
+
+    const sessionId = uuidv4();
+    await db.prepare("INSERT OR REPLACE INTO sessions (session_id, user_id, expires_at) VALUES (?, ?, datetime('now', '+30 days'))").run(sessionId, user.id);
+    res.cookie('bgl_session', sessionId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000
+    });
+
+    // Migrate anonymous settings
+    await migrateGuestSettings(req, res, user.id);
+
+    res.json({ success: true, user: { id: user.id, email: user.email } });
+  } catch(e: any) {
+    res.status(400).json({ error: e.message || "Shared sign-in failed" });
+  }
+});

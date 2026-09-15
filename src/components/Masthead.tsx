@@ -7,9 +7,13 @@ interface MastheadProps {
   insightRefreshing: boolean;
   onRefresh: () => void;
   onOpenSettings: () => void;
+  /** Shared ecosystem auth (Overlay365 Google sign-in). Hidden when not wired. */
+  authEmail?: string | null;
+  onSignIn?: () => void;
+  onSignOut?: () => void;
 }
 
-export default function Masthead({ isOnline, isRefreshing, isLoading, insightRefreshing, onRefresh, onOpenSettings }: MastheadProps) {
+export default function Masthead({ isOnline, isRefreshing, isLoading, insightRefreshing, onRefresh, onOpenSettings, authEmail, onSignIn, onSignOut }: MastheadProps) {
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -56,6 +60,25 @@ export default function Masthead({ isOnline, isRefreshing, isLoading, insightRef
             >
               <SettingsIcon className="h-4 w-4" />
             </button>
+            {onSignIn && (
+              authEmail ? (
+                <button
+                  onClick={onSignOut}
+                  title={`Signed in as ${authEmail} — click to sign out`}
+                  className="inline-flex h-10 max-w-[180px] items-center justify-center truncate rounded-full border border-amber-500/30 bg-amber-500/10 px-5 text-[11px] font-bold uppercase tracking-[0.2em] text-amber-400 transition-all hover:bg-amber-500/20"
+                >
+                  {authEmail}
+                </button>
+              ) : (
+                <button
+                  onClick={onSignIn}
+                  data-testid="ecosystem-signin"
+                  className="inline-flex h-10 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 px-5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-all hover:bg-white hover:text-black hover:border-white"
+                >
+                  Sign in
+                </button>
+              )
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="relative flex h-1.5 w-1.5">

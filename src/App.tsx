@@ -27,6 +27,8 @@ import FrontPage from './components/FrontPage';
 import PublicationFooter from './components/PublicationFooter';
 import PublicationModal, { PublicationItem } from './components/PublicationModal';
 import EvidenceLegend from './components/EvidenceLegend';
+import AuthModal from './components/AuthModal';
+import { isEcosystemAuthConfigured, linkEcosystemSession, signOutEcosystem } from './lib/ecosystemAuth';
 import { PaperProps, TrendProps, DiscoveryProps } from './types';
 import { SAVED_ARTICLES_KEY } from './lib/constants';
 
@@ -54,6 +56,23 @@ export default function App() {
   const [insightStatus, setInsightStatus] = useState<FetchStatus>('idle');
   const [insightError, setInsightError] = useState<string>('');
   const [pubModal, setPubModal] = useState<PublicationItem | null>(null);
+
+  // Shared ecosystem auth (Overlay365 Google sign-in). Hidden entirely when the
+  // ecosystem anon key is not configured — local login is unaffected.
+  const ecosystemConfigured = isEcosystemAuthConfigured();
+  const [showAuth, setShowAuth] = useState(false);
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+
+  // Completes the shared sign-in after the OAuth redirect back to the app:
+  // if a Supabase session exists, verify it server-side and link the local row.
+  useEffect(() => {
+    if (!ecosystemConfigured) return;
+    let cancelled = false;
+    linkEcosystemSession()
+      .then((user) => { if (!cancelled && user) setAuthEmail(user.email); })
+      .catch(() => { /* no session to link */ });
+    return () => { cancelled = true; };
+  }, [ecosystemConfigured]);
 
   useEffect(() => {
     isOnlineRef.current = isOnline;
@@ -337,6 +356,16 @@ export default function App() {
         insightRefreshing={insightStatus === 'refreshing'}
         onRefresh={() => (view === 'news' ? fetchNews('refresh') : fetchInsights(view, 'refresh'))}
         onOpenSettings={() => setShowSettings(true)}
+        authEmail={ecosystemConfigured ? authEmail : undefined}
+        onSignIn={ecosystemConfigured ? () => setShowAuth(true) : undefined}
+        onSignOut={
+          ecosystemConfigured
+            ? async () => {
+                await signOutEcosystem();
+                setAuthEmail(null);
+              }
+            : undefined
+        }
       />
       <header className="sticky top-0 z-30 border-b border-zinc-900/80 bg-ink-950 backdrop-blur-2xl">
         <ContentViewNav view={view} setView={setView} />
@@ -520,6 +549,15 @@ export default function App() {
       />
 
       {showSettings && <SettingsDashboard onClose={() => setShowSettings(false)} />}
+      {showAuth && (
+        <AuthModal
+          onClose={() => setShowAuth(false)}
+          onSuccess={(user: any) => {
+            setAuthEmail(user?.email ?? null);
+            setShowAuth(false);
+          }}
+        />
+      )}
       {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
       {showTerms && <TermsOfServiceModal onClose={() => setShowTerms(false)} />}
       {pubModal && <PublicationModal data={pubModal} onClose={() => setPubModal(null)} />}
