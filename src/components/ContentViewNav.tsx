@@ -1,4 +1,4 @@
-﻿import { Newspaper, BookOpen, TrendingUp, Sparkles, Leaf } from 'lucide-react';
+﻿import { Newspaper, BookOpen, TrendingUp, Sparkles, Leaf, Compass } from 'lucide-react';
 
 export const CONTENT_VIEWS = [
   { key: 'news', label: 'News', icon: Newspaper },
@@ -6,6 +6,7 @@ export const CONTENT_VIEWS = [
   { key: 'environment', label: 'Environment', icon: Leaf },
   { key: 'trends', label: 'Trends', icon: TrendingUp },
   { key: 'discoveries', label: 'Discoveries', icon: Sparkles },
+  { key: 'manual', label: 'Manual', icon: Compass },
 ] as const;
 
 export type ContentView = (typeof CONTENT_VIEWS)[number]['key'];

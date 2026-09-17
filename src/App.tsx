@@ -13,6 +13,7 @@ import CookieConsent from './components/CookieConsent';
 import { ArticleProps } from './types';
 
 import AboutMission from './components/AboutMission';
+import EcosystemManual from './components/EcosystemManual';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import CategoryNav from './components/CategoryNav';
@@ -86,6 +87,10 @@ export default function App() {
     const path = window.location.pathname;
     if (path === '/privacy') setShowPrivacy(true);
     if (path === '/terms') setShowTerms(true);
+
+    // Deep links into the ecosystem manual: #manual or #manual/<site>, or ?view=manual
+    if (window.location.hash.startsWith('#manual')) setView('manual');
+    if (params.get('view') === 'manual') setView('manual');
   }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -93,6 +98,7 @@ export default function App() {
   const insightLoadedRef = useRef(false);
 
   const pageTitle = useMemo(() => {
+    if (view === 'manual') return 'Ecosystem Manual';
     if (view !== 'news') {
       if (view === 'environment') return 'Environmental Research';
       return view === 'papers' ? 'Research Papers' : view === 'trends' ? 'Trends & Insights' : 'Discoveries';
@@ -146,7 +152,7 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (view !== 'news') {
+    if (view !== 'news' && view !== 'manual') {
       fetchInsights(view, 'initial');
     }
   }, [view, fetchInsights]);
@@ -354,7 +360,10 @@ export default function App() {
         isRefreshing={isRefreshing}
         isLoading={isLoading}
         insightRefreshing={insightStatus === 'refreshing'}
-        onRefresh={() => (view === 'news' ? fetchNews('refresh') : fetchInsights(view, 'refresh'))}
+        onRefresh={() => {
+          if (view === 'news') fetchNews('refresh');
+          else if (view !== 'manual') fetchInsights(view, 'refresh');
+        }}
         onOpenSettings={() => setShowSettings(true)}
         authEmail={ecosystemConfigured ? authEmail : undefined}
         onSignIn={ecosystemConfigured ? () => setShowAuth(true) : undefined}
@@ -375,6 +384,7 @@ export default function App() {
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 sm:px-8 lg:px-12 py-8 sm:py-12">
         
         {view === 'news' && category === 'all' && <AboutMission />}
+        {view !== 'manual' && (
         <section className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-serif font-medium uppercase tracking-[0.16em] text-white sm:text-3xl">
@@ -397,8 +407,11 @@ export default function App() {
             </div>
           </div>
         </section>
+        )}
 
-        {view === 'news' && category === 'oncology' ? (
+        {view === 'manual' ? (
+          <EcosystemManual />
+        ) : view === 'news' && category === 'oncology' ? (
           <OncologyLanding />
         ) : view !== 'news' && view !== 'environment' ? (
           renderInsightView()
@@ -543,7 +556,7 @@ export default function App() {
         onOpenPrivacy={() => setShowPrivacy(true)}
         onOpenTerms={() => setShowTerms(true)}
         onSelectSection={(s) => {
-          const key = ({ News: 'news', Research: 'papers', Environment: 'environment', Trends: 'trends', Discoveries: 'discoveries' } as Record<string, ContentView>)[s];
+          const key = ({ News: 'news', Research: 'papers', Environment: 'environment', Trends: 'trends', Discoveries: 'discoveries', Manual: 'manual' } as Record<string, ContentView>)[s];
           if (key) setView(key);
         }}
       />

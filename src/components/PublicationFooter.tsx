@@ -6,7 +6,7 @@ interface PublicationFooterProps {
 }
 
 const PILLARS = ['Health', 'Wealth', 'Justice', 'Science', 'Writing', 'Music', 'Sport', 'Finance', 'AI-Safety'];
-const SECTIONS = ['News', 'Research', 'Environment', 'Trends', 'Discoveries'];
+const SECTIONS = ['News', 'Research', 'Environment', 'Trends', 'Discoveries', 'Manual'];
 
 export default function PublicationFooter({ onOpenPrivacy, onOpenTerms, onSelectSection }: PublicationFooterProps) {
   return (
