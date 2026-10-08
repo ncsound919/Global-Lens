@@ -167,25 +167,20 @@ const DEFAULT_MODELS: Record<AIProvider, string> = {
   opencode: 'deepseek-v4-flash',
   phoenix: process.env.PHOENIX_DEFAULT_MODEL || 'deepseek-v4-flash-0731',
   gemini: 'gemini-3.5-flash',
-  ollama: 'llama3.2:1b',
+  // On-device tier: llama.cpp on :11434 (Ollama was removed). Override with
+  // OLLAMA_MODEL; the endpoint follows OLLAMA_HOST / the `ollama` provider URL.
+  ollama: process.env.OLLAMA_MODEL || 'qwen3.5-2b',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-sonnet-4-5',
   qwen: 'qwen-plus',
 };
 
-/** Canonical fallback order used across the ecosystem. Free + local tiers first, paid last. */
-const FALLBACK_ORDER: AIProvider[] = [
-  'opencode-free',
-  'openrouter',
-  'ollama',
-  'opencode',
-  'phoenix',
-  'deepseek',
-  'gemini',
-  'openai',
-  'anthropic',
-  'qwen',
-];
+/** Canonical fallback order used across the ecosystem. Free + local tiers first, paid last.
+ *  AI_LOCAL_FIRST=1 puts the on-device llama.cpp tier first (zero cost); off by
+ *  default because article/synthesis quality is a real product requirement. */
+const FALLBACK_ORDER: AIProvider[] = process.env.AI_LOCAL_FIRST === '1'
+  ? ['ollama', 'opencode-free', 'openrouter', 'opencode', 'phoenix', 'deepseek', 'gemini', 'openai', 'anthropic', 'qwen']
+  : ['opencode-free', 'openrouter', 'ollama', 'opencode', 'phoenix', 'deepseek', 'gemini', 'openai', 'anthropic', 'qwen'];
 
 // â”€â”€ OpenCode Zen free tier: account Ã— free-model cycling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Data-driven â€” never hard-married to one model id. In the fleet, ecosystemEnv
@@ -338,11 +333,11 @@ async function callProvider(provider: AIProvider, prompt: string): Promise<strin
   const res = await retryWithBackoff(async () => {
     return await client.chat.completions.create({
       model,
-      ...(provider === 'ollama'
-        ? { format: 'json' as const }
-        : provider === 'openrouter'
-          ? {}
-          : { response_format: { type: 'json_object' as const } }),
+      // llama.cpp /v1/chat/completions uses response_format (Ollama's top-level
+      // `format` field was removed with the Ollama runtime).
+      ...(provider === 'openrouter'
+        ? {}
+        : { response_format: { type: 'json_object' as const } }),
       temperature: 0.1,
       messages: [{ role: 'user', content: prompt }],
     });

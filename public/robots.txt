@@ -1,3 +1,18 @@
 User-agent: *
 Disallow: /api/
 Allow: /
+
+# AI agents: allowed (they drive discovery and referral traffic).
+User-agent: GPTBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://overlay365.org/sitemap.xml
+Host: https://overlay365.org

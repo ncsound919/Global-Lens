@@ -117,6 +117,20 @@ export async function syncResearchPapers(): Promise<{ inserted: number; updated:
   let updated = 0;
   const nowIso = new Date().toISOString();
 
+  // Recourse provenance snapshot (fail-soft, once per sync): stamps every paper
+  // payload with the chain head so readers can audit verification state.
+  let prov: Record<string, unknown> | null = null;
+  try {
+    const base = (process.env.RECOURSE_URL || "http://localhost:3050").replace(/\/+$/, "");
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 3000);
+    const pr = await fetch(`${base}/api/recourse/provenance`, { signal: ctl.signal });
+    clearTimeout(t);
+    if (pr.ok) {
+      const pj = await pr.json().catch(() => null) as any;
+      prov = { merkleRoot: pj?.merkleRoot ?? null, length: pj?.integrity?.length ?? null, valid: pj?.integrity?.valid ?? null, at: nowIso };
+    }
+  } catch { /* Recourse down — sync continues, prov stays null */ }
+
   const papersByGoal: Record<string, any[]> = doc.papers || {};
   for (const [goalKey, papers] of Object.entries(papersByGoal)) {
     if (!Array.isArray(papers)) continue;
@@ -138,7 +152,7 @@ export async function syncResearchPapers(): Promise<{ inserted: number; updated:
         category: goalKey,
         pillar,
         evidence_tier: 'REF',
-        payload: JSON.stringify({ doi, ...p }),
+        payload: JSON.stringify({ doi, ...p, _recourse: prov }),
         pub_date: pubDate,
       });
       if (info.changes > 0) {

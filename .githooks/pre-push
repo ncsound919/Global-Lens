@@ -10,7 +10,7 @@
 # Bypass (for a genuine emergency only):  git push --no-verify
 # ─────────────────────────────────────────────────────────────────────────────
 REPO="$(git rev-parse --show-toplevel)"
-KEYWIRE="${KEYWIRE_DIR:-C:/Users/User/Downloads/Uplift/Keywire}"
+KEYWIRE="${KEYWIRE_DIR:-C:/Users/User/Downloads/BUSINESS/INFRASTRUCTURE/Keywire}"
 LOG="$(mktemp 2>/dev/null || echo /tmp/gate-$$.log)"
 
 if [ -f "$REPO/package.json" ]; then

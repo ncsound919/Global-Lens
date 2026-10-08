@@ -1,8 +1,8 @@
-﻿import fs from "fs";
+import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import db from "./db.js";
-import { callAIQueued } from "./aiService.js";
+import { callAIQueued, getAvailableProviders } from "./aiService.js";
 import { scienceValidationFindings } from "./scienceIngest.js";
 
 // ============================================================================
@@ -500,7 +500,7 @@ function hempResearchFindings(hemp: { trends: HempTrend[]; insights: HempInsight
 
 // ---- Oncology calibration ingestion (Overlay Oncology subdomain) -------------
 //
-// Overlay Oncology (`oncology.overlay365.com`) exposes real, cited calibration
+// Overlay Oncology (`oncology.overlay365.online`) exposes real, cited calibration
 // state via GET {ONCOLOGY_URL}/api/calibration/state â€” calibrated potency (CCLE
 // IC50) and survival (TCGA Weibull) fits with provenance. The outlet surfaces
 // these as evidence-tiered findings. PUBLIC-OUTLET RULE applies: no internal
@@ -527,9 +527,13 @@ interface OncologyCalibration {
   } | null;
 }
 
+let oncologyUnavailableUntil = 0;
+const ONCOLOGY_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
+
 async function loadOncologyCalibrationHttp(): Promise<OncologyCalibration | null> {
   const base = process.env.ONCOLOGY_URL;
   if (!base) return null;
+  if (Date.now() < oncologyUnavailableUntil) return null;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -541,7 +545,8 @@ async function loadOncologyCalibrationHttp(): Promise<OncologyCalibration | null
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as OncologyCalibration;
   } catch (e: any) {
-    console.warn(`[domain] Oncology calibration source unavailable: ${e.message}`);
+    oncologyUnavailableUntil = Date.now() + ONCOLOGY_RETRY_DELAY_MS;
+    console.warn(`[domain] Oncology calibration source unavailable: ${e.message}. Retry after ${new Date(oncologyUnavailableUntil).toISOString()}.`);
     return null;
   }
 }
@@ -721,6 +726,12 @@ export async function syncDomainResearch(): Promise<{
 export async function generateEditorialArticles(findings?: SportsFinding[]): Promise<{ published: number }> {
   const f = findings || sportsScienceFindings(await loadEstablishedPapers());
   if (!f.length) return { published: 0 };
+  if (!getAvailableProviders().length) {
+    // A missing provider lineup is expected in keyless local runs. Skip once
+    // here instead of emitting the same warning for every candidate article.
+    console.warn("[domain] Skipping editorial article generation: no AI providers are configured.");
+    return { published: 0 };
+  }
   const top = f.slice(0, 3);
   let published = 0;
 

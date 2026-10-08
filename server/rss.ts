@@ -10,6 +10,9 @@ const parser = new Parser({
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Accept': 'application/rss+xml, application/xml, text/xml, */*'
   },
+  // Black Enterprise emits an undefined XML entity. Relaxed parsing lets valid
+  // items through instead of failing the entire feed on one malformed token.
+  xml2js: { strict: false },
   customFields: {
     item: [
       ['media:content', 'mediaContent'],

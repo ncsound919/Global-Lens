@@ -20,7 +20,7 @@ const backstoryLimiter = rateLimit({
 });
 
 const NewsQuerySchema = z.object({
-  category: z.enum(["all", "global", "politics", "diaspora", "finance", "culture", "health", "music", "sports", "oncology"]).catch("all"),
+  category: z.enum(["all", "global", "politics", "diaspora", "finance", "justice", "culture", "health", "music", "sports", "oncology"]).catch("all"),
   limit: z.coerce.number().min(1).max(50).catch(20),
   offset: z.coerce.number().min(0).catch(0)
 });
@@ -284,9 +284,17 @@ newsRouter.get("/:id/backstory", backstoryLimiter, async (req, res) => {
 
   // Create a new generation promise
   const generationPromise = (async () => {
-    const providers = getAvailableProviders();
-    if (providers.length === 0) {
-      throw new Error("No AI API keys are configured");
+    // A missing provider lineup is an expected local configuration state, not
+    // a runtime crash. Return the normal unavailable payload immediately so
+    // repeated backstory requests do not log a stack trace.
+    if (!getAvailableProviders().length) {
+      return {
+        the_past_roots: '',
+        ongoing_players: '',
+        insider_insight: '',
+        timeline: [],
+        _unavailable: true,
+      };
     }
     
     const safeContent = stripHtml(article.original_text_dump || '').trim().slice(0, 2000).replace(/`|\$|{}/g, '');

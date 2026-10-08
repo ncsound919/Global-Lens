@@ -8,6 +8,7 @@ import { settingsRouter } from "./settings.js";
 import { newsRouter } from "./news.js";
 import { insightsRouter } from "./insights.js";
 import { getFindingOfDay, getFindings, upsertFinding, setFindingOfDay } from "./oncology.js";
+import { cfHealth, cfRecall } from "./cloudflareBridge.js";
 import { donateRouter, getSettledDonationStats } from "./donations.js";
 import { PUBLIC_PAPER_GATE_SQL, ONCOLOGY_DISCLAIMER } from "./contentGate.js";
 
@@ -199,6 +200,16 @@ apiRouter.get("/feeds/health", async (req, res) => {
     return res.status(401).json({ detail: "unauthorized" });
   }
   res.json({ health: await getFeedHealth() });
+});
+
+apiRouter.get("/cf/health", async (_req, res) => {
+  res.json({ ok: true, edge: await cfHealth() });
+});
+
+apiRouter.post("/cf/recall", async (req, res) => {
+  const { query, topK, collection } = (req.body || {}) as { query?: string; topK?: number; collection?: string };
+  if (!query) return res.status(422).json({ detail: "query is required" });
+  res.json(await cfRecall(query, topK ?? 5, collection));
 });
 
 /**

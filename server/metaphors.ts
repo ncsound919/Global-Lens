@@ -32,6 +32,10 @@ async function fetchJson(url: string, body: any, timeoutMs = 90000): Promise<any
   }
 }
 
+// Suppress repeat warnings while a configured engine stays unreachable.
+let comicEngineUnavailableUntil = 0;
+const COMIC_ENGINE_RETRY_DELAY_MS = 15 * 60 * 1000;
+
 export interface MetaphorPackage {
   topic: string;
   protocol_id: string | null;
@@ -220,6 +224,9 @@ export async function generateMetaphorForArticle(articleId: string): Promise<{ m
 
     const base = comicEngineBase();
     if (!base) return { metaphor: seededFallback(derived.topic), cached: false };
+    if (Date.now() < comicEngineUnavailableUntil) {
+      return { metaphor: seededFallback(derived.topic), cached: false };
+    }
 
     const mapping = await fetchJson(`${base}/api/map`, {
       topic: derived.topic,
@@ -232,7 +239,8 @@ export async function generateMetaphorForArticle(articleId: string): Promise<{ m
     await saveMetaphor(pkg, articleId);
     return { metaphor: pkg, cached: false };
   } catch (e: any) {
-    console.warn(`[metaphor] Engine unavailable for ${articleId}: ${e?.message}`);
+    comicEngineUnavailableUntil = Date.now() + COMIC_ENGINE_RETRY_DELAY_MS;
+    console.warn(`[metaphor] Engine unavailable for ${articleId}: ${e?.message}. Retry after ${new Date(comicEngineUnavailableUntil).toISOString()}.`);
     const topic = await safeTopicForArticle(articleId);
     return { metaphor: seededFallback(topic), cached: false };
   }
@@ -245,6 +253,9 @@ export async function generateMetaphorForTopic(topic: string): Promise<{ metapho
 
     const base = comicEngineBase();
     if (!base) return { metaphor: seededFallback(topic), cached: false };
+    if (Date.now() < comicEngineUnavailableUntil) {
+      return { metaphor: seededFallback(topic), cached: false };
+    }
 
     const mapping = await fetchJson(`${base}/api/map`, {
       topic,
@@ -257,7 +268,8 @@ export async function generateMetaphorForTopic(topic: string): Promise<{ metapho
     await saveMetaphor(pkg, null);
     return { metaphor: pkg, cached: false };
   } catch (e: any) {
-    console.warn(`[metaphor] Engine unavailable for topic "${topic}": ${e?.message}`);
+    comicEngineUnavailableUntil = Date.now() + COMIC_ENGINE_RETRY_DELAY_MS;
+    console.warn(`[metaphor] Engine unavailable for topic "${topic}": ${e?.message}. Retry after ${new Date(comicEngineUnavailableUntil).toISOString()}.`);
     return { metaphor: seededFallback(topic), cached: false };
   }
 }

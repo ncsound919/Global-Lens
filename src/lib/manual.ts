@@ -362,7 +362,7 @@ export const MANUAL_SITES: ManualSite[] = [
     status: 'development',
     statusNote:
       'Two different halves. A real, pre-registered transcriptomic signature has been run on real cohorts (METABRIC, TCGA, PanCancer, GSE20685) with published effect sizes and honest nulls. The basketball framing around it is a labeled analogy (E3), not a model. An earlier self-awarded "100/100" grade was retracted in September 2026.',
-    url: 'https://bbtech.overlay365.com',
+    url: 'https://bbtech.overlay365.online',
     logo: '/brands/bbtech.webp',
     accent: 'teal',
     overview: [
@@ -473,7 +473,7 @@ export const MANUAL_SITES: ManualSite[] = [
     status: 'development',
     statusNote:
       'Two related codebases: HempForge (the compliance/COA front-end and integration hub) and Hemp-OS (the deterministic science kernel it calls). HempForge is the more mature and self-auditing of the two; the kernel\'s credibility claims outrun its current evidence.',
-    url: 'https://hempforge.overlay365.com',
+    url: 'https://hempforge.overlay365.online',
     logo: '/brands/hempforge.webp',
     accent: 'gold',
     overview: [
@@ -602,7 +602,7 @@ export const MANUAL_SITES: ManualSite[] = [
     status: 'development',
     statusNote:
       'An active Next.js research-orchestration showcase with real engines and real cohorts. Explicitly not a clinical platform: no wet-lab work, no patient care, and several pages are labeled UI demos of a planned architecture.',
-    url: 'https://oncology.overlay365.com',
+    url: 'https://oncology.overlay365.online',
     logo: '/brands/oncology.webp',
     accent: 'cyan',
     overview: [
