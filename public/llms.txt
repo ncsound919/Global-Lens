@@ -1,0 +1,20 @@
+# Overlay Global Lens
+
+> The Overlay365 explainer, news, and research publication: global news, evidence-tiered research papers, trends, and discoveries, framed through an editorial lens.
+
+Key facts for agents:
+
+- Publisher: Overlay365 (https://overlay365.online)
+- This publication lives at https://overlay365.org
+- Research papers shown here carry an **evidence tier** (E1–E3) and a provenance reference; treat tiers as claims about evidence strength, not clinical validity.
+- The publication surfaces research that is **research-use-only**; nothing here is medical advice.
+
+## Sections
+
+- [Home](https://overlay365.org/): current news, papers, trends, and discoveries.
+- [Overlay365 product hub](https://overlay365.online): the connected health/wealth/justice ecosystem.
+- [Overlay Oncology](https://oncology.overlay365.online): the research compute platform whose outputs feed selected papers here (research-use-only).
+
+## Optional
+
+- [Interactive manual](https://overlay365.org/#manual): a guided tour of each ecosystem platform.
