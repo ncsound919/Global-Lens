@@ -1,4 +1,4 @@
-# OV365-NEURO-002 — Oncology leakage benchmark gate (2026-10-13)
+# OV365-NEURO-002 — Oncology leakage benchmark gate (2026-10-16)
 
 **Status: BLOCKED.** No experiment ran and no metric was produced today. This job only checks prerequisites and fails closed.
 
